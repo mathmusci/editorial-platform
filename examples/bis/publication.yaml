@@ -1,0 +1,38 @@
+publication:
+  name: BIS Newsletter
+  description: Royal Statistical Society Business & Industrial Section newsletter
+providers:
+  - type: static
+    name: Sprint 1 sample provider
+    articles:
+      - title: "Industrial statistics and evidence-based decision-making"
+        url: "https://example.org/articles/industrial-statistics"
+        source: "Example Source"
+        authors: ["Example Author"]
+        summary: "A sample article used to exercise the Sprint 1 ingestion path."
+        metadata: {section_hint: "Industry"}
+      - title: "Bayesian forecasting in supply chains"
+        url: "https://example.org/articles/bayesian-forecasting"
+        source: "Example Journal"
+        authors: ["A. Statistician", "B. Practitioner"]
+        summary: "A sample article about probabilistic forecasting for operational decisions."
+        metadata: {section_hint: "Research"}
+extractors:
+  - type: summary
+    prompt: prompts/summary.md
+evaluators:
+  - type: relevance
+    prompt: prompts/relevance.md
+    minimum_score: 70
+editorial_policy:
+  maximum_age_days: 45
+  maximum_articles: 12
+  maximum_reading_minutes: 15
+  statuses_eligible_for_issue: [accepted]
+optimisation:
+  strategy: heuristic-balanced-selection
+  maximise: [relevance, novelty, diversity]
+  constraints: {max_per_source: 3}
+publishers:
+  - type: markdown
+    template: templates/newsletter.md.j2

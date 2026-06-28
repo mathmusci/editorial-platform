@@ -1,0 +1,9 @@
+# {{ issue.name }}
+
+{% for article in articles %}
+## {{ article.title }}
+
+{{ article.summary }}
+
+[Read more]({{ article.url }})
+{% endfor %}
