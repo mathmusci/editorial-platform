@@ -11,7 +11,7 @@ from editorial.storage import SQLiteArticleRepository
 app = typer.Typer(help="Editorial processing platform CLI"); console = Console()
 @app.command()
 def ingest(config: Path = typer.Option(..., "--config", "-c"), db: Path = typer.Option(Path("editorial.sqlite"), "--db")) -> None:
-    cfg = load_publication_config(config); providers = [build_provider(p) for p in cfg.providers if p.enabled]
+    cfg = load_publication_config(config); providers = [build_provider(p, base_path=cfg.base_path) for p in cfg.providers if p.enabled]
     result = EditorialEngine(SQLiteArticleRepository(db)).ingest(providers)
     console.print(f"[bold]Publication:[/bold] {cfg.publication.name}")
     console.print(f"Fetched: {result.fetched}"); console.print(f"Inserted: {result.inserted}"); console.print(f"Skipped duplicates: {result.skipped_duplicates}")

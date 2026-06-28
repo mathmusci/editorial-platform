@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Example RSS Feed</title>
+    <link>https://example.org/</link>
+    <description>A local RSS fixture for provider tests.</description>
+    <item>
+      <guid>rss-one</guid>
+      <title>First RSS Article</title>
+      <link>https://example.org/rss/one</link>
+      <author>alice@example.org (Alice Example)</author>
+      <pubDate>Mon, 01 Jun 2026 10:00:00 GMT</pubDate>
+      <description>Summary for the first RSS article.</description>
+    </item>
+    <item>
+      <guid>rss-two</guid>
+      <title>Second RSS Article</title>
+      <link>https://example.org/rss/two</link>
+      <author>Bob Example</author>
+      <pubDate>Tue, 02 Jun 2026 11:30:00 GMT</pubDate>
+      <description>Summary for the second RSS article.</description>
+    </item>
+    <item>
+      <guid>rss-one-duplicate</guid>
+      <title>Duplicate RSS Article</title>
+      <link>https://example.org/rss/one</link>
+      <pubDate>Wed, 03 Jun 2026 12:00:00 GMT</pubDate>
+      <description>This item deliberately repeats the first URL.</description>
+    </item>
+  </channel>
+</rss>
