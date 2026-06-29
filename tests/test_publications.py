@@ -56,7 +56,7 @@ def test_publication_models_validate_and_are_immutable():
         section.heading = "Other"  # type: ignore[misc]
 
 
-def test_publication_repository_insert_get_list_count_and_workflow_event(tmp_path):
+def test_publication_repository_insert_get_list_count_and_no_workflow_event(tmp_path):
     db_path = tmp_path / "test.sqlite"
     repo = SQLitePublicationRepository(db_path)
     publication = Publication(
@@ -70,15 +70,10 @@ def test_publication_repository_insert_get_list_count_and_workflow_event(tmp_pat
 
     repo.insert(publication)
 
-    events = SQLiteWorkflowEventRepository(db_path).list(
-        artefact_type="publication", artefact_id=publication.id
-    )
     assert repo.count() == 1
     assert repo.get(publication.id) == publication
     assert repo.list() == [publication]
-    assert len(events) == 1
-    assert events[0].event_type == "publication-created"
-    assert events[0].payload == {"proposal_id": str(publication.proposal_id)}
+    assert SQLiteWorkflowEventRepository(db_path).count() == 0
 
 
 def test_publication_repository_is_append_only(tmp_path):
@@ -267,6 +262,7 @@ def test_cli_publication_create_list_show_and_publish_markdown(tmp_path):
         "publication-created",
         "publication-published",
     ]
+    assert events[0].payload == {"proposal_id": str(proposal.id)}
     assert events[1].payload == {
         "format": "markdown",
         "output_path": str(output_path),
