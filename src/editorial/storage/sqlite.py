@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 from editorial.models import (
     Article,
@@ -19,15 +20,27 @@ from editorial.models import (
 )
 
 
+def connect_sqlite(path: str | Path) -> sqlite3.Connection:
+    conn = sqlite3.connect(path)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def dump_json(value: object) -> str:
+    return json.dumps(value)
+
+
+def load_json(value: str) -> Any:
+    return json.loads(value)
+
+
 class SQLiteArticleRepository:
     def __init__(self, path: str | Path):
         self.path = Path(path)
         self._initialise()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return connect_sqlite(self.path)
 
     def _initialise(self) -> None:
         with self._connect() as conn:
@@ -59,11 +72,11 @@ class SQLiteArticleRepository:
                     str(article.url) if article.url else None,
                     article.source,
                     article.published_at.isoformat() if article.published_at else None,
-                    json.dumps(article.authors),
+                    dump_json(article.authors),
                     article.summary,
                     article.content,
                     article.status.value,
-                    json.dumps(article.metadata),
+                    dump_json(article.metadata),
                     article.created_at.isoformat(),
                     article.updated_at.isoformat(),
                 ),
@@ -106,11 +119,11 @@ class SQLiteArticleRepository:
                 "url": row["url"],
                 "source": row["source"],
                 "published_at": row["published_at"],
-                "authors": json.loads(row["authors_json"]),
+                "authors": load_json(row["authors_json"]),
                 "summary": row["summary"],
                 "content": row["content"],
                 "status": row["status"],
-                "metadata": json.loads(row["metadata_json"]),
+                "metadata": load_json(row["metadata_json"]),
                 "created_at": row["created_at"],
                 "updated_at": row["updated_at"],
             }
@@ -123,9 +136,7 @@ class SQLiteExtractionRepository:
         self._initialise()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return connect_sqlite(self.path)
 
     def _initialise(self) -> None:
         with self._connect() as conn:
@@ -159,7 +170,7 @@ class SQLiteExtractionRepository:
                     extraction.extractor,
                     extraction.extractor_version,
                     extraction.kind,
-                    json.dumps(extraction.payload),
+                    dump_json(extraction.payload),
                     extraction.created_at.isoformat(),
                 ),
             )
@@ -188,7 +199,7 @@ class SQLiteExtractionRepository:
                 "extractor": row["extractor"],
                 "extractor_version": row["extractor_version"],
                 "kind": row["kind"],
-                "payload": json.loads(row["payload_json"]),
+                "payload": load_json(row["payload_json"]),
                 "created_at": row["created_at"],
             }
         )
@@ -200,9 +211,7 @@ class SQLiteEvaluationRepository:
         self._initialise()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return connect_sqlite(self.path)
 
     def _initialise(self) -> None:
         with self._connect() as conn:
@@ -245,7 +254,7 @@ class SQLiteEvaluationRepository:
                     evaluation.score,
                     evaluation.confidence,
                     evaluation.rationale,
-                    json.dumps(evaluation.payload),
+                    dump_json(evaluation.payload),
                     evaluation.created_at.isoformat(),
                 ),
             )
@@ -278,7 +287,7 @@ class SQLiteEvaluationRepository:
                 "score": row["score"],
                 "confidence": row["confidence"],
                 "rationale": row["rationale"],
-                "payload": json.loads(row["payload_json"]),
+                "payload": load_json(row["payload_json"]),
                 "created_at": row["created_at"],
             }
         )
@@ -290,9 +299,7 @@ class SQLiteIssueProposalRepository:
         self._initialise()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return connect_sqlite(self.path)
 
     def _initialise(self) -> None:
         with self._connect() as conn:
@@ -313,17 +320,15 @@ class SQLiteIssueProposalRepository:
                     str(proposal.id),
                     proposal.optimiser,
                     proposal.optimiser_version,
-                    json.dumps(
-                        [str(article_id) for article_id in proposal.article_ids]
-                    ),
+                    dump_json([str(article_id) for article_id in proposal.article_ids]),
                     proposal.objective_value,
-                    json.dumps(
+                    dump_json(
                         [
                             result.model_dump(mode="json")
                             for result in proposal.constraint_results
                         ]
                     ),
-                    json.dumps(proposal.metadata),
+                    dump_json(proposal.metadata),
                     proposal.created_at.isoformat(),
                 ),
             )
@@ -356,13 +361,13 @@ class SQLiteIssueProposalRepository:
                 "id": row["id"],
                 "optimiser": row["optimiser"],
                 "optimiser_version": row["optimiser_version"],
-                "article_ids": json.loads(row["article_ids_json"]),
+                "article_ids": load_json(row["article_ids_json"]),
                 "objective_value": row["objective_value"],
                 "constraint_results": [
                     ConstraintResult.model_validate(result)
-                    for result in json.loads(row["constraint_results_json"])
+                    for result in load_json(row["constraint_results_json"])
                 ],
-                "metadata": json.loads(row["metadata_json"]),
+                "metadata": load_json(row["metadata_json"]),
                 "created_at": row["created_at"],
             }
         )
@@ -374,9 +379,7 @@ class SQLiteWorkflowEventRepository:
         self._initialise()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return connect_sqlite(self.path)
 
     def _initialise(self) -> None:
         with self._connect() as conn:
@@ -403,7 +406,7 @@ class SQLiteWorkflowEventRepository:
                     event.event_type,
                     event.actor,
                     event.reason,
-                    json.dumps(event.payload),
+                    dump_json(event.payload),
                     event.created_at.isoformat(),
                 ),
             )
@@ -454,7 +457,7 @@ class SQLiteWorkflowEventRepository:
                 "event_type": row["event_type"],
                 "actor": row["actor"],
                 "reason": row["reason"],
-                "payload": json.loads(row["payload_json"]),
+                "payload": load_json(row["payload_json"]),
                 "created_at": row["created_at"],
             }
         )
@@ -466,9 +469,7 @@ class SQLiteReviewRepository:
         self._initialise()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return connect_sqlite(self.path)
 
     def _initialise(self) -> None:
         with self._connect() as conn:
@@ -496,9 +497,9 @@ class SQLiteReviewRepository:
                     review.reviewer,
                     review.decision.value,
                     review.comments,
-                    json.dumps(review.findings),
-                    json.dumps(review.recommendations),
-                    json.dumps(review.metadata),
+                    dump_json(review.findings),
+                    dump_json(review.recommendations),
+                    dump_json(review.metadata),
                     review.created_at.isoformat(),
                 ),
             )
@@ -549,9 +550,9 @@ class SQLiteReviewRepository:
                 "reviewer": row["reviewer"],
                 "decision": row["decision"],
                 "comments": row["comments"],
-                "findings": json.loads(row["findings_json"]),
-                "recommendations": json.loads(row["recommendations_json"]),
-                "metadata": json.loads(row["metadata_json"]),
+                "findings": load_json(row["findings_json"]),
+                "recommendations": load_json(row["recommendations_json"]),
+                "metadata": load_json(row["metadata_json"]),
                 "created_at": row["created_at"],
             }
         )
@@ -563,9 +564,7 @@ class SQLitePublicationRepository:
         self._initialise()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return connect_sqlite(self.path)
 
     def _initialise(self) -> None:
         with self._connect() as conn:
@@ -589,13 +588,13 @@ class SQLitePublicationRepository:
                     str(publication.proposal_id),
                     publication.title,
                     publication.subtitle,
-                    json.dumps(
+                    dump_json(
                         [
                             section.model_dump(mode="json")
                             for section in publication.sections
                         ]
                     ),
-                    json.dumps(publication.metadata),
+                    dump_json(publication.metadata),
                     publication.created_at.isoformat(),
                 ),
             )
@@ -631,9 +630,9 @@ class SQLitePublicationRepository:
                 "subtitle": row["subtitle"],
                 "sections": [
                     PublicationSection.model_validate(section)
-                    for section in json.loads(row["sections_json"])
+                    for section in load_json(row["sections_json"])
                 ],
-                "metadata": json.loads(row["metadata_json"]),
+                "metadata": load_json(row["metadata_json"]),
                 "created_at": row["created_at"],
             }
         )
@@ -645,9 +644,7 @@ class SQLiteOptimisationRequestRepository:
         self._initialise()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return connect_sqlite(self.path)
 
     def _initialise(self) -> None:
         with self._connect() as conn:
@@ -669,10 +666,10 @@ class SQLiteOptimisationRequestRepository:
                     str(request.id),
                     request.publication,
                     request.strategy,
-                    json.dumps(request.settings),
-                    json.dumps(request.constraints),
-                    json.dumps(request.goals),
-                    json.dumps(request.preferences),
+                    dump_json(request.settings),
+                    dump_json(request.constraints),
+                    dump_json(request.goals),
+                    dump_json(request.preferences),
                     request.created_by,
                     str(request.parent_request_id)
                     if request.parent_request_id is not None
@@ -680,7 +677,7 @@ class SQLiteOptimisationRequestRepository:
                     str(request.parent_proposal_id)
                     if request.parent_proposal_id is not None
                     else None,
-                    json.dumps(request.metadata),
+                    dump_json(request.metadata),
                     request.created_at.isoformat(),
                 ),
             )
@@ -716,14 +713,14 @@ class SQLiteOptimisationRequestRepository:
                 "id": row["id"],
                 "publication": row["publication"],
                 "strategy": row["strategy"],
-                "settings": json.loads(row["settings_json"]),
-                "constraints": json.loads(row["constraints_json"]),
-                "goals": json.loads(row["goals_json"]),
-                "preferences": json.loads(row["preferences_json"]),
+                "settings": load_json(row["settings_json"]),
+                "constraints": load_json(row["constraints_json"]),
+                "goals": load_json(row["goals_json"]),
+                "preferences": load_json(row["preferences_json"]),
                 "created_by": row["created_by"],
                 "parent_request_id": row["parent_request_id"],
                 "parent_proposal_id": row["parent_proposal_id"],
-                "metadata": json.loads(row["metadata_json"]),
+                "metadata": load_json(row["metadata_json"]),
                 "created_at": row["created_at"],
             }
         )
