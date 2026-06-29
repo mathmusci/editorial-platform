@@ -11,6 +11,7 @@ from editorial.models import (
     Evaluation,
     Extraction,
     IssueProposal,
+    OptimisationRequest,
     WorkflowEvent,
 )
 
@@ -451,6 +452,96 @@ class SQLiteWorkflowEventRepository:
                 "actor": row["actor"],
                 "reason": row["reason"],
                 "payload": json.loads(row["payload_json"]),
+                "created_at": row["created_at"],
+            }
+        )
+
+
+class SQLiteOptimisationRequestRepository:
+    def __init__(self, path: str | Path):
+        self.path = Path(path)
+        self._initialise()
+
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _initialise(self) -> None:
+        with self._connect() as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS optimisation_requests (
+                id TEXT PRIMARY KEY, publication TEXT, strategy TEXT NOT NULL,
+                settings_json TEXT NOT NULL, constraints_json TEXT NOT NULL,
+                goals_json TEXT NOT NULL, preferences_json TEXT NOT NULL,
+                created_by TEXT, parent_request_id TEXT, parent_proposal_id TEXT,
+                metadata_json TEXT NOT NULL, created_at TEXT NOT NULL)""")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_optimisation_requests_created_at ON optimisation_requests(created_at)"
+            )
+
+    def insert(self, request: OptimisationRequest) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """INSERT INTO optimisation_requests (id, publication, strategy, settings_json, constraints_json, goals_json, preferences_json, created_by, parent_request_id, parent_proposal_id, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    str(request.id),
+                    request.publication,
+                    request.strategy,
+                    json.dumps(request.settings),
+                    json.dumps(request.constraints),
+                    json.dumps(request.goals),
+                    json.dumps(request.preferences),
+                    request.created_by,
+                    str(request.parent_request_id)
+                    if request.parent_request_id is not None
+                    else None,
+                    str(request.parent_proposal_id)
+                    if request.parent_proposal_id is not None
+                    else None,
+                    json.dumps(request.metadata),
+                    request.created_at.isoformat(),
+                ),
+            )
+
+    def get(self, request_id: UUID) -> OptimisationRequest | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM optimisation_requests WHERE id = ?",
+                (str(request_id),),
+            ).fetchone()
+        return self._row_to_optimisation_request(row) if row else None
+
+    def list(self, limit: int | None = None) -> list[OptimisationRequest]:
+        query = "SELECT * FROM optimisation_requests ORDER BY created_at DESC"
+        params: list[object] = []
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [self._row_to_optimisation_request(row) for row in rows]
+
+    def count(self) -> int:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) AS n FROM optimisation_requests"
+            ).fetchone()
+        return int(row["n"])
+
+    def _row_to_optimisation_request(self, row: sqlite3.Row) -> OptimisationRequest:
+        return OptimisationRequest.model_validate(
+            {
+                "id": row["id"],
+                "publication": row["publication"],
+                "strategy": row["strategy"],
+                "settings": json.loads(row["settings_json"]),
+                "constraints": json.loads(row["constraints_json"]),
+                "goals": json.loads(row["goals_json"]),
+                "preferences": json.loads(row["preferences_json"]),
+                "created_by": row["created_by"],
+                "parent_request_id": row["parent_request_id"],
+                "parent_proposal_id": row["parent_proposal_id"],
+                "metadata": json.loads(row["metadata_json"]),
                 "created_at": row["created_at"],
             }
         )

@@ -6,6 +6,7 @@ from editorial.models import (
     Extraction,
     Issue,
     IssueProposal,
+    OptimisationRequest,
     Publication,
 )
 
@@ -32,6 +33,14 @@ class Evaluator(Processor, Protocol):
 class Optimiser(Processor, Protocol):
     def optimise(
         self,
+        articles: list[Article],
+        extractions: list[Extraction],
+        evaluations: list[Evaluation],
+    ) -> IssueProposal: ...
+
+    def execute(
+        self,
+        request: OptimisationRequest,
         articles: list[Article],
         extractions: list[Extraction],
         evaluations: list[Evaluation],
