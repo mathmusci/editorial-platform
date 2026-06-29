@@ -37,9 +37,7 @@ def test_engine_runs_optimiser_and_stores_issue_proposal(tmp_path):
         article_repo, extraction_repo, evaluation_repo, proposal_repo
     )
 
-    result = engine.optimise(
-        GreedyOptimiser(max_articles=1, minimum_relevance_score=40)
-    )
+    result = engine.optimise(GreedyOptimiser(max_articles=1, relevance_target_score=40))
 
     assert result.optimiser == "greedy"
     assert result.selected_articles == 1
@@ -66,7 +64,7 @@ def test_engine_optimisation_rerun_creates_new_issue_proposals(tmp_path):
         article_repo, extraction_repo, evaluation_repo, proposal_repo
     )
 
-    engine.optimise(GreedyOptimiser(max_articles=1, minimum_relevance_score=40))
-    engine.optimise(GreedyOptimiser(max_articles=1, minimum_relevance_score=40))
+    engine.optimise(GreedyOptimiser(max_articles=1, relevance_target_score=40))
+    engine.optimise(GreedyOptimiser(max_articles=1, relevance_target_score=40))
 
     assert proposal_repo.count() == 2

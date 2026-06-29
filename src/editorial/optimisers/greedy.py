@@ -28,7 +28,10 @@ class GreedyOptimiser:
     def __init__(
         self,
         max_articles: int = 8,
-        minimum_relevance_score: float = 0,
+        relevance_target_score: float | None = None,
+        relevance_target_weight: float = 1,
+        hard_minimum_relevance_score: float | None = None,
+        minimum_relevance_score: float | None = None,
         reading_time_target_minutes: float | None = None,
         reading_time_weight: float = 3,
         mandatory_terms: list[str] | None = None,
@@ -37,7 +40,11 @@ class GreedyOptimiser:
         source_diversity_weight: float = 2,
     ):
         self.max_articles = max_articles
-        self.minimum_relevance_score = minimum_relevance_score
+        if relevance_target_score is None and minimum_relevance_score is not None:
+            relevance_target_score = minimum_relevance_score
+        self.relevance_target_score = relevance_target_score
+        self.relevance_target_weight = relevance_target_weight
+        self.hard_minimum_relevance_score = hard_minimum_relevance_score
         self.reading_time_target_minutes = reading_time_target_minutes
         self.reading_time_weight = reading_time_weight
         self.mandatory_terms = [term.lower() for term in mandatory_terms or []]
@@ -62,7 +69,7 @@ class GreedyOptimiser:
             for article in articles
             if article.id in latest_relevance
             and latest_relevance[article.id].score is not None
-            if latest_relevance[article.id].score >= self.minimum_relevance_score
+            if self._satisfies_hard_relevance(latest_relevance[article.id])
         ]
         candidates.sort(
             key=lambda candidate: (
@@ -131,8 +138,15 @@ class GreedyOptimiser:
             len(self._covered_mandatory_terms(selected)) * self.mandatory_terms_weight
         )
         reading_penalty = self._reading_time_penalty(selected)
+        relevance_penalty = self._relevance_target_penalty(selected)
         source_penalty = self._source_diversity_penalty(selected)
-        return relevance + mandatory_reward - reading_penalty - source_penalty
+        return (
+            relevance
+            + mandatory_reward
+            - reading_penalty
+            - relevance_penalty
+            - source_penalty
+        )
 
     def _constraint_results(self, selected: list[Candidate]) -> list[ConstraintResult]:
         total_reading_minutes = self._total_reading_minutes(selected)
@@ -147,18 +161,35 @@ class GreedyOptimiser:
                 value=len(selected),
                 target=self.max_articles,
                 penalty=0,
-            ),
-            ConstraintResult(
-                name="minimum_relevance_score",
-                kind="hard",
-                satisfied=all(
-                    score >= self.minimum_relevance_score for score in relevance_scores
-                ),
-                value=min(relevance_scores) if relevance_scores else None,
-                target=self.minimum_relevance_score,
-                penalty=0,
-            ),
+            )
         ]
+        if self.hard_minimum_relevance_score is not None:
+            results.append(
+                ConstraintResult(
+                    name="hard_minimum_relevance_score",
+                    kind="hard",
+                    satisfied=all(
+                        score >= self.hard_minimum_relevance_score
+                        for score in relevance_scores
+                    ),
+                    value=min(relevance_scores) if relevance_scores else None,
+                    target=self.hard_minimum_relevance_score,
+                    penalty=0,
+                )
+            )
+        if self.relevance_target_score is not None:
+            penalty = self._relevance_target_penalty(selected)
+            results.append(
+                ConstraintResult(
+                    name="relevance_target_score",
+                    kind="goal",
+                    satisfied=penalty == 0,
+                    value=min(relevance_scores) if relevance_scores else None,
+                    target=self.relevance_target_score,
+                    penalty=round(penalty, 2),
+                    message="Target is a soft goal; below-target relevance creates a penalty.",
+                )
+            )
         if self.reading_time_target_minutes is not None:
             deviation = abs(total_reading_minutes - self.reading_time_target_minutes)
             results.append(
@@ -263,6 +294,22 @@ class GreedyOptimiser:
             )
             * self.reading_time_weight
         )
+
+    def _relevance_target_penalty(self, selected: list[Candidate]) -> float:
+        if self.relevance_target_score is None:
+            return 0
+        return (
+            sum(
+                max(0.0, self.relevance_target_score - candidate.relevance_score)
+                for candidate in selected
+            )
+            * self.relevance_target_weight
+        )
+
+    def _satisfies_hard_relevance(self, evaluation: Evaluation) -> bool:
+        if self.hard_minimum_relevance_score is None:
+            return True
+        return float(evaluation.score or 0) >= self.hard_minimum_relevance_score
 
     def _source_counts(self, selected: list[Candidate]) -> Counter[str]:
         return Counter(candidate.article.source or "" for candidate in selected)

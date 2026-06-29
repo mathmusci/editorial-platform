@@ -7,13 +7,13 @@ def test_build_greedy_optimiser_from_config():
     optimiser = build_optimiser(
         OptimisationConfig(
             strategy="greedy",
-            settings={"max_articles": 3, "minimum_relevance_score": 25},
+            settings={"max_articles": 3, "relevance_target_score": 25},
         )
     )
 
     assert isinstance(optimiser, GreedyOptimiser)
     assert optimiser.max_articles == 3
-    assert optimiser.minimum_relevance_score == 25
+    assert optimiser.relevance_target_score == 25
 
 
 def test_greedy_optimiser_selects_relevant_articles():
@@ -35,12 +35,47 @@ def test_greedy_optimiser_selects_relevant_articles():
             score=10,
         ),
     ]
-    optimiser = GreedyOptimiser(max_articles=2, minimum_relevance_score=40)
+    optimiser = GreedyOptimiser(max_articles=2, hard_minimum_relevance_score=40)
 
     proposal = optimiser.optimise(articles, [], evaluations)
 
     assert proposal.article_ids == [articles[0].id]
     assert proposal.objective_value == 80
+
+
+def test_greedy_optimiser_can_select_article_below_relevance_target():
+    articles = [
+        Article(title="Industrial statistics", url="https://example.org/a"),
+        Article(title="Weak candidate", url="https://example.org/b"),
+    ]
+    evaluations = [
+        Evaluation(
+            article_id=articles[0].id,
+            evaluator="rule_relevance",
+            kind="relevance",
+            score=30,
+        ),
+        Evaluation(
+            article_id=articles[1].id,
+            evaluator="rule_relevance",
+            kind="relevance",
+            score=5,
+        ),
+    ]
+    optimiser = GreedyOptimiser(max_articles=1, relevance_target_score=40)
+
+    proposal = optimiser.optimise(articles, [], evaluations)
+
+    relevance_target = next(
+        result
+        for result in proposal.constraint_results
+        if result.name == "relevance_target_score"
+    )
+    assert proposal.article_ids == [articles[0].id]
+    assert proposal.objective_value == 20
+    assert relevance_target.kind == "goal"
+    assert relevance_target.satisfied is False
+    assert relevance_target.penalty == 10
 
 
 def test_greedy_optimiser_treats_reading_time_target_as_soft_goal():
@@ -56,7 +91,7 @@ def test_greedy_optimiser_treats_reading_time_target_as_soft_goal():
     )
     optimiser = GreedyOptimiser(
         max_articles=1,
-        minimum_relevance_score=40,
+        relevance_target_score=40,
         reading_time_target_minutes=20,
         reading_time_weight=3,
     )
@@ -90,7 +125,7 @@ def test_greedy_optimiser_applies_source_diversity_penalty():
     ]
     optimiser = GreedyOptimiser(
         max_articles=2,
-        minimum_relevance_score=40,
+        relevance_target_score=40,
         source_diversity_max_per_source=1,
         source_diversity_weight=10,
     )

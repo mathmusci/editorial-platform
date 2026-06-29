@@ -14,8 +14,8 @@ def test_issue_proposal_repository_insert_list_get_and_count(tmp_path):
         objective_value=88.5,
         constraint_results=[
             ConstraintResult(
-                name="minimum_relevance_score",
-                kind="hard",
+                name="relevance_target_score",
+                kind="goal",
                 satisfied=True,
                 value=80,
                 target=40,
@@ -32,7 +32,7 @@ def test_issue_proposal_repository_insert_list_get_and_count(tmp_path):
     assert listed.id == proposal.id
     assert fetched is not None
     assert fetched.article_ids == [article.id]
-    assert fetched.constraint_results[0].name == "minimum_relevance_score"
+    assert fetched.constraint_results[0].name == "relevance_target_score"
 
 
 def test_issue_proposal_repository_is_append_only(tmp_path):

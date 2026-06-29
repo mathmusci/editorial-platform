@@ -69,7 +69,7 @@ optimisation:
   strategy: greedy
   settings:
     max_articles: 8
-    minimum_relevance_score: 40
+    relevance_target_score: 40
     reading_time_target_minutes: 20
     mandatory_terms: [statistics, industry]
 ```
