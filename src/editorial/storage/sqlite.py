@@ -12,6 +12,7 @@ from editorial.models import (
     Extraction,
     IssueProposal,
     OptimisationRequest,
+    Review,
     WorkflowEvent,
 )
 
@@ -452,6 +453,137 @@ class SQLiteWorkflowEventRepository:
                 "actor": row["actor"],
                 "reason": row["reason"],
                 "payload": json.loads(row["payload_json"]),
+                "created_at": row["created_at"],
+            }
+        )
+
+
+class SQLiteReviewRepository:
+    def __init__(self, path: str | Path):
+        self.path = Path(path)
+        self._initialise()
+
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _initialise(self) -> None:
+        with self._connect() as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS reviews (
+                id TEXT PRIMARY KEY, artefact_type TEXT NOT NULL,
+                artefact_id TEXT NOT NULL, reviewer TEXT NOT NULL,
+                decision TEXT NOT NULL, comments TEXT, findings_json TEXT NOT NULL,
+                recommendations_json TEXT NOT NULL, metadata_json TEXT NOT NULL,
+                created_at TEXT NOT NULL)""")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_reviews_artefact ON reviews(artefact_type, artefact_id)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_reviews_created_at ON reviews(created_at)"
+            )
+            conn.execute("""CREATE TABLE IF NOT EXISTS workflow_events (
+                id TEXT PRIMARY KEY, artefact_type TEXT NOT NULL,
+                artefact_id TEXT NOT NULL, event_type TEXT NOT NULL,
+                actor TEXT, reason TEXT, payload_json TEXT NOT NULL,
+                created_at TEXT NOT NULL)""")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_workflow_events_artefact ON workflow_events(artefact_type, artefact_id)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_workflow_events_created_at ON workflow_events(created_at)"
+            )
+
+    def insert(self, review: Review) -> None:
+        event = WorkflowEvent(
+            artefact_type=review.artefact_type,
+            artefact_id=review.artefact_id,
+            event_type="review-submitted",
+            actor=review.reviewer,
+            payload={
+                "review_id": str(review.id),
+                "decision": review.decision.value,
+            },
+        )
+        with self._connect() as conn:
+            conn.execute(
+                """INSERT INTO reviews (id, artefact_type, artefact_id, reviewer, decision, comments, findings_json, recommendations_json, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    str(review.id),
+                    review.artefact_type,
+                    str(review.artefact_id),
+                    review.reviewer,
+                    review.decision.value,
+                    review.comments,
+                    json.dumps(review.findings),
+                    json.dumps(review.recommendations),
+                    json.dumps(review.metadata),
+                    review.created_at.isoformat(),
+                ),
+            )
+            conn.execute(
+                """INSERT INTO workflow_events (id, artefact_type, artefact_id, event_type, actor, reason, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    str(event.id),
+                    event.artefact_type,
+                    str(event.artefact_id),
+                    event.event_type,
+                    event.actor,
+                    event.reason,
+                    json.dumps(event.payload),
+                    event.created_at.isoformat(),
+                ),
+            )
+
+    def get(self, review_id: UUID) -> Review | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM reviews WHERE id = ?", (str(review_id),)
+            ).fetchone()
+        return self._row_to_review(row) if row else None
+
+    def list(
+        self,
+        artefact_type: str | None = None,
+        artefact_id: UUID | None = None,
+        limit: int | None = None,
+    ) -> list[Review]:
+        query = "SELECT rowid, * FROM reviews"
+        params: list[object] = []
+        filters: list[str] = []
+        if artefact_type is not None:
+            filters.append("artefact_type = ?")
+            params.append(artefact_type)
+        if artefact_id is not None:
+            filters.append("artefact_id = ?")
+            params.append(str(artefact_id))
+        if filters:
+            query += " WHERE " + " AND ".join(filters)
+        query += " ORDER BY created_at ASC, rowid ASC"
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [self._row_to_review(row) for row in rows]
+
+    def count(self) -> int:
+        with self._connect() as conn:
+            row = conn.execute("SELECT COUNT(*) AS n FROM reviews").fetchone()
+        return int(row["n"])
+
+    def _row_to_review(self, row: sqlite3.Row) -> Review:
+        return Review.model_validate(
+            {
+                "id": row["id"],
+                "artefact_type": row["artefact_type"],
+                "artefact_id": row["artefact_id"],
+                "reviewer": row["reviewer"],
+                "decision": row["decision"],
+                "comments": row["comments"],
+                "findings": json.loads(row["findings_json"]),
+                "recommendations": json.loads(row["recommendations_json"]),
+                "metadata": json.loads(row["metadata_json"]),
                 "created_at": row["created_at"],
             }
         )

@@ -18,6 +18,13 @@ class EditorialStatus(StrEnum):
     PUBLISHED = "published"
 
 
+class ReviewDecision(StrEnum):
+    APPROVE = "approve"
+    REJECT = "reject"
+    NEEDS_CHANGES = "needs_changes"
+    COMMENT = "comment"
+
+
 class Article(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     title: str
@@ -120,6 +127,21 @@ class OptimisationRequest(BaseModel):
     created_by: str | None = None
     parent_request_id: UUID | None = None
     parent_proposal_id: UUID | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class Review(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    id: UUID = Field(default_factory=uuid4)
+    artefact_type: str = Field(min_length=1)
+    artefact_id: UUID
+    reviewer: str = Field(min_length=1)
+    decision: ReviewDecision
+    comments: str | None = None
+    findings: dict[str, Any] = Field(default_factory=dict)
+    recommendations: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
 
