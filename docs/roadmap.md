@@ -41,7 +41,7 @@ Completed:
 - Append-only IssueProposal persistence.
 - `editorial optimise`.
 
-### v0.7 Generic Workflow Events
+### v0.7-alpha Generic Workflow Events
 
 Completed:
 
