@@ -22,10 +22,12 @@ Current implemented capabilities:
 - Extract: deterministic extractors create Extraction records.
 - Evaluate: deterministic evaluators create Evaluation records.
 - Optimise: optimiser plugins create IssueProposal records.
+- Workflow events: generic WorkflowEvent records can be attached to any artefact by
+  artefact type and artefact id.
 
 Planned capabilities:
 
-- Review: human editorial review, decisions, and workflow events.
+- Review: human editorial review and decision capture.
 - Publish: downstream rendering from reviewed editorial state.
 
 AI can participate as a provider, extractor, evaluator, optimiser, reviewer assistant, or
@@ -66,8 +68,20 @@ The workflow layer should make editorial actions explicit:
 - WorkflowEvent records should describe significant transitions and decisions.
 - WorkflowState should be derived from explicit events, not hidden mutation.
 
-These concepts are architectural direction. They should not be confused with currently
-implemented runtime objects unless a corresponding model exists in the codebase.
+WorkflowEvent is now implemented as generic infrastructure. It stores `artefact_type`,
+`artefact_id`, `event_type`, optional `actor` and `reason`, a generic payload, and creation
+time. It deliberately has no proposal-specific, review-specific, or publication-specific
+columns.
+
+Workflow state is not stored. The current state is projected from event history. The initial
+generic projection maps events such as `proposal-created`, `review-requested`,
+`review-submitted`, `proposal-approved`, `proposal-rejected`, `publication-created`, and
+`publication-published` to current state labels. Unknown or missing history projects to
+`unknown`.
+
+OptimisationRequest, Review, approval rules, and publishing remain architectural direction.
+They should not be confused with currently implemented runtime objects until corresponding
+models exist in the codebase.
 
 ## Concepts
 
@@ -91,17 +105,17 @@ Processor capabilities produce artefacts:
 
 Workflow events record actions and decisions:
 
-- OptimisationRequest
-- Review
 - WorkflowEvent
 - WorkflowState
+- OptimisationRequest
+- Review
 
 Decisions are explicit editorial choices. They should be recorded as workflow events or
 decision artefacts rather than implied by modifying earlier artefacts.
 
 ## Current Runtime Pipeline
 
-The implemented v0.6 pipeline is:
+The implemented v0.7 pipeline is:
 
 ```text
 Discover -> Extract -> Evaluate -> Optimise -> Store
@@ -115,4 +129,5 @@ Provider -> Article -> Extractor -> Extraction -> Evaluator -> Evaluation -> Opt
 
 All outputs are stored separately. Extraction and Evaluation storage is idempotent for a
 given processor and article. IssueProposal storage is append-only so repeated optimisation
-runs can be compared and audited.
+runs can be compared and audited. WorkflowEvent storage is also append-only and provides a
+generic event history for any editorial artefact.

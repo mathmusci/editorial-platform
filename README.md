@@ -13,9 +13,9 @@ The BIS newsletter is the first reference application, not the whole platform.
 - extractor interface with deterministic reading-time extraction
 - evaluator interface with deterministic rule-based relevance evaluation
 - optimiser interface with deterministic greedy issue proposals
-- SQLite article, extraction, evaluation, and issue proposal persistence
+- SQLite article, extraction, evaluation, issue proposal, and workflow event persistence
 - minimal editorial engine
-- CLI commands: `editorial ingest`, `editorial extract`, `editorial evaluate`, `editorial optimise`, and `editorial list`
+- CLI commands: `editorial ingest`, `editorial extract`, `editorial evaluate`, `editorial optimise`, `editorial list`, and `editorial workflow`
 - tests
 
 ## Documentation
@@ -83,6 +83,24 @@ optimisation:
 ```
 
 IssueProposal records are proposals only. They are not approved issues and carry no review or publication state. Rerunning `editorial optimise` creates a new proposal record each time.
+
+## Workflow Events
+
+Workflow events are generic append-only records attached to any editorial artefact with
+`artefact_type` and `artefact_id`. Current workflow state is derived from event history,
+not stored on the artefact.
+
+```bash
+editorial workflow record \
+  --artefact-type issue_proposal \
+  --artefact-id <uuid> \
+  --event-type review-requested \
+  --actor "Andy" \
+  --reason "Ready for editorial review"
+
+editorial workflow history --artefact-type issue_proposal --artefact-id <uuid>
+editorial workflow state --artefact-type issue_proposal --artefact-id <uuid>
+```
 
 ## RSS Providers
 
