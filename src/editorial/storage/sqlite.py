@@ -484,29 +484,8 @@ class SQLiteReviewRepository:
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_reviews_created_at ON reviews(created_at)"
             )
-            conn.execute("""CREATE TABLE IF NOT EXISTS workflow_events (
-                id TEXT PRIMARY KEY, artefact_type TEXT NOT NULL,
-                artefact_id TEXT NOT NULL, event_type TEXT NOT NULL,
-                actor TEXT, reason TEXT, payload_json TEXT NOT NULL,
-                created_at TEXT NOT NULL)""")
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_workflow_events_artefact ON workflow_events(artefact_type, artefact_id)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_workflow_events_created_at ON workflow_events(created_at)"
-            )
 
     def insert(self, review: Review) -> None:
-        event = WorkflowEvent(
-            artefact_type=review.artefact_type,
-            artefact_id=review.artefact_id,
-            event_type="review-submitted",
-            actor=review.reviewer,
-            payload={
-                "review_id": str(review.id),
-                "decision": review.decision.value,
-            },
-        )
         with self._connect() as conn:
             conn.execute(
                 """INSERT INTO reviews (id, artefact_type, artefact_id, reviewer, decision, comments, findings_json, recommendations_json, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -521,19 +500,6 @@ class SQLiteReviewRepository:
                     json.dumps(review.recommendations),
                     json.dumps(review.metadata),
                     review.created_at.isoformat(),
-                ),
-            )
-            conn.execute(
-                """INSERT INTO workflow_events (id, artefact_type, artefact_id, event_type, actor, reason, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    str(event.id),
-                    event.artefact_type,
-                    str(event.artefact_id),
-                    event.event_type,
-                    event.actor,
-                    event.reason,
-                    json.dumps(event.payload),
-                    event.created_at.isoformat(),
                 ),
             )
 
@@ -613,25 +579,8 @@ class SQLitePublicationRepository:
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_publications_proposal_id ON publications(proposal_id)"
             )
-            conn.execute("""CREATE TABLE IF NOT EXISTS workflow_events (
-                id TEXT PRIMARY KEY, artefact_type TEXT NOT NULL,
-                artefact_id TEXT NOT NULL, event_type TEXT NOT NULL,
-                actor TEXT, reason TEXT, payload_json TEXT NOT NULL,
-                created_at TEXT NOT NULL)""")
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_workflow_events_artefact ON workflow_events(artefact_type, artefact_id)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_workflow_events_created_at ON workflow_events(created_at)"
-            )
 
     def insert(self, publication: Publication) -> None:
-        event = WorkflowEvent(
-            artefact_type="publication",
-            artefact_id=publication.id,
-            event_type="publication-created",
-            payload={"proposal_id": str(publication.proposal_id)},
-        )
         with self._connect() as conn:
             conn.execute(
                 """INSERT INTO publications (id, proposal_id, title, subtitle, sections_json, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)""",
@@ -648,19 +597,6 @@ class SQLitePublicationRepository:
                     ),
                     json.dumps(publication.metadata),
                     publication.created_at.isoformat(),
-                ),
-            )
-            conn.execute(
-                """INSERT INTO workflow_events (id, artefact_type, artefact_id, event_type, actor, reason, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    str(event.id),
-                    event.artefact_type,
-                    str(event.artefact_id),
-                    event.event_type,
-                    event.actor,
-                    event.reason,
-                    json.dumps(event.payload),
-                    event.created_at.isoformat(),
                 ),
             )
 

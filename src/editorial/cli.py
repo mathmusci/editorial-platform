@@ -110,6 +110,32 @@ def _run_optimisation_request(
     return result, proposal
 
 
+def _record_review_submitted(review: Review, db: Path) -> None:
+    SQLiteWorkflowEventRepository(db).insert(
+        WorkflowEvent(
+            artefact_type=review.artefact_type,
+            artefact_id=review.artefact_id,
+            event_type="review-submitted",
+            actor=review.reviewer,
+            payload={
+                "review_id": str(review.id),
+                "decision": review.decision.value,
+            },
+        )
+    )
+
+
+def _record_publication_created(publication: Publication, db: Path) -> None:
+    SQLiteWorkflowEventRepository(db).insert(
+        WorkflowEvent(
+            artefact_type="publication",
+            artefact_id=publication.id,
+            event_type="publication-created",
+            payload={"proposal_id": str(publication.proposal_id)},
+        )
+    )
+
+
 def _record_publication_rendered(
     publication: Publication, output_path: Path, db: Path
 ) -> None:
@@ -300,6 +326,7 @@ def review_create(
         recommendations=_parse_key_values(recommendation, "--recommendation"),
     )
     SQLiteReviewRepository(db).insert(review)
+    _record_review_submitted(review, db)
     console.print(f"Created review {review.id}")
 
 
@@ -380,6 +407,7 @@ def publication_create(
         subtitle=subtitle,
     )
     SQLitePublicationRepository(db).insert(publication)
+    _record_publication_created(publication, db)
     console.print(f"Created publication {publication.id}")
 
 

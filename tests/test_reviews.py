@@ -89,7 +89,7 @@ def test_review_repository_is_append_only(tmp_path):
     assert repo.count() == 2
 
 
-def test_review_insert_records_workflow_event(tmp_path):
+def test_review_repository_only_persists_review(tmp_path):
     db_path = tmp_path / "test.sqlite"
     artefact_id = uuid4()
     review = Review(
@@ -101,16 +101,8 @@ def test_review_insert_records_workflow_event(tmp_path):
 
     SQLiteReviewRepository(db_path).insert(review)
 
-    events = SQLiteWorkflowEventRepository(db_path).list(
-        artefact_type="extraction", artefact_id=artefact_id
-    )
-    assert len(events) == 1
-    assert events[0].event_type == "review-submitted"
-    assert events[0].actor == "Andy"
-    assert events[0].payload == {
-        "review_id": str(review.id),
-        "decision": "reject",
-    }
+    assert SQLiteReviewRepository(db_path).count() == 1
+    assert SQLiteWorkflowEventRepository(db_path).count() == 0
 
 
 @pytest.mark.parametrize(
@@ -241,3 +233,11 @@ def test_cli_review_create_list_show_and_workflow_history(tmp_path):
     assert '"target_minutes": 20' in show.stdout
     assert history.exit_code == 0
     assert "review-submitted" in history.stdout
+    events = SQLiteWorkflowEventRepository(db_path).list(
+        artefact_type="issue_proposal", artefact_id=artefact_id
+    )
+    assert events[0].actor == "Andy"
+    assert events[0].payload == {
+        "review_id": review_id,
+        "decision": "needs_changes",
+    }
