@@ -8,9 +8,10 @@ A configurable editorial processing engine.
 - typed domain models
 - typed publication configuration loading
 - provider interface with static and RSS providers
-- SQLite article persistence
+- extractor interface with deterministic reading-time extraction
+- SQLite article and extraction persistence
 - minimal editorial engine
-- CLI commands: `editorial ingest` and `editorial list`
+- CLI commands: `editorial ingest`, `editorial extract`, and `editorial list`
 - tests
 
 ## Install
@@ -25,8 +26,21 @@ pip install -e ".[dev]"
 
 ```bash
 editorial ingest --config examples/bis/publication.yaml --db editorial.sqlite
+editorial extract --config examples/bis/publication.yaml --db editorial.sqlite
 editorial list --db editorial.sqlite
 ```
+
+## Extractors
+
+Configured extractors run over Articles already stored in SQLite and write separate Extraction records. Sprint 3 includes a deterministic reading-time extractor:
+
+```yaml
+extractors:
+  - type: reading_time
+    words_per_minute: 200
+```
+
+The extractor estimates reading time from article title, summary, and content without mutating the Article.
 
 ## RSS Providers
 
