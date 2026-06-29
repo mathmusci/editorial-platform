@@ -23,12 +23,12 @@ Current implemented capabilities:
 - Evaluate: deterministic evaluators create Evaluation records.
 - Optimise: optimiser plugins execute OptimisationRequest records and create IssueProposal
   records.
+- Review: human reviewers create generic immutable Review records for any artefact.
 - Workflow events: generic WorkflowEvent records can be attached to any artefact by
   artefact type and artefact id.
 
 Planned capabilities:
 
-- Review: human editorial review and decision capture.
 - Publish: downstream rendering from reviewed editorial state.
 
 AI can participate as a provider, extractor, evaluator, optimiser, reviewer assistant, or
@@ -39,7 +39,7 @@ publisher assistant. AI is not the architecture itself.
 Editorial artefacts are durable records produced by capabilities:
 
 ```text
-Article -> Extraction -> Evaluation -> IssueProposal -> Publication
+Article -> Extraction -> Evaluation -> IssueProposal -> Review -> Publication
 ```
 
 Important distinctions:
@@ -48,11 +48,16 @@ Important distinctions:
 - Extraction is structured evidence derived from an Article.
 - Evaluation is a judgement about an Article using available evidence.
 - IssueProposal is an optimiser output, not an approved issue.
+- Review is a generic editorial judgement about any artefact.
 - Publication is downstream of explicit workflow decisions.
 
 IssueProposal records are append-only proposals. They do not contain review state, approval
 state, or publication state. A proposal generated from an OptimisationRequest records the
 request id in proposal metadata.
+
+Review records are append-only and immutable. They store reviewer, decision, comments,
+findings, recommendations, metadata, and the reviewed artefact identity. They do not modify
+the reviewed artefact, trigger optimisation, or store workflow state.
 
 ## Workflow View
 
@@ -86,9 +91,10 @@ no mutable status and is not itself a proposal. When a request produces an Issue
 the proposal can be traced back through `metadata.optimisation_request_id`, and a
 `proposal-created` WorkflowEvent is recorded for the proposal.
 
-Review, approval rules, and publishing remain architectural direction. They should not be
-confused with currently implemented runtime objects until corresponding models exist in the
-codebase.
+Review is now implemented as a generic immutable artefact. When a Review is inserted, a
+`review-submitted` WorkflowEvent is recorded for the reviewed artefact with the review id
+and decision in its payload. Approval rules, re-optimisation rules, AI reviewers, and
+publishing remain architectural direction rather than automatic runtime behaviour.
 
 ## Concepts
 
@@ -122,19 +128,20 @@ decision artefacts rather than implied by modifying earlier artefacts.
 
 ## Current Runtime Pipeline
 
-The implemented v0.7 pipeline is:
+The implemented v0.8 pipeline is:
 
 ```text
-Discover -> Extract -> Evaluate -> Optimise -> Store
+Discover -> Extract -> Evaluate -> Optimise -> Review -> Store
 ```
 
 In concrete terms:
 
 ```text
-Provider -> Article -> Extractor -> Extraction -> Evaluator -> Evaluation -> OptimisationRequest -> Optimiser -> IssueProposal
+Provider -> Article -> Extractor -> Extraction -> Evaluator -> Evaluation -> OptimisationRequest -> Optimiser -> IssueProposal -> Review
 ```
 
 All outputs are stored separately. Extraction and Evaluation storage is idempotent for a
 given processor and article. IssueProposal storage is append-only so repeated optimisation
-runs can be compared and audited. OptimisationRequest and WorkflowEvent storage are also
-append-only, providing explicit inputs and generic event history for editorial artefacts.
+runs can be compared and audited. OptimisationRequest, Review, and WorkflowEvent storage
+are also append-only, providing explicit inputs, editorial judgement, and generic event
+history for editorial artefacts.

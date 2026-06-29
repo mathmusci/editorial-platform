@@ -61,14 +61,25 @@ Completed:
 - Automatic `proposal-created` WorkflowEvent recording when a request creates a proposal.
 - `editorial optimisation-request create`, `list`, `show`, and `run`.
 
+### v0.8 Generic Reviews
+
+Completed:
+
+- Immutable Review domain model with approve, reject, needs_changes, and comment decisions.
+- Append-only SQLite Review persistence.
+- Reviews attached by generic `artefact_type` and `artefact_id`.
+- Findings and recommendations persistence.
+- Automatic `review-submitted` WorkflowEvent recording when a review is inserted.
+- `editorial review create`, `list`, and `show`.
+
 ## Planned
 
 ### v0.8 Editorial Workflow
 
 Planned:
 
-- Review records.
-- Review of IssueProposal records without mutating proposals.
+- Approval workflow rules derived from review and workflow history.
+- Explicit publication readiness checks.
 
 ### v0.9 Publishing
 

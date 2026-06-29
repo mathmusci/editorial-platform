@@ -14,9 +14,10 @@ The BIS newsletter is the first reference application, not the whole platform.
 - evaluator interface with deterministic rule-based relevance evaluation
 - optimiser interface with deterministic greedy issue proposals
 - immutable optimisation requests for traceable proposal generation
-- SQLite article, extraction, evaluation, issue proposal, optimisation request, and workflow event persistence
+- generic immutable reviews for editorial judgement on any artefact
+- SQLite article, extraction, evaluation, issue proposal, optimisation request, review, and workflow event persistence
 - minimal editorial engine
-- CLI commands: `editorial ingest`, `editorial extract`, `editorial evaluate`, `editorial optimise`, `editorial list`, `editorial workflow`, and `editorial optimisation-request`
+- CLI commands: `editorial ingest`, `editorial extract`, `editorial evaluate`, `editorial optimise`, `editorial list`, `editorial workflow`, `editorial optimisation-request`, and `editorial review`
 - tests
 
 ## Documentation
@@ -119,6 +120,30 @@ editorial workflow record \
 
 editorial workflow history --artefact-type issue_proposal --artefact-id <uuid>
 editorial workflow state --artefact-type issue_proposal --artefact-id <uuid>
+```
+
+## Reviews
+
+Review records are immutable editorial judgements about any artefact identified by
+`artefact_type` and `artefact_id`. They can approve, reject, request changes, or leave a
+comment. Reviews do not mutate IssueProposal records, create OptimisationRequests, trigger
+optimisation, or store workflow state.
+
+Creating a review automatically records a generic `review-submitted` WorkflowEvent against
+the reviewed artefact.
+
+```bash
+editorial review create \
+  --artefact-type issue_proposal \
+  --artefact-id <uuid> \
+  --reviewer "Andy" \
+  --decision needs_changes \
+  --comments "Reading time too long" \
+  --finding reading_time=24 \
+  --recommendation target_minutes=20
+
+editorial review list --artefact-type issue_proposal --artefact-id <uuid>
+editorial review show <review-id>
 ```
 
 ## RSS Providers
