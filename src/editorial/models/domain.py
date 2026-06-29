@@ -83,16 +83,6 @@ class Issue(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class Publication(BaseModel):
-    id: UUID = Field(default_factory=uuid4)
-    issue_id: UUID
-    publisher: str
-    format: str
-    content: str
-    created_at: datetime = Field(default_factory=utc_now)
-    metadata: dict[str, Any] = Field(default_factory=dict)
-
-
 class ConstraintResult(BaseModel):
     name: str
     kind: Literal["hard", "soft", "goal"]
@@ -142,6 +132,27 @@ class Review(BaseModel):
     comments: str | None = None
     findings: dict[str, Any] = Field(default_factory=dict)
     recommendations: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class PublicationSection(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    heading: str = Field(min_length=1)
+    article_ids: list[UUID] = Field(default_factory=list)
+    summary: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class Publication(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    id: UUID = Field(default_factory=uuid4)
+    proposal_id: UUID
+    title: str = Field(min_length=1)
+    subtitle: str | None = None
+    sections: list[PublicationSection] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
 

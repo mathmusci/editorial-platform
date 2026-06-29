@@ -12,6 +12,8 @@ from editorial.models import (
     Extraction,
     IssueProposal,
     OptimisationRequest,
+    Publication,
+    PublicationSection,
     Review,
     WorkflowEvent,
 )
@@ -583,6 +585,118 @@ class SQLiteReviewRepository:
                 "comments": row["comments"],
                 "findings": json.loads(row["findings_json"]),
                 "recommendations": json.loads(row["recommendations_json"]),
+                "metadata": json.loads(row["metadata_json"]),
+                "created_at": row["created_at"],
+            }
+        )
+
+
+class SQLitePublicationRepository:
+    def __init__(self, path: str | Path):
+        self.path = Path(path)
+        self._initialise()
+
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _initialise(self) -> None:
+        with self._connect() as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS publications (
+                id TEXT PRIMARY KEY, proposal_id TEXT NOT NULL,
+                title TEXT NOT NULL, subtitle TEXT, sections_json TEXT NOT NULL,
+                metadata_json TEXT NOT NULL, created_at TEXT NOT NULL)""")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_publications_created_at ON publications(created_at)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_publications_proposal_id ON publications(proposal_id)"
+            )
+            conn.execute("""CREATE TABLE IF NOT EXISTS workflow_events (
+                id TEXT PRIMARY KEY, artefact_type TEXT NOT NULL,
+                artefact_id TEXT NOT NULL, event_type TEXT NOT NULL,
+                actor TEXT, reason TEXT, payload_json TEXT NOT NULL,
+                created_at TEXT NOT NULL)""")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_workflow_events_artefact ON workflow_events(artefact_type, artefact_id)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_workflow_events_created_at ON workflow_events(created_at)"
+            )
+
+    def insert(self, publication: Publication) -> None:
+        event = WorkflowEvent(
+            artefact_type="publication",
+            artefact_id=publication.id,
+            event_type="publication-created",
+            payload={"proposal_id": str(publication.proposal_id)},
+        )
+        with self._connect() as conn:
+            conn.execute(
+                """INSERT INTO publications (id, proposal_id, title, subtitle, sections_json, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    str(publication.id),
+                    str(publication.proposal_id),
+                    publication.title,
+                    publication.subtitle,
+                    json.dumps(
+                        [
+                            section.model_dump(mode="json")
+                            for section in publication.sections
+                        ]
+                    ),
+                    json.dumps(publication.metadata),
+                    publication.created_at.isoformat(),
+                ),
+            )
+            conn.execute(
+                """INSERT INTO workflow_events (id, artefact_type, artefact_id, event_type, actor, reason, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    str(event.id),
+                    event.artefact_type,
+                    str(event.artefact_id),
+                    event.event_type,
+                    event.actor,
+                    event.reason,
+                    json.dumps(event.payload),
+                    event.created_at.isoformat(),
+                ),
+            )
+
+    def get(self, publication_id: UUID) -> Publication | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM publications WHERE id = ?", (str(publication_id),)
+            ).fetchone()
+        return self._row_to_publication(row) if row else None
+
+    def list(self, limit: int | None = None) -> list[Publication]:
+        query = "SELECT * FROM publications ORDER BY created_at DESC"
+        params: list[object] = []
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [self._row_to_publication(row) for row in rows]
+
+    def count(self) -> int:
+        with self._connect() as conn:
+            row = conn.execute("SELECT COUNT(*) AS n FROM publications").fetchone()
+        return int(row["n"])
+
+    def _row_to_publication(self, row: sqlite3.Row) -> Publication:
+        return Publication.model_validate(
+            {
+                "id": row["id"],
+                "proposal_id": row["proposal_id"],
+                "title": row["title"],
+                "subtitle": row["subtitle"],
+                "sections": [
+                    PublicationSection.model_validate(section)
+                    for section in json.loads(row["sections_json"])
+                ],
                 "metadata": json.loads(row["metadata_json"]),
                 "created_at": row["created_at"],
             }

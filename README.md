@@ -15,9 +15,10 @@ The BIS newsletter is the first reference application, not the whole platform.
 - optimiser interface with deterministic greedy issue proposals
 - immutable optimisation requests for traceable proposal generation
 - generic immutable reviews for editorial judgement on any artefact
-- SQLite article, extraction, evaluation, issue proposal, optimisation request, review, and workflow event persistence
+- presentation-independent Publication artefacts with Markdown rendering
+- SQLite article, extraction, evaluation, issue proposal, optimisation request, review, publication, and workflow event persistence
 - minimal editorial engine
-- CLI commands: `editorial ingest`, `editorial extract`, `editorial evaluate`, `editorial optimise`, `editorial list`, `editorial workflow`, `editorial optimisation-request`, and `editorial review`
+- CLI commands: `editorial ingest`, `editorial extract`, `editorial evaluate`, `editorial optimise`, `editorial list`, `editorial workflow`, `editorial optimisation-request`, `editorial review`, `editorial publication`, and `editorial publish`
 - tests
 
 ## Documentation
@@ -144,6 +145,32 @@ editorial review create \
 
 editorial review list --artefact-type issue_proposal --artefact-id <uuid>
 editorial review show <review-id>
+```
+
+## Publications And Markdown Publishing
+
+Publication records are immutable editorial artefacts created from IssueProposal records.
+They are not Markdown, HTML, email, or PDF. Publisher implementations render Publications
+to concrete output formats; the first implementation is a simple Markdown publisher.
+
+Creating a Publication records `publication-created`. Rendering it to Markdown records
+`publication-published`; for now this means rendered to an output artefact, not distributed
+externally.
+
+```bash
+editorial publication create \
+  --proposal-id <uuid> \
+  --title "RSS BIS Newsletter" \
+  --subtitle "Draft issue" \
+  --db editorial.sqlite
+
+editorial publication list --db editorial.sqlite
+editorial publication show <publication-id> --db editorial.sqlite
+
+editorial publish markdown \
+  --publication-id <publication-id> \
+  --output newsletter.md \
+  --db editorial.sqlite
 ```
 
 ## RSS Providers
