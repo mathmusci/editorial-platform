@@ -11,6 +11,7 @@ from editorial.models import (
     Evaluation,
     Extraction,
     IssueProposal,
+    WorkflowEvent,
 )
 
 
@@ -358,6 +359,98 @@ class SQLiteIssueProposalRepository:
                     for result in json.loads(row["constraint_results_json"])
                 ],
                 "metadata": json.loads(row["metadata_json"]),
+                "created_at": row["created_at"],
+            }
+        )
+
+
+class SQLiteWorkflowEventRepository:
+    def __init__(self, path: str | Path):
+        self.path = Path(path)
+        self._initialise()
+
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _initialise(self) -> None:
+        with self._connect() as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS workflow_events (
+                id TEXT PRIMARY KEY, artefact_type TEXT NOT NULL,
+                artefact_id TEXT NOT NULL, event_type TEXT NOT NULL,
+                actor TEXT, reason TEXT, payload_json TEXT NOT NULL,
+                created_at TEXT NOT NULL)""")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_workflow_events_artefact ON workflow_events(artefact_type, artefact_id)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_workflow_events_created_at ON workflow_events(created_at)"
+            )
+
+    def insert(self, event: WorkflowEvent) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """INSERT INTO workflow_events (id, artefact_type, artefact_id, event_type, actor, reason, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    str(event.id),
+                    event.artefact_type,
+                    str(event.artefact_id),
+                    event.event_type,
+                    event.actor,
+                    event.reason,
+                    json.dumps(event.payload),
+                    event.created_at.isoformat(),
+                ),
+            )
+
+    def list(
+        self,
+        artefact_type: str | None = None,
+        artefact_id: UUID | None = None,
+        limit: int | None = None,
+    ) -> list[WorkflowEvent]:
+        query = "SELECT rowid, * FROM workflow_events"
+        params: list[object] = []
+        filters: list[str] = []
+        if artefact_type is not None:
+            filters.append("artefact_type = ?")
+            params.append(artefact_type)
+        if artefact_id is not None:
+            filters.append("artefact_id = ?")
+            params.append(str(artefact_id))
+        if filters:
+            query += " WHERE " + " AND ".join(filters)
+        query += " ORDER BY created_at ASC, rowid ASC"
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [self._row_to_workflow_event(row) for row in rows]
+
+    def count(self) -> int:
+        with self._connect() as conn:
+            row = conn.execute("SELECT COUNT(*) AS n FROM workflow_events").fetchone()
+        return int(row["n"])
+
+    def get(self, event_id: UUID) -> WorkflowEvent | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM workflow_events WHERE id = ?", (str(event_id),)
+            ).fetchone()
+        return self._row_to_workflow_event(row) if row else None
+
+    def _row_to_workflow_event(self, row: sqlite3.Row) -> WorkflowEvent:
+        return WorkflowEvent.model_validate(
+            {
+                "id": row["id"],
+                "artefact_type": row["artefact_type"],
+                "artefact_id": row["artefact_id"],
+                "event_type": row["event_type"],
+                "actor": row["actor"],
+                "reason": row["reason"],
+                "payload": json.loads(row["payload_json"]),
                 "created_at": row["created_at"],
             }
         )

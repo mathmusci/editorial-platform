@@ -8,6 +8,7 @@ from editorial.models.domain import (
     Issue,
     IssueProposal,
     Publication,
+    WorkflowEvent,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "ConstraintResult",
     "Publication",
     "EditorialStatus",
+    "WorkflowEvent",
 ]

@@ -11,8 +11,8 @@
 | Optimiser | Produces IssueProposal records from Articles, Extractions, and Evaluations. |
 | IssueProposal | Append-only optimiser output; not an approved issue. |
 | Review | Human editorial response to a proposal or workflow state. |
-| WorkflowEvent | Explicit record of a significant editorial action or decision. |
-| WorkflowState | State derived from workflow events, not hidden mutation. |
+| WorkflowEvent | Append-only record of a significant editorial action or decision attached to any artefact by `artefact_type` and `artefact_id`. |
+| WorkflowState | Current state derived from workflow events, not stored directly. |
 | OptimisationRequest | Explicit request to run or rerun optimisation. |
 | Editorial Engine | Orchestrates processing and records results. |
 | Publication | Rendered artefact downstream of workflow decisions. |

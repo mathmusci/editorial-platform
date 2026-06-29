@@ -41,19 +41,26 @@ Completed:
 - Append-only IssueProposal persistence.
 - `editorial optimise`.
 
+### v0.7-alpha Generic Workflow Events
+
+Completed:
+
+- Generic WorkflowEvent domain model.
+- Append-only SQLite WorkflowEvent persistence.
+- Workflow state projection from event history.
+- `editorial workflow record`, `editorial workflow history`, and `editorial workflow state`.
+
 ## Planned
 
-### v0.7 Editorial Workflow
+### v0.8 Editorial Workflow
 
 Planned:
 
 - OptimisationRequest.
 - Review records.
-- WorkflowEvent records.
-- WorkflowState derived from explicit events.
 - Review of IssueProposal records without mutating proposals.
 
-### v0.8 Publishing
+### v0.9 Publishing
 
 Planned:
 
@@ -62,7 +69,7 @@ Planned:
 - Rendering from reviewed workflow state.
 - Publication artefact persistence.
 
-### v0.9 Agents And AI Providers
+### v0.10 Agents And AI Providers
 
 Planned:
 
