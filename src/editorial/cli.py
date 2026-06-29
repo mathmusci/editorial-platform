@@ -2,25 +2,30 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
 from uuid import UUID
 
 import typer
 from rich.console import Console
 from rich.table import Table
+from editorial.cli_helpers import (
+    parse_key_values,
+    parse_payload,
+    record_publication_created,
+    record_publication_rendered,
+    record_review_submitted,
+    request_from_config,
+    run_optimisation_request,
+)
 from editorial.config import load_publication_config
 from editorial.engine import EditorialEngine
 from editorial.evaluators import build_evaluator
 from editorial.extractors import build_extractor
 from editorial.models import (
     EditorialStatus,
-    OptimisationRequest,
-    Publication,
     Review,
     ReviewDecision,
     WorkflowEvent,
 )
-from editorial.optimisers import build_optimiser_from_request
 from editorial.publishing import MarkdownPublisher, PublicationBuilder
 from editorial.providers import build_provider
 from editorial.storage import (
@@ -47,106 +52,6 @@ app.add_typer(review_app, name="review")
 app.add_typer(publication_app, name="publication")
 app.add_typer(publish_app, name="publish")
 console = Console()
-
-
-def _parse_payload(payload: str) -> dict[str, Any]:
-    try:
-        parsed = json.loads(payload)
-    except json.JSONDecodeError as exc:
-        raise typer.BadParameter("payload must be valid JSON") from exc
-    if not isinstance(parsed, dict):
-        raise typer.BadParameter("payload must be a JSON object")
-    return parsed
-
-
-def _parse_key_values(values: list[str] | None, option_name: str) -> dict[str, Any]:
-    parsed: dict[str, Any] = {}
-    for value in values or []:
-        if "=" not in value:
-            raise typer.BadParameter(f"{option_name} must use key=value")
-        key, raw = value.split("=", 1)
-        if not key:
-            raise typer.BadParameter(f"{option_name} key cannot be empty")
-        try:
-            parsed[key] = json.loads(raw)
-        except json.JSONDecodeError:
-            parsed[key] = raw
-    return parsed
-
-
-def _request_from_config(
-    config: Path,
-    created_by: str | None = None,
-    parent_request_id: UUID | None = None,
-    parent_proposal_id: UUID | None = None,
-    metadata: dict[str, Any] | None = None,
-) -> OptimisationRequest:
-    cfg = load_publication_config(config)
-    return OptimisationRequest(
-        publication=cfg.publication.name,
-        strategy=cfg.optimisation.strategy,
-        settings=cfg.optimisation.settings,
-        constraints=cfg.optimisation.constraints,
-        goals={"maximise": cfg.optimisation.maximise},
-        created_by=created_by,
-        parent_request_id=parent_request_id,
-        parent_proposal_id=parent_proposal_id,
-        metadata={"config": str(config), **(metadata or {})},
-    )
-
-
-def _run_optimisation_request(
-    request: OptimisationRequest, db: Path
-) -> tuple[object, object]:
-    optimiser = build_optimiser_from_request(request)
-    result = EditorialEngine(
-        SQLiteArticleRepository(db),
-        SQLiteExtractionRepository(db),
-        SQLiteEvaluationRepository(db),
-        SQLiteIssueProposalRepository(db),
-        SQLiteWorkflowEventRepository(db),
-    ).optimise_request(optimiser, request)
-    proposal = SQLiteIssueProposalRepository(db).get(result.proposal_id)
-    return result, proposal
-
-
-def _record_review_submitted(review: Review, db: Path) -> None:
-    SQLiteWorkflowEventRepository(db).insert(
-        WorkflowEvent(
-            artefact_type=review.artefact_type,
-            artefact_id=review.artefact_id,
-            event_type="review-submitted",
-            actor=review.reviewer,
-            payload={
-                "review_id": str(review.id),
-                "decision": review.decision.value,
-            },
-        )
-    )
-
-
-def _record_publication_created(publication: Publication, db: Path) -> None:
-    SQLiteWorkflowEventRepository(db).insert(
-        WorkflowEvent(
-            artefact_type="publication",
-            artefact_id=publication.id,
-            event_type="publication-created",
-            payload={"proposal_id": str(publication.proposal_id)},
-        )
-    )
-
-
-def _record_publication_rendered(
-    publication: Publication, output_path: Path, db: Path
-) -> None:
-    SQLiteWorkflowEventRepository(db).insert(
-        WorkflowEvent(
-            artefact_type="publication",
-            artefact_id=publication.id,
-            event_type="publication-published",
-            payload={"format": "markdown", "output_path": str(output_path)},
-        )
-    )
 
 
 @app.command()
@@ -205,9 +110,9 @@ def optimise(
     db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
 ) -> None:
     cfg = load_publication_config(config)
-    request = _request_from_config(config, metadata={"source": "editorial optimise"})
+    request = request_from_config(config, metadata={"source": "editorial optimise"})
     SQLiteOptimisationRequestRepository(db).insert(request)
-    result, proposal = _run_optimisation_request(request, db)
+    result, proposal = run_optimisation_request(request, db)
     console.print(f"[bold]Publication:[/bold] {cfg.publication.name}")
     console.print(f"Optimiser: {result.optimiser}")
     console.print(f"Optimisation request: {request.id}")
@@ -255,7 +160,7 @@ def workflow_record(
         event_type=event_type,
         actor=actor,
         reason=reason,
-        payload=_parse_payload(payload),
+        payload=parse_payload(payload),
     )
     SQLiteWorkflowEventRepository(db).insert(event)
     console.print(f"Recorded workflow event {event.id}")
@@ -322,11 +227,11 @@ def review_create(
         reviewer=reviewer,
         decision=decision,
         comments=comments,
-        findings=_parse_key_values(finding, "--finding"),
-        recommendations=_parse_key_values(recommendation, "--recommendation"),
+        findings=parse_key_values(finding, "--finding"),
+        recommendations=parse_key_values(recommendation, "--recommendation"),
     )
     SQLiteReviewRepository(db).insert(review)
-    _record_review_submitted(review, db)
+    record_review_submitted(review, db)
     console.print(f"Created review {review.id}")
 
 
@@ -407,7 +312,7 @@ def publication_create(
         subtitle=subtitle,
     )
     SQLitePublicationRepository(db).insert(publication)
-    _record_publication_created(publication, db)
+    record_publication_created(publication, db)
     console.print(f"Created publication {publication.id}")
 
 
@@ -471,7 +376,7 @@ def publish_markdown(
         raise typer.Exit(1)
 
     MarkdownPublisher(SQLiteArticleRepository(db).list()).publish(publication, output)
-    _record_publication_rendered(publication, output, db)
+    record_publication_rendered(publication, output, db)
     console.print(f"Rendered Markdown publication {publication.id} to {output}")
 
 
@@ -483,7 +388,7 @@ def optimisation_request_create(
     parent_proposal_id: UUID | None = typer.Option(None, "--parent-proposal-id"),
     db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
 ) -> None:
-    request = _request_from_config(
+    request = request_from_config(
         config,
         created_by=created_by,
         parent_request_id=parent_request_id,
@@ -552,7 +457,7 @@ def optimisation_request_run(
         console.print(f"Optimisation request not found: {request_id}")
         raise typer.Exit(1)
 
-    result, _proposal = _run_optimisation_request(request, db)
+    result, _proposal = run_optimisation_request(request, db)
     console.print(f"Created issue proposal {result.proposal_id}")
     console.print(f"Selected articles: {result.selected_articles}")
     console.print(f"Objective value: {result.objective_value}")

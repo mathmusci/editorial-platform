@@ -1,19 +1,20 @@
-from editorial.models.domain import (
+from editorial.models.common import utc_now
+from editorial.models.content import (
     Article,
-    ConstraintResult,
     Decision,
     EditorialStatus,
     Evaluation,
     Extraction,
     Issue,
+)
+from editorial.models.optimisation import (
+    ConstraintResult,
     IssueProposal,
     OptimisationRequest,
-    Publication,
-    PublicationSection,
-    Review,
-    ReviewDecision,
-    WorkflowEvent,
 )
+from editorial.models.publication import Publication, PublicationSection
+from editorial.models.review import Review, ReviewDecision
+from editorial.models.workflow import WorkflowEvent
 
 __all__ = [
     "Article",
@@ -30,4 +31,5 @@ __all__ = [
     "PublicationSection",
     "EditorialStatus",
     "WorkflowEvent",
+    "utc_now",
 ]
