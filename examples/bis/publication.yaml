@@ -17,6 +17,11 @@ providers:
         authors: ["A. Statistician", "B. Practitioner"]
         summary: "A sample article about probabilistic forecasting for operational decisions."
         metadata: {section_hint: "Research"}
+  # Optional RSS provider example:
+  # - type: rss
+  #   name: RSS feed
+  #   url: "https://example.org/feed.xml"
+  #   source: "Example RSS Source"
 extractors:
   - type: summary
     prompt: prompts/summary.md

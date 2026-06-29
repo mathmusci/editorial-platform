@@ -1,0 +1,6 @@
+publication:
+  name: RSS Fixture Publication
+providers:
+  - type: rss
+    name: Fixture RSS provider
+    path: sample-feed.xml
