@@ -23,8 +23,9 @@ providers:
   #   url: "https://example.org/feed.xml"
   #   source: "Example RSS Source"
 extractors:
-  - type: summary
-    prompt: prompts/summary.md
+  - type: reading_time
+    name: Reading time
+    words_per_minute: 200
 evaluators:
   - type: relevance
     prompt: prompts/relevance.md
