@@ -1,3 +1,13 @@
-from editorial.engine.core import EditorialEngine, ExtractionRunResult, IngestResult
+from editorial.engine.core import (
+    EditorialEngine,
+    EvaluationRunResult,
+    ExtractionRunResult,
+    IngestResult,
+)
 
-__all__ = ["EditorialEngine", "ExtractionRunResult", "IngestResult"]
+__all__ = [
+    "EditorialEngine",
+    "EvaluationRunResult",
+    "ExtractionRunResult",
+    "IngestResult",
+]

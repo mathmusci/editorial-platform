@@ -4,7 +4,7 @@ import json
 import sqlite3
 from pathlib import Path
 from uuid import UUID
-from editorial.models import Article, EditorialStatus, Extraction
+from editorial.models import Article, EditorialStatus, Evaluation, Extraction
 
 
 class SQLiteArticleRepository:
@@ -176,6 +176,96 @@ class SQLiteExtractionRepository:
                 "extractor": row["extractor"],
                 "extractor_version": row["extractor_version"],
                 "kind": row["kind"],
+                "payload": json.loads(row["payload_json"]),
+                "created_at": row["created_at"],
+            }
+        )
+
+
+class SQLiteEvaluationRepository:
+    def __init__(self, path: str | Path):
+        self.path = Path(path)
+        self._initialise()
+
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _initialise(self) -> None:
+        with self._connect() as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS evaluations (
+                id TEXT PRIMARY KEY, article_id TEXT NOT NULL, evaluator TEXT NOT NULL,
+                evaluator_version TEXT, kind TEXT NOT NULL, criterion TEXT,
+                score REAL, confidence REAL, rationale TEXT, payload_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE(article_id, evaluator, kind))""")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_evaluations_article_id ON evaluations(article_id)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_evaluations_evaluator ON evaluations(evaluator)"
+            )
+            conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_evaluations_unique_article_evaluator_kind ON evaluations(article_id, evaluator, kind)"
+            )
+
+    def insert(self, evaluation: Evaluation) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """INSERT INTO evaluations (id, article_id, evaluator, evaluator_version, kind, criterion, score, confidence, rationale, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(article_id, evaluator, kind) DO UPDATE SET
+                    id = excluded.id,
+                    evaluator_version = excluded.evaluator_version,
+                    criterion = excluded.criterion,
+                    score = excluded.score,
+                    confidence = excluded.confidence,
+                    rationale = excluded.rationale,
+                    payload_json = excluded.payload_json,
+                    created_at = excluded.created_at""",
+                (
+                    str(evaluation.id),
+                    str(evaluation.article_id),
+                    evaluation.evaluator,
+                    evaluation.evaluator_version,
+                    evaluation.kind,
+                    evaluation.criterion,
+                    evaluation.score,
+                    evaluation.confidence,
+                    evaluation.rationale,
+                    json.dumps(evaluation.payload),
+                    evaluation.created_at.isoformat(),
+                ),
+            )
+
+    def list(self, article_id: UUID | None = None) -> list[Evaluation]:
+        query = "SELECT * FROM evaluations"
+        params: list[object] = []
+        if article_id is not None:
+            query += " WHERE article_id = ?"
+            params.append(str(article_id))
+        query += " ORDER BY created_at ASC"
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [self._row_to_evaluation(row) for row in rows]
+
+    def count(self) -> int:
+        with self._connect() as conn:
+            row = conn.execute("SELECT COUNT(*) AS n FROM evaluations").fetchone()
+        return int(row["n"])
+
+    def _row_to_evaluation(self, row: sqlite3.Row) -> Evaluation:
+        return Evaluation.model_validate(
+            {
+                "id": row["id"],
+                "article_id": row["article_id"],
+                "evaluator": row["evaluator"],
+                "evaluator_version": row["evaluator_version"],
+                "kind": row["kind"],
+                "criterion": row["criterion"],
+                "score": row["score"],
+                "confidence": row["confidence"],
+                "rationale": row["rationale"],
                 "payload": json.loads(row["payload_json"]),
                 "created_at": row["created_at"],
             }
