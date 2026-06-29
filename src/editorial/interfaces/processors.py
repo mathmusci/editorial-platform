@@ -2,23 +2,31 @@ from __future__ import annotations
 from typing import Iterable, Protocol
 from editorial.models import Article, Evaluation, Extraction, Issue, Publication
 
-class Provider(Protocol):
+
+class Processor(Protocol):
     name: str
     version: str
+
+
+class Provider(Processor, Protocol):
     def fetch(self) -> Iterable[Article]: ...
-class Extractor(Protocol):
-    name: str
-    version: str
+
+
+class Extractor(Processor, Protocol):
     def extract(self, article: Article) -> Extraction: ...
-class Evaluator(Protocol):
-    name: str
-    version: str
-    def evaluate(self, article: Article) -> Evaluation: ...
-class Optimiser(Protocol):
-    name: str
-    version: str
-    def optimise(self, articles: Iterable[Article], evaluations: Iterable[Evaluation]) -> Issue: ...
-class Publisher(Protocol):
-    name: str
-    version: str
+
+
+class Evaluator(Processor, Protocol):
+    def evaluate(
+        self, article: Article, extractions: list[Extraction]
+    ) -> Evaluation: ...
+
+
+class Optimiser(Processor, Protocol):
+    def optimise(
+        self, articles: Iterable[Article], evaluations: Iterable[Evaluation]
+    ) -> Issue: ...
+
+
+class Publisher(Processor, Protocol):
     def publish(self, issue: Issue) -> Publication: ...

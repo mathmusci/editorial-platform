@@ -5,8 +5,10 @@ from typing import Any
 from uuid import UUID, uuid4
 from pydantic import BaseModel, Field, HttpUrl
 
+
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
 
 class EditorialStatus(StrEnum):
     NEW = "new"
@@ -14,6 +16,7 @@ class EditorialStatus(StrEnum):
     ACCEPTED = "accepted"
     REJECTED = "rejected"
     PUBLISHED = "published"
+
 
 class Article(BaseModel):
     id: UUID = Field(default_factory=uuid4)
@@ -29,6 +32,7 @@ class Article(BaseModel):
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
+
 class Extraction(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     article_id: UUID
@@ -38,17 +42,20 @@ class Extraction(BaseModel):
     payload: dict[str, Any]
     created_at: datetime = Field(default_factory=utc_now)
 
+
 class Evaluation(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     article_id: UUID
     evaluator: str
     evaluator_version: str | None = None
-    criterion: str
+    kind: str
+    criterion: str | None = None
     score: float | None = None
     confidence: float | None = None
     rationale: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
+
 
 class Decision(BaseModel):
     id: UUID = Field(default_factory=uuid4)
@@ -60,12 +67,14 @@ class Decision(BaseModel):
     created_at: datetime = Field(default_factory=utc_now)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
+
 class Issue(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     name: str
     article_ids: list[UUID] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utc_now)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
 
 class Publication(BaseModel):
     id: UUID = Field(default_factory=uuid4)

@@ -5,10 +5,15 @@ from rich.console import Console
 from rich.table import Table
 from editorial.config import load_publication_config
 from editorial.engine import EditorialEngine
+from editorial.evaluators import build_evaluator
 from editorial.extractors import build_extractor
 from editorial.models import EditorialStatus
 from editorial.providers import build_provider
-from editorial.storage import SQLiteArticleRepository, SQLiteExtractionRepository
+from editorial.storage import (
+    SQLiteArticleRepository,
+    SQLiteEvaluationRepository,
+    SQLiteExtractionRepository,
+)
 
 app = typer.Typer(help="Editorial processing platform CLI")
 console = Console()
@@ -44,6 +49,24 @@ def extract(
     console.print(f"Articles: {result.articles}")
     console.print(f"Extractors: {result.extractors}")
     console.print(f"Stored extractions: {result.stored}")
+
+
+@app.command()
+def evaluate(
+    config: Path = typer.Option(..., "--config", "-c"),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    cfg = load_publication_config(config)
+    evaluators = [build_evaluator(e) for e in cfg.evaluators if e.enabled]
+    result = EditorialEngine(
+        SQLiteArticleRepository(db),
+        SQLiteExtractionRepository(db),
+        SQLiteEvaluationRepository(db),
+    ).evaluate(evaluators)
+    console.print(f"[bold]Publication:[/bold] {cfg.publication.name}")
+    console.print(f"Articles: {result.articles}")
+    console.print(f"Evaluators: {result.evaluators}")
+    console.print(f"Stored evaluations: {result.stored}")
 
 
 @app.command("list")

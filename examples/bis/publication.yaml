@@ -27,9 +27,23 @@ extractors:
     name: Reading time
     words_per_minute: 200
 evaluators:
-  - type: relevance
-    prompt: prompts/relevance.md
-    minimum_score: 70
+  - type: rule_relevance
+    name: BIS relevance
+    include:
+      - statistics
+      - optimisation
+      - forecasting
+      - uncertainty
+      - data
+      - industrial
+      - business
+    exclude:
+      - football
+      - celebrity
+    weights:
+      title: 5
+      summary: 2
+      content: 1
 editorial_policy:
   maximum_age_days: 45
   maximum_articles: 12
