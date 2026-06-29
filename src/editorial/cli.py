@@ -12,7 +12,13 @@ from editorial.config import load_publication_config
 from editorial.engine import EditorialEngine
 from editorial.evaluators import build_evaluator
 from editorial.extractors import build_extractor
-from editorial.models import EditorialStatus, OptimisationRequest, WorkflowEvent
+from editorial.models import (
+    EditorialStatus,
+    OptimisationRequest,
+    Review,
+    ReviewDecision,
+    WorkflowEvent,
+)
 from editorial.optimisers import build_optimiser_from_request
 from editorial.providers import build_provider
 from editorial.storage import (
@@ -21,6 +27,7 @@ from editorial.storage import (
     SQLiteExtractionRepository,
     SQLiteIssueProposalRepository,
     SQLiteOptimisationRequestRepository,
+    SQLiteReviewRepository,
     SQLiteWorkflowEventRepository,
 )
 from editorial.workflow import WorkflowProjection
@@ -28,8 +35,10 @@ from editorial.workflow import WorkflowProjection
 app = typer.Typer(help="Editorial processing platform CLI")
 workflow_app = typer.Typer(help="Record and inspect workflow events")
 optimisation_request_app = typer.Typer(help="Create and run optimisation requests")
+review_app = typer.Typer(help="Create and inspect editorial reviews")
 app.add_typer(workflow_app, name="workflow")
 app.add_typer(optimisation_request_app, name="optimisation-request")
+app.add_typer(review_app, name="review")
 console = Console()
 
 
@@ -40,6 +49,21 @@ def _parse_payload(payload: str) -> dict[str, Any]:
         raise typer.BadParameter("payload must be valid JSON") from exc
     if not isinstance(parsed, dict):
         raise typer.BadParameter("payload must be a JSON object")
+    return parsed
+
+
+def _parse_key_values(values: list[str] | None, option_name: str) -> dict[str, Any]:
+    parsed: dict[str, Any] = {}
+    for value in values or []:
+        if "=" not in value:
+            raise typer.BadParameter(f"{option_name} must use key=value")
+        key, raw = value.split("=", 1)
+        if not key:
+            raise typer.BadParameter(f"{option_name} key cannot be empty")
+        try:
+            parsed[key] = json.loads(raw)
+        except json.JSONDecodeError:
+            parsed[key] = raw
     return parsed
 
 
@@ -233,6 +257,86 @@ def workflow_state(
     )
     state = WorkflowProjection().state_for(events)
     console.print(f"Workflow state: {state}")
+
+
+@review_app.command("create")
+def review_create(
+    artefact_type: str = typer.Option(..., "--artefact-type"),
+    artefact_id: UUID = typer.Option(..., "--artefact-id"),
+    reviewer: str = typer.Option(..., "--reviewer"),
+    decision: ReviewDecision = typer.Option(..., "--decision"),
+    comments: str | None = typer.Option(None, "--comments"),
+    finding: list[str] | None = typer.Option(None, "--finding"),
+    recommendation: list[str] | None = typer.Option(None, "--recommendation"),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    review = Review(
+        artefact_type=artefact_type,
+        artefact_id=artefact_id,
+        reviewer=reviewer,
+        decision=decision,
+        comments=comments,
+        findings=_parse_key_values(finding, "--finding"),
+        recommendations=_parse_key_values(recommendation, "--recommendation"),
+    )
+    SQLiteReviewRepository(db).insert(review)
+    console.print(f"Created review {review.id}")
+
+
+@review_app.command("list")
+def review_list(
+    artefact_type: str | None = typer.Option(None, "--artefact-type"),
+    artefact_id: UUID | None = typer.Option(None, "--artefact-id"),
+    limit: int | None = typer.Option(None, "--limit"),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    reviews = SQLiteReviewRepository(db).list(
+        artefact_type=artefact_type, artefact_id=artefact_id, limit=limit
+    )
+    if not reviews:
+        console.print("No reviews found.")
+        return
+
+    table = Table(title="Reviews")
+    table.add_column("Created")
+    table.add_column("ID", no_wrap=True)
+    table.add_column("Artefact")
+    table.add_column("Reviewer")
+    table.add_column("Decision")
+    table.add_column("Comments")
+    for review in reviews:
+        table.add_row(
+            review.created_at.isoformat(),
+            str(review.id),
+            f"{review.artefact_type}:{review.artefact_id}",
+            review.reviewer,
+            review.decision.value,
+            review.comments or "",
+        )
+    console.print(table)
+
+
+@review_app.command("show")
+def review_show(
+    review_id: UUID = typer.Argument(...),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    review = SQLiteReviewRepository(db).get(review_id)
+    if review is None:
+        console.print(f"Review not found: {review_id}")
+        raise typer.Exit(1)
+
+    console.print(f"Review: {review.id}")
+    console.print(f"Artefact: {review.artefact_type}:{review.artefact_id}")
+    console.print(f"Reviewer: {review.reviewer}")
+    console.print(f"Decision: {review.decision.value}")
+    console.print(f"Comments: {review.comments or ''}")
+    console.print(f"Created at: {review.created_at.isoformat()}")
+    console.print(f"Findings: {json.dumps(review.findings, sort_keys=True)}")
+    console.print(
+        f"Recommendations: {json.dumps(review.recommendations, sort_keys=True)}"
+    )
+    console.print(f"Metadata: {json.dumps(review.metadata, sort_keys=True)}")
 
 
 @optimisation_request_app.command("create")
