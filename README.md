@@ -1,6 +1,8 @@
 # Editorial Platform
 
-A configurable editorial processing engine.
+Editorial Platform is an extensible framework for evidence-based editorial decision making, combining statistical methods, deterministic algorithms, optimisation and AI within a configurable, auditable processing architecture.
+
+The BIS newsletter is the first reference application, not the whole platform.
 
 ## Includes
 
@@ -15,6 +17,12 @@ A configurable editorial processing engine.
 - minimal editorial engine
 - CLI commands: `editorial ingest`, `editorial extract`, `editorial evaluate`, `editorial optimise`, and `editorial list`
 - tests
+
+## Documentation
+
+- [Philosophy](docs/philosophy.md)
+- [Architecture](docs/architecture.md)
+- [Roadmap](docs/roadmap.md)
 
 ## Install
 

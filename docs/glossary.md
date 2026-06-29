@@ -5,7 +5,14 @@
 | Provider | Retrieves or discovers content and emits Articles. |
 | Article | Canonical representation of discovered content. |
 | Extractor | Derives structured knowledge from an Article. |
+| Extraction | Immutable structured evidence derived from an Article. |
+| Evaluator | Produces a judgement from an Article and its Extractions. |
 | Evaluation | Immutable judgement from an Evaluator. |
+| Optimiser | Produces IssueProposal records from Articles, Extractions, and Evaluations. |
+| IssueProposal | Append-only optimiser output; not an approved issue. |
+| Review | Human editorial response to a proposal or workflow state. |
+| WorkflowEvent | Explicit record of a significant editorial action or decision. |
+| WorkflowState | State derived from workflow events, not hidden mutation. |
+| OptimisationRequest | Explicit request to run or rerun optimisation. |
 | Editorial Engine | Orchestrates processing and records results. |
-| Issue | Curated collection of Articles. |
-| Publication | Rendered artefact. |
+| Publication | Rendered artefact downstream of workflow decisions. |
