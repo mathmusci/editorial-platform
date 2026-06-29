@@ -3,6 +3,7 @@ from editorial.engine.core import (
     EvaluationRunResult,
     ExtractionRunResult,
     IngestResult,
+    OptimisationRunResult,
 )
 
 __all__ = [
@@ -10,4 +11,5 @@ __all__ = [
     "EvaluationRunResult",
     "ExtractionRunResult",
     "IngestResult",
+    "OptimisationRunResult",
 ]

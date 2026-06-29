@@ -4,7 +4,14 @@ import json
 import sqlite3
 from pathlib import Path
 from uuid import UUID
-from editorial.models import Article, EditorialStatus, Evaluation, Extraction
+from editorial.models import (
+    Article,
+    ConstraintResult,
+    EditorialStatus,
+    Evaluation,
+    Extraction,
+    IssueProposal,
+)
 
 
 class SQLiteArticleRepository:
@@ -267,6 +274,90 @@ class SQLiteEvaluationRepository:
                 "confidence": row["confidence"],
                 "rationale": row["rationale"],
                 "payload": json.loads(row["payload_json"]),
+                "created_at": row["created_at"],
+            }
+        )
+
+
+class SQLiteIssueProposalRepository:
+    def __init__(self, path: str | Path):
+        self.path = Path(path)
+        self._initialise()
+
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _initialise(self) -> None:
+        with self._connect() as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS issue_proposals (
+                id TEXT PRIMARY KEY, optimiser TEXT NOT NULL, optimiser_version TEXT,
+                article_ids_json TEXT NOT NULL, objective_value REAL NOT NULL,
+                constraint_results_json TEXT NOT NULL, metadata_json TEXT NOT NULL,
+                created_at TEXT NOT NULL)""")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_issue_proposals_created_at ON issue_proposals(created_at)"
+            )
+
+    def insert(self, proposal: IssueProposal) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """INSERT INTO issue_proposals (id, optimiser, optimiser_version, article_ids_json, objective_value, constraint_results_json, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    str(proposal.id),
+                    proposal.optimiser,
+                    proposal.optimiser_version,
+                    json.dumps(
+                        [str(article_id) for article_id in proposal.article_ids]
+                    ),
+                    proposal.objective_value,
+                    json.dumps(
+                        [
+                            result.model_dump(mode="json")
+                            for result in proposal.constraint_results
+                        ]
+                    ),
+                    json.dumps(proposal.metadata),
+                    proposal.created_at.isoformat(),
+                ),
+            )
+
+    def list(self, limit: int | None = None) -> list[IssueProposal]:
+        query = "SELECT * FROM issue_proposals ORDER BY created_at DESC"
+        params: list[object] = []
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [self._row_to_issue_proposal(row) for row in rows]
+
+    def get(self, proposal_id: UUID) -> IssueProposal | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM issue_proposals WHERE id = ?", (str(proposal_id),)
+            ).fetchone()
+        return self._row_to_issue_proposal(row) if row else None
+
+    def count(self) -> int:
+        with self._connect() as conn:
+            row = conn.execute("SELECT COUNT(*) AS n FROM issue_proposals").fetchone()
+        return int(row["n"])
+
+    def _row_to_issue_proposal(self, row: sqlite3.Row) -> IssueProposal:
+        return IssueProposal.model_validate(
+            {
+                "id": row["id"],
+                "optimiser": row["optimiser"],
+                "optimiser_version": row["optimiser_version"],
+                "article_ids": json.loads(row["article_ids_json"]),
+                "objective_value": row["objective_value"],
+                "constraint_results": [
+                    ConstraintResult.model_validate(result)
+                    for result in json.loads(row["constraint_results_json"])
+                ],
+                "metadata": json.loads(row["metadata_json"]),
                 "created_at": row["created_at"],
             }
         )

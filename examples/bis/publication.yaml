@@ -50,9 +50,18 @@ editorial_policy:
   maximum_reading_minutes: 15
   statuses_eligible_for_issue: [accepted]
 optimisation:
-  strategy: heuristic-balanced-selection
-  maximise: [relevance, novelty, diversity]
-  constraints: {max_per_source: 3}
+  strategy: greedy
+  settings:
+    max_articles: 8
+    relevance_target_score: 40
+    reading_time_target_minutes: 20
+    reading_time_weight: 3
+    mandatory_terms:
+      - statistics
+      - industry
+    mandatory_terms_weight: 5
+    source_diversity_max_per_source: 2
+    source_diversity_weight: 2
 publishers:
   - type: markdown
     template: templates/newsletter.md.j2
