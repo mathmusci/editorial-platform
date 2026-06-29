@@ -1,10 +1,10 @@
 from __future__ import annotations
+from pathlib import Path
 from typing import Iterable, Protocol
 from editorial.models import (
     Article,
     Evaluation,
     Extraction,
-    Issue,
     IssueProposal,
     OptimisationRequest,
     Publication,
@@ -48,4 +48,4 @@ class Optimiser(Processor, Protocol):
 
 
 class Publisher(Processor, Protocol):
-    def publish(self, issue: Issue) -> Publication: ...
+    def publish(self, publication: Publication, output_path: Path) -> None: ...

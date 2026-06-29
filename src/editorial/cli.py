@@ -15,11 +15,13 @@ from editorial.extractors import build_extractor
 from editorial.models import (
     EditorialStatus,
     OptimisationRequest,
+    Publication,
     Review,
     ReviewDecision,
     WorkflowEvent,
 )
 from editorial.optimisers import build_optimiser_from_request
+from editorial.publishing import MarkdownPublisher, PublicationBuilder
 from editorial.providers import build_provider
 from editorial.storage import (
     SQLiteArticleRepository,
@@ -27,6 +29,7 @@ from editorial.storage import (
     SQLiteExtractionRepository,
     SQLiteIssueProposalRepository,
     SQLiteOptimisationRequestRepository,
+    SQLitePublicationRepository,
     SQLiteReviewRepository,
     SQLiteWorkflowEventRepository,
 )
@@ -36,9 +39,13 @@ app = typer.Typer(help="Editorial processing platform CLI")
 workflow_app = typer.Typer(help="Record and inspect workflow events")
 optimisation_request_app = typer.Typer(help="Create and run optimisation requests")
 review_app = typer.Typer(help="Create and inspect editorial reviews")
+publication_app = typer.Typer(help="Create and inspect publication artefacts")
+publish_app = typer.Typer(help="Render publications to output formats")
 app.add_typer(workflow_app, name="workflow")
 app.add_typer(optimisation_request_app, name="optimisation-request")
 app.add_typer(review_app, name="review")
+app.add_typer(publication_app, name="publication")
+app.add_typer(publish_app, name="publish")
 console = Console()
 
 
@@ -101,6 +108,19 @@ def _run_optimisation_request(
     ).optimise_request(optimiser, request)
     proposal = SQLiteIssueProposalRepository(db).get(result.proposal_id)
     return result, proposal
+
+
+def _record_publication_rendered(
+    publication: Publication, output_path: Path, db: Path
+) -> None:
+    SQLiteWorkflowEventRepository(db).insert(
+        WorkflowEvent(
+            artefact_type="publication",
+            artefact_id=publication.id,
+            event_type="publication-published",
+            payload={"format": "markdown", "output_path": str(output_path)},
+        )
+    )
 
 
 @app.command()
@@ -337,6 +357,94 @@ def review_show(
         f"Recommendations: {json.dumps(review.recommendations, sort_keys=True)}"
     )
     console.print(f"Metadata: {json.dumps(review.metadata, sort_keys=True)}")
+
+
+@publication_app.command("create")
+def publication_create(
+    proposal_id: UUID = typer.Option(..., "--proposal-id"),
+    title: str = typer.Option(..., "--title"),
+    subtitle: str | None = typer.Option(None, "--subtitle"),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    proposal = SQLiteIssueProposalRepository(db).get(proposal_id)
+    if proposal is None:
+        console.print(f"Issue proposal not found: {proposal_id}")
+        raise typer.Exit(1)
+
+    publication = PublicationBuilder().build(
+        proposal=proposal,
+        articles=SQLiteArticleRepository(db).list(),
+        extractions=SQLiteExtractionRepository(db).list(),
+        evaluations=SQLiteEvaluationRepository(db).list(),
+        title=title,
+        subtitle=subtitle,
+    )
+    SQLitePublicationRepository(db).insert(publication)
+    console.print(f"Created publication {publication.id}")
+
+
+@publication_app.command("list")
+def publication_list(
+    limit: int | None = typer.Option(None, "--limit"),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    publications = SQLitePublicationRepository(db).list(limit=limit)
+    if not publications:
+        console.print("No publications found.")
+        return
+
+    table = Table(title="Publications")
+    table.add_column("Created")
+    table.add_column("ID", no_wrap=True)
+    table.add_column("Proposal", no_wrap=True)
+    table.add_column("Title")
+    table.add_column("Sections")
+    for publication in publications:
+        table.add_row(
+            publication.created_at.isoformat(),
+            str(publication.id),
+            str(publication.proposal_id),
+            publication.title,
+            str(len(publication.sections)),
+        )
+    console.print(table)
+
+
+@publication_app.command("show")
+def publication_show(
+    publication_id: UUID = typer.Argument(...),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    publication = SQLitePublicationRepository(db).get(publication_id)
+    if publication is None:
+        console.print(f"Publication not found: {publication_id}")
+        raise typer.Exit(1)
+
+    console.print(f"Publication: {publication.id}")
+    console.print(f"Proposal: {publication.proposal_id}")
+    console.print(f"Title: {publication.title}")
+    console.print(f"Subtitle: {publication.subtitle or ''}")
+    console.print(f"Created at: {publication.created_at.isoformat()}")
+    console.print(f"Sections: {len(publication.sections)}")
+    for section in publication.sections:
+        console.print(f"- {section.heading}: {len(section.article_ids)} articles")
+    console.print(f"Metadata: {json.dumps(publication.metadata, sort_keys=True)}")
+
+
+@publish_app.command("markdown")
+def publish_markdown(
+    publication_id: UUID = typer.Option(..., "--publication-id"),
+    output: Path = typer.Option(..., "--output"),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    publication = SQLitePublicationRepository(db).get(publication_id)
+    if publication is None:
+        console.print(f"Publication not found: {publication_id}")
+        raise typer.Exit(1)
+
+    MarkdownPublisher(SQLiteArticleRepository(db).list()).publish(publication, output)
+    _record_publication_rendered(publication, output, db)
+    console.print(f"Rendered Markdown publication {publication.id} to {output}")
 
 
 @optimisation_request_app.command("create")

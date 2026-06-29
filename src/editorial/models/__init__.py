@@ -9,6 +9,7 @@ from editorial.models.domain import (
     IssueProposal,
     OptimisationRequest,
     Publication,
+    PublicationSection,
     Review,
     ReviewDecision,
     WorkflowEvent,
@@ -26,6 +27,7 @@ __all__ = [
     "ReviewDecision",
     "ConstraintResult",
     "Publication",
+    "PublicationSection",
     "EditorialStatus",
     "WorkflowEvent",
 ]

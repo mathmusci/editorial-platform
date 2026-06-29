@@ -11,8 +11,11 @@
 | Optimiser | Produces IssueProposal records from Articles, Extractions, and Evaluations. |
 | IssueProposal | Append-only optimiser output; not an approved issue. |
 | Review | Immutable editorial judgement about any artefact, with decision, comments, findings, and recommendations. |
+| PublicationSection | Presentation-independent section of a Publication containing selected article ids and editorial metadata. |
 | WorkflowEvent | Append-only record of a significant editorial action or decision attached to any artefact by `artefact_type` and `artefact_id`. |
 | WorkflowState | Current state derived from workflow events, not stored directly. |
 | OptimisationRequest | Immutable input to an optimiser run; explains why an IssueProposal was generated. |
 | Editorial Engine | Orchestrates processing and records results. |
-| Publication | Rendered artefact downstream of workflow decisions. |
+| Publication | Immutable presentation-independent editorial artefact created from an IssueProposal. |
+| Publisher | Renders a Publication into a concrete output format. |
+| MarkdownPublisher | Simple Publisher that writes a Publication to a Markdown file. |

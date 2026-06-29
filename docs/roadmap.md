@@ -72,6 +72,19 @@ Completed:
 - Automatic `review-submitted` WorkflowEvent recording when a review is inserted.
 - `editorial review create`, `list`, and `show`.
 
+### v0.8 Publication And Markdown Publishing
+
+Completed:
+
+- Immutable Publication and PublicationSection domain models.
+- Append-only SQLite Publication persistence.
+- PublicationBuilder for creating Publication artefacts from IssueProposal records.
+- Publisher protocol and MarkdownPublisher.
+- Automatic `publication-created` WorkflowEvent recording when a Publication is inserted.
+- `publication-published` WorkflowEvent recording when a Publication is rendered to Markdown.
+- `editorial publication create`, `list`, and `show`.
+- `editorial publish markdown`.
+
 ## Planned
 
 ### v0.8 Editorial Workflow
@@ -85,10 +98,9 @@ Planned:
 
 Planned:
 
-- Publication capability.
-- Publisher plugins.
-- Rendering from reviewed workflow state.
-- Publication artefact persistence.
+- Additional publisher plugins.
+- Rendering from reviewed workflow state once approval rules exist.
+- Distribution workflows for rendered outputs.
 
 ### v0.10 Agents And AI Providers
 

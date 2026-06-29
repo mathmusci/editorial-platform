@@ -24,12 +24,15 @@ Current implemented capabilities:
 - Optimise: optimiser plugins execute OptimisationRequest records and create IssueProposal
   records.
 - Review: human reviewers create generic immutable Review records for any artefact.
+- Publish: PublicationBuilder creates immutable Publication artefacts, and MarkdownPublisher
+  renders them to Markdown files.
 - Workflow events: generic WorkflowEvent records can be attached to any artefact by
   artefact type and artefact id.
 
 Planned capabilities:
 
-- Publish: downstream rendering from reviewed editorial state.
+- Approval rules before publication.
+- Additional rendering formats.
 
 AI can participate as a provider, extractor, evaluator, optimiser, reviewer assistant, or
 publisher assistant. AI is not the architecture itself.
@@ -49,7 +52,8 @@ Important distinctions:
 - Evaluation is a judgement about an Article using available evidence.
 - IssueProposal is an optimiser output, not an approved issue.
 - Review is a generic editorial judgement about any artefact.
-- Publication is downstream of explicit workflow decisions.
+- Publication is a presentation-independent editorial artefact. It is not Markdown, HTML,
+  email, or PDF.
 
 IssueProposal records are append-only proposals. They do not contain review state, approval
 state, or publication state. A proposal generated from an OptimisationRequest records the
@@ -58,6 +62,11 @@ request id in proposal metadata.
 Review records are append-only and immutable. They store reviewer, decision, comments,
 findings, recommendations, metadata, and the reviewed artefact identity. They do not modify
 the reviewed artefact, trigger optimisation, or store workflow state.
+
+Publication records are append-only and immutable. They store title, optional subtitle,
+sections, metadata, and the proposal they were built from. Creating a Publication does not
+render an output file. Publisher implementations render Publications into concrete formats;
+the first implementation renders Markdown.
 
 ## Workflow View
 
@@ -94,7 +103,15 @@ the proposal can be traced back through `metadata.optimisation_request_id`, and 
 Review is now implemented as a generic immutable artefact. When a Review is inserted, a
 `review-submitted` WorkflowEvent is recorded for the reviewed artefact with the review id
 and decision in its payload. Approval rules, re-optimisation rules, AI reviewers, and
-publishing remain architectural direction rather than automatic runtime behaviour.
+automatic publication selection remain architectural direction rather than automatic runtime
+behaviour.
+
+Publication is now implemented as a generic immutable artefact created from an
+IssueProposal. When a Publication is inserted, a `publication-created` WorkflowEvent is
+recorded for the Publication with the proposal id in its payload. Rendering a Publication to
+Markdown records `publication-published` with `format=markdown` and the output path. The
+event name currently means rendered to an output artefact, not necessarily distributed
+externally.
 
 ## Concepts
 
@@ -131,17 +148,18 @@ decision artefacts rather than implied by modifying earlier artefacts.
 The implemented v0.8 pipeline is:
 
 ```text
-Discover -> Extract -> Evaluate -> Optimise -> Review -> Store
+Discover -> Extract -> Evaluate -> Optimise -> Review -> Publish -> Store
 ```
 
 In concrete terms:
 
 ```text
-Provider -> Article -> Extractor -> Extraction -> Evaluator -> Evaluation -> OptimisationRequest -> Optimiser -> IssueProposal -> Review
+Provider -> Article -> Extractor -> Extraction -> Evaluator -> Evaluation -> OptimisationRequest -> Optimiser -> IssueProposal -> Review -> Publication -> Markdown
 ```
 
 All outputs are stored separately. Extraction and Evaluation storage is idempotent for a
 given processor and article. IssueProposal storage is append-only so repeated optimisation
-runs can be compared and audited. OptimisationRequest, Review, and WorkflowEvent storage
-are also append-only, providing explicit inputs, editorial judgement, and generic event
-history for editorial artefacts.
+runs can be compared and audited. OptimisationRequest, Review, Publication, and
+WorkflowEvent storage are also append-only, providing explicit inputs, editorial judgement,
+presentation-independent issue structure, and generic event history for editorial
+artefacts.
