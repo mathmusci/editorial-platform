@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID, uuid4
 from pydantic import BaseModel, Field, HttpUrl
 
@@ -84,3 +84,24 @@ class Publication(BaseModel):
     content: str
     created_at: datetime = Field(default_factory=utc_now)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ConstraintResult(BaseModel):
+    name: str
+    kind: Literal["hard", "soft", "goal"]
+    satisfied: bool
+    value: Any = None
+    target: Any = None
+    penalty: float = 0.0
+    message: str | None = None
+
+
+class IssueProposal(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    optimiser: str
+    optimiser_version: str | None = None
+    article_ids: list[UUID] = Field(default_factory=list)
+    objective_value: float
+    constraint_results: list[ConstraintResult] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=utc_now)

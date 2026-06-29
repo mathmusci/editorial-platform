@@ -16,3 +16,7 @@ compared, and audited without mutating source Article records.
 Sprint 4 adds: `Stored Articles + Extractions -> Evaluators -> Evaluation records -> SQLite storage`.
 Evaluations are persisted separately from Articles and Extractions, and deterministic evaluators
 receive both the Article and its associated Extractions.
+
+Sprint 5 adds: `Stored Articles + Extractions + Evaluations -> Optimisers -> IssueProposal records -> SQLite storage`.
+IssueProposal records are append-only outputs from optimiser plugins. They are not approved
+issues, do not contain review state, and do not represent publication state.

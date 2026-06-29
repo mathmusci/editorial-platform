@@ -1,2 +1,23 @@
-from editorial.models.domain import Article, Decision, EditorialStatus, Evaluation, Extraction, Issue, Publication
-__all__ = ["Article", "Extraction", "Evaluation", "Decision", "Issue", "Publication", "EditorialStatus"]
+from editorial.models.domain import (
+    Article,
+    ConstraintResult,
+    Decision,
+    EditorialStatus,
+    Evaluation,
+    Extraction,
+    Issue,
+    IssueProposal,
+    Publication,
+)
+
+__all__ = [
+    "Article",
+    "Extraction",
+    "Evaluation",
+    "Decision",
+    "Issue",
+    "IssueProposal",
+    "ConstraintResult",
+    "Publication",
+    "EditorialStatus",
+]

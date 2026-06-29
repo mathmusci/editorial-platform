@@ -1,6 +1,13 @@
 from __future__ import annotations
 from typing import Iterable, Protocol
-from editorial.models import Article, Evaluation, Extraction, Issue, Publication
+from editorial.models import (
+    Article,
+    Evaluation,
+    Extraction,
+    Issue,
+    IssueProposal,
+    Publication,
+)
 
 
 class Processor(Protocol):
@@ -24,8 +31,11 @@ class Evaluator(Processor, Protocol):
 
 class Optimiser(Processor, Protocol):
     def optimise(
-        self, articles: Iterable[Article], evaluations: Iterable[Evaluation]
-    ) -> Issue: ...
+        self,
+        articles: list[Article],
+        extractions: list[Extraction],
+        evaluations: list[Evaluation],
+    ) -> IssueProposal: ...
 
 
 class Publisher(Processor, Protocol):

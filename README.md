@@ -10,9 +10,10 @@ A configurable editorial processing engine.
 - provider interface with static and RSS providers
 - extractor interface with deterministic reading-time extraction
 - evaluator interface with deterministic rule-based relevance evaluation
-- SQLite article, extraction, and evaluation persistence
+- optimiser interface with deterministic greedy issue proposals
+- SQLite article, extraction, evaluation, and issue proposal persistence
 - minimal editorial engine
-- CLI commands: `editorial ingest`, `editorial extract`, `editorial evaluate`, and `editorial list`
+- CLI commands: `editorial ingest`, `editorial extract`, `editorial evaluate`, `editorial optimise`, and `editorial list`
 - tests
 
 ## Install
@@ -29,6 +30,7 @@ pip install -e ".[dev]"
 editorial ingest --config examples/bis/publication.yaml --db editorial.sqlite
 editorial extract --config examples/bis/publication.yaml --db editorial.sqlite
 editorial evaluate --config examples/bis/publication.yaml --db editorial.sqlite
+editorial optimise --config examples/bis/publication.yaml --db editorial.sqlite
 editorial list --db editorial.sqlite
 ```
 
@@ -57,6 +59,22 @@ evaluators:
 ```
 
 Evaluation storage is idempotent by article, evaluator, and kind, so rerunning `editorial evaluate` updates existing relevance Evaluations instead of duplicating them.
+
+## Optimisers
+
+Configured optimisers run over stored Articles, Extractions, and Evaluations, then write append-only IssueProposal records. Sprint 5 includes a deterministic greedy optimiser:
+
+```yaml
+optimisation:
+  strategy: greedy
+  settings:
+    max_articles: 8
+    minimum_relevance_score: 40
+    reading_time_target_minutes: 20
+    mandatory_terms: [statistics, industry]
+```
+
+IssueProposal records are proposals only. They are not approved issues and carry no review or publication state. Rerunning `editorial optimise` creates a new proposal record each time.
 
 ## RSS Providers
 

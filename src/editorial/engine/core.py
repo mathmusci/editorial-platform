@@ -1,11 +1,12 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
-from editorial.interfaces import Evaluator, Extractor, Provider
+from editorial.interfaces import Evaluator, Extractor, Optimiser, Provider
 from editorial.storage import (
     SQLiteArticleRepository,
     SQLiteEvaluationRepository,
     SQLiteExtractionRepository,
+    SQLiteIssueProposalRepository,
 )
 
 
@@ -30,16 +31,27 @@ class EvaluationRunResult:
     stored: int
 
 
+@dataclass(frozen=True)
+class OptimisationRunResult:
+    proposal_id: str
+    optimiser: str
+    selected_articles: int
+    objective_value: float
+    constraint_results: int
+
+
 class EditorialEngine:
     def __init__(
         self,
         article_repository: SQLiteArticleRepository,
         extraction_repository: SQLiteExtractionRepository | None = None,
         evaluation_repository: SQLiteEvaluationRepository | None = None,
+        issue_proposal_repository: SQLiteIssueProposalRepository | None = None,
     ):
         self.article_repository = article_repository
         self.extraction_repository = extraction_repository
         self.evaluation_repository = evaluation_repository
+        self.issue_proposal_repository = issue_proposal_repository
 
     def ingest(self, providers: Iterable[Provider]) -> IngestResult:
         fetched = inserted = skipped = 0
@@ -85,4 +97,26 @@ class EditorialEngine:
                 stored += 1
         return EvaluationRunResult(
             articles=len(articles), evaluators=len(evaluator_list), stored=stored
+        )
+
+    def optimise(self, optimiser: Optimiser) -> OptimisationRunResult:
+        if self.extraction_repository is None:
+            raise ValueError("Extraction repository is required to run optimiser")
+        if self.evaluation_repository is None:
+            raise ValueError("Evaluation repository is required to run optimiser")
+        if self.issue_proposal_repository is None:
+            raise ValueError("Issue proposal repository is required to run optimiser")
+
+        proposal = optimiser.optimise(
+            articles=self.article_repository.list(),
+            extractions=self.extraction_repository.list(),
+            evaluations=self.evaluation_repository.list(),
+        )
+        self.issue_proposal_repository.insert(proposal)
+        return OptimisationRunResult(
+            proposal_id=str(proposal.id),
+            optimiser=proposal.optimiser,
+            selected_articles=len(proposal.article_ids),
+            objective_value=proposal.objective_value,
+            constraint_results=len(proposal.constraint_results),
         )

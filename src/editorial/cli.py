@@ -8,11 +8,13 @@ from editorial.engine import EditorialEngine
 from editorial.evaluators import build_evaluator
 from editorial.extractors import build_extractor
 from editorial.models import EditorialStatus
+from editorial.optimisers import build_optimiser
 from editorial.providers import build_provider
 from editorial.storage import (
     SQLiteArticleRepository,
     SQLiteEvaluationRepository,
     SQLiteExtractionRepository,
+    SQLiteIssueProposalRepository,
 )
 
 app = typer.Typer(help="Editorial processing platform CLI")
@@ -67,6 +69,31 @@ def evaluate(
     console.print(f"Articles: {result.articles}")
     console.print(f"Evaluators: {result.evaluators}")
     console.print(f"Stored evaluations: {result.stored}")
+
+
+@app.command()
+def optimise(
+    config: Path = typer.Option(..., "--config", "-c"),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    cfg = load_publication_config(config)
+    optimiser = build_optimiser(cfg.optimisation)
+    result = EditorialEngine(
+        SQLiteArticleRepository(db),
+        SQLiteExtractionRepository(db),
+        SQLiteEvaluationRepository(db),
+        SQLiteIssueProposalRepository(db),
+    ).optimise(optimiser)
+    proposal = SQLiteIssueProposalRepository(db).get(result.proposal_id)
+    console.print(f"[bold]Publication:[/bold] {cfg.publication.name}")
+    console.print(f"Optimiser: {result.optimiser}")
+    console.print(f"Selected articles: {result.selected_articles}")
+    console.print(f"Objective value: {result.objective_value}")
+    if proposal is not None:
+        for constraint in proposal.constraint_results:
+            console.print(
+                f"- {constraint.name}: satisfied={constraint.satisfied}, penalty={constraint.penalty}"
+            )
 
 
 @app.command("list")
