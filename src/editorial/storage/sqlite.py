@@ -120,18 +120,27 @@ class SQLiteExtractionRepository:
             conn.execute("""CREATE TABLE IF NOT EXISTS extractions (
                 id TEXT PRIMARY KEY, article_id TEXT NOT NULL, extractor TEXT NOT NULL,
                 extractor_version TEXT, kind TEXT NOT NULL, payload_json TEXT NOT NULL,
-                created_at TEXT NOT NULL)""")
+                created_at TEXT NOT NULL,
+                UNIQUE(article_id, extractor, kind))""")
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_extractions_article_id ON extractions(article_id)"
             )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_extractions_extractor ON extractions(extractor)"
             )
+            conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_extractions_unique_article_extractor_kind ON extractions(article_id, extractor, kind)"
+            )
 
     def insert(self, extraction: Extraction) -> None:
         with self._connect() as conn:
             conn.execute(
-                """INSERT INTO extractions (id, article_id, extractor, extractor_version, kind, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO extractions (id, article_id, extractor, extractor_version, kind, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(article_id, extractor, kind) DO UPDATE SET
+                    id = excluded.id,
+                    extractor_version = excluded.extractor_version,
+                    payload_json = excluded.payload_json,
+                    created_at = excluded.created_at""",
                 (
                     str(extraction.id),
                     str(extraction.article_id),
