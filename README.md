@@ -13,9 +13,10 @@ The BIS newsletter is the first reference application, not the whole platform.
 - extractor interface with deterministic reading-time extraction
 - evaluator interface with deterministic rule-based relevance evaluation
 - optimiser interface with deterministic greedy issue proposals
-- SQLite article, extraction, evaluation, issue proposal, and workflow event persistence
+- immutable optimisation requests for traceable proposal generation
+- SQLite article, extraction, evaluation, issue proposal, optimisation request, and workflow event persistence
 - minimal editorial engine
-- CLI commands: `editorial ingest`, `editorial extract`, `editorial evaluate`, `editorial optimise`, `editorial list`, and `editorial workflow`
+- CLI commands: `editorial ingest`, `editorial extract`, `editorial evaluate`, `editorial optimise`, `editorial list`, `editorial workflow`, and `editorial optimisation-request`
 - tests
 
 ## Documentation
@@ -82,7 +83,25 @@ optimisation:
     mandatory_terms: [statistics, industry]
 ```
 
-IssueProposal records are proposals only. They are not approved issues and carry no review or publication state. Rerunning `editorial optimise` creates a new proposal record each time.
+IssueProposal records are proposals only. They are not approved issues and carry no review or publication state. Rerunning `editorial optimise` creates a new optimisation request and a new proposal record each time.
+
+## Optimisation Requests
+
+OptimisationRequest records are immutable inputs to optimiser runs. They capture the
+publication, strategy, settings, constraints, goals, preferences, optional creator, and
+optional parent request or proposal. A proposal created from a request stores the request id
+in its metadata, and a `proposal-created` WorkflowEvent is recorded for the proposal.
+
+```bash
+editorial optimisation-request create \
+  --config examples/bis/publication.yaml \
+  --created-by "Andy" \
+  --db editorial.sqlite
+
+editorial optimisation-request list --db editorial.sqlite
+editorial optimisation-request show <request-id> --db editorial.sqlite
+editorial optimisation-request run <request-id> --db editorial.sqlite
+```
 
 ## Workflow Events
 

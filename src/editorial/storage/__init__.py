@@ -3,6 +3,7 @@ from editorial.storage.sqlite import (
     SQLiteEvaluationRepository,
     SQLiteExtractionRepository,
     SQLiteIssueProposalRepository,
+    SQLiteOptimisationRequestRepository,
     SQLiteWorkflowEventRepository,
 )
 
@@ -11,5 +12,6 @@ __all__ = [
     "SQLiteEvaluationRepository",
     "SQLiteExtractionRepository",
     "SQLiteIssueProposalRepository",
+    "SQLiteOptimisationRequestRepository",
     "SQLiteWorkflowEventRepository",
 ]

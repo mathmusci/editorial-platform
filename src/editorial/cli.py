@@ -12,21 +12,24 @@ from editorial.config import load_publication_config
 from editorial.engine import EditorialEngine
 from editorial.evaluators import build_evaluator
 from editorial.extractors import build_extractor
-from editorial.models import EditorialStatus, WorkflowEvent
-from editorial.optimisers import build_optimiser
+from editorial.models import EditorialStatus, OptimisationRequest, WorkflowEvent
+from editorial.optimisers import build_optimiser_from_request
 from editorial.providers import build_provider
 from editorial.storage import (
     SQLiteArticleRepository,
     SQLiteEvaluationRepository,
     SQLiteExtractionRepository,
     SQLiteIssueProposalRepository,
+    SQLiteOptimisationRequestRepository,
     SQLiteWorkflowEventRepository,
 )
 from editorial.workflow import WorkflowProjection
 
 app = typer.Typer(help="Editorial processing platform CLI")
 workflow_app = typer.Typer(help="Record and inspect workflow events")
+optimisation_request_app = typer.Typer(help="Create and run optimisation requests")
 app.add_typer(workflow_app, name="workflow")
+app.add_typer(optimisation_request_app, name="optimisation-request")
 console = Console()
 
 
@@ -38,6 +41,42 @@ def _parse_payload(payload: str) -> dict[str, Any]:
     if not isinstance(parsed, dict):
         raise typer.BadParameter("payload must be a JSON object")
     return parsed
+
+
+def _request_from_config(
+    config: Path,
+    created_by: str | None = None,
+    parent_request_id: UUID | None = None,
+    parent_proposal_id: UUID | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> OptimisationRequest:
+    cfg = load_publication_config(config)
+    return OptimisationRequest(
+        publication=cfg.publication.name,
+        strategy=cfg.optimisation.strategy,
+        settings=cfg.optimisation.settings,
+        constraints=cfg.optimisation.constraints,
+        goals={"maximise": cfg.optimisation.maximise},
+        created_by=created_by,
+        parent_request_id=parent_request_id,
+        parent_proposal_id=parent_proposal_id,
+        metadata={"config": str(config), **(metadata or {})},
+    )
+
+
+def _run_optimisation_request(
+    request: OptimisationRequest, db: Path
+) -> tuple[object, object]:
+    optimiser = build_optimiser_from_request(request)
+    result = EditorialEngine(
+        SQLiteArticleRepository(db),
+        SQLiteExtractionRepository(db),
+        SQLiteEvaluationRepository(db),
+        SQLiteIssueProposalRepository(db),
+        SQLiteWorkflowEventRepository(db),
+    ).optimise_request(optimiser, request)
+    proposal = SQLiteIssueProposalRepository(db).get(result.proposal_id)
+    return result, proposal
 
 
 @app.command()
@@ -96,16 +135,12 @@ def optimise(
     db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
 ) -> None:
     cfg = load_publication_config(config)
-    optimiser = build_optimiser(cfg.optimisation)
-    result = EditorialEngine(
-        SQLiteArticleRepository(db),
-        SQLiteExtractionRepository(db),
-        SQLiteEvaluationRepository(db),
-        SQLiteIssueProposalRepository(db),
-    ).optimise(optimiser)
-    proposal = SQLiteIssueProposalRepository(db).get(result.proposal_id)
+    request = _request_from_config(config, metadata={"source": "editorial optimise"})
+    SQLiteOptimisationRequestRepository(db).insert(request)
+    result, proposal = _run_optimisation_request(request, db)
     console.print(f"[bold]Publication:[/bold] {cfg.publication.name}")
     console.print(f"Optimiser: {result.optimiser}")
+    console.print(f"Optimisation request: {request.id}")
     console.print(f"Selected articles: {result.selected_articles}")
     console.print(f"Objective value: {result.objective_value}")
     if proposal is not None:
@@ -198,3 +233,86 @@ def workflow_state(
     )
     state = WorkflowProjection().state_for(events)
     console.print(f"Workflow state: {state}")
+
+
+@optimisation_request_app.command("create")
+def optimisation_request_create(
+    config: Path = typer.Option(..., "--config", "-c"),
+    created_by: str | None = typer.Option(None, "--created-by"),
+    parent_request_id: UUID | None = typer.Option(None, "--parent-request-id"),
+    parent_proposal_id: UUID | None = typer.Option(None, "--parent-proposal-id"),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    request = _request_from_config(
+        config,
+        created_by=created_by,
+        parent_request_id=parent_request_id,
+        parent_proposal_id=parent_proposal_id,
+        metadata={"source": "editorial optimisation-request create"},
+    )
+    SQLiteOptimisationRequestRepository(db).insert(request)
+    console.print(f"Created optimisation request {request.id}")
+
+
+@optimisation_request_app.command("list")
+def optimisation_request_list(
+    limit: int | None = typer.Option(None, "--limit"),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    requests = SQLiteOptimisationRequestRepository(db).list(limit=limit)
+    if not requests:
+        console.print("No optimisation requests found.")
+        return
+
+    table = Table(title="Optimisation Requests")
+    table.add_column("Created")
+    table.add_column("ID", no_wrap=True)
+    table.add_column("Publication")
+    table.add_column("Strategy")
+    table.add_column("Created By")
+    for request in requests:
+        table.add_row(
+            request.created_at.isoformat(),
+            str(request.id),
+            request.publication or "",
+            request.strategy,
+            request.created_by or "",
+        )
+    console.print(table)
+
+
+@optimisation_request_app.command("show")
+def optimisation_request_show(
+    request_id: UUID = typer.Argument(...),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    request = SQLiteOptimisationRequestRepository(db).get(request_id)
+    if request is None:
+        console.print(f"Optimisation request not found: {request_id}")
+        raise typer.Exit(1)
+
+    console.print(f"Optimisation request: {request.id}")
+    console.print(f"Publication: {request.publication or ''}")
+    console.print(f"Strategy: {request.strategy}")
+    console.print(f"Created by: {request.created_by or ''}")
+    console.print(f"Created at: {request.created_at.isoformat()}")
+    console.print(f"Settings: {json.dumps(request.settings, sort_keys=True)}")
+    console.print(f"Constraints: {json.dumps(request.constraints, sort_keys=True)}")
+    console.print(f"Goals: {json.dumps(request.goals, sort_keys=True)}")
+    console.print(f"Preferences: {json.dumps(request.preferences, sort_keys=True)}")
+
+
+@optimisation_request_app.command("run")
+def optimisation_request_run(
+    request_id: UUID = typer.Argument(...),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    request = SQLiteOptimisationRequestRepository(db).get(request_id)
+    if request is None:
+        console.print(f"Optimisation request not found: {request_id}")
+        raise typer.Exit(1)
+
+    result, _proposal = _run_optimisation_request(request, db)
+    console.print(f"Created issue proposal {result.proposal_id}")
+    console.print(f"Selected articles: {result.selected_articles}")
+    console.print(f"Objective value: {result.objective_value}")

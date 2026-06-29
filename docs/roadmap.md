@@ -50,13 +50,23 @@ Completed:
 - Workflow state projection from event history.
 - `editorial workflow record`, `editorial workflow history`, and `editorial workflow state`.
 
+### v0.7 Optimisation Requests
+
+Completed:
+
+- Immutable OptimisationRequest domain model.
+- Append-only SQLite OptimisationRequest persistence.
+- Request-aware optimiser execution.
+- Proposal traceability through `metadata.optimisation_request_id`.
+- Automatic `proposal-created` WorkflowEvent recording when a request creates a proposal.
+- `editorial optimisation-request create`, `list`, `show`, and `run`.
+
 ## Planned
 
 ### v0.8 Editorial Workflow
 
 Planned:
 
-- OptimisationRequest.
 - Review records.
 - Review of IssueProposal records without mutating proposals.
 

@@ -10,6 +10,7 @@ from editorial.models import (
     Evaluation,
     Extraction,
     IssueProposal,
+    OptimisationRequest,
 )
 
 
@@ -118,6 +119,23 @@ class GreedyOptimiser:
                 ],
             },
         )
+
+    def execute(
+        self,
+        request: OptimisationRequest,
+        articles: list[Article],
+        extractions: list[Extraction],
+        evaluations: list[Evaluation],
+    ) -> IssueProposal:
+        optimiser = type(self)(**request.settings)
+        proposal = optimiser.optimise(articles, extractions, evaluations)
+        proposal.metadata.update(
+            {
+                "optimisation_request_id": str(request.id),
+                "optimisation_request_strategy": request.strategy,
+            }
+        )
+        return proposal
 
     def _candidate(
         self,
