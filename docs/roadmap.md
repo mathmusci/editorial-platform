@@ -86,6 +86,7 @@ Planned:
 - Deterministic fake LLM provider for tests and future AI participant development.
 - AI-assisted providers and processors.
 - LLM review assistant that can produce Review recommendations without changing workflow rules.
+- LLM optimisation request builder that converts editorial intent into draft OptimisationRequest records without running optimisation.
 - AI participants in acquisition, extraction, evaluation, optimisation, review support, and publication support.
 - Explicit provenance and audit controls for AI-generated or AI-assisted outputs.
 - Configuration patterns for enabling AI participants without making AI the platform architecture.
