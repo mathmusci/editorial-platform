@@ -4,9 +4,9 @@ Editorial Platform is an extensible framework for evidence-based editorial decis
 
 The BIS newsletter is the first reference application, not the whole platform.
 
-The next development focus is v0.9.0 AI Integration: introducing AI participants and
-providers with explicit provenance and audit controls, without replacing the platform's
-human workflow decisions.
+The current development focus is v0.9.x Validation: proving the implemented architecture
+through the BIS newsletter reference workflow, improving documentation, and recording
+friction found in practical CLI use.
 
 ## Includes
 
@@ -29,7 +29,9 @@ human workflow decisions.
 
 - [Philosophy](docs/philosophy.md)
 - [Architecture](docs/architecture.md)
+- [Product Vision](docs/product-vision.md)
 - [Roadmap](docs/roadmap.md)
+- BIS tutorial: forthcoming
 
 ## Install
 
