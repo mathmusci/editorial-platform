@@ -82,6 +82,8 @@ Completed:
 
 Planned:
 
+- Provider-neutral LLM prompt, message, response, and provider abstractions.
+- Deterministic fake LLM provider for tests and future AI participant development.
 - AI-assisted providers and processors.
 - AI participants in acquisition, extraction, evaluation, optimisation, review support, and publication support.
 - Explicit provenance and audit controls for AI-generated or AI-assisted outputs.
