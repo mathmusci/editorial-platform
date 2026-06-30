@@ -14,7 +14,7 @@ human workflow decisions.
 - typed domain models
 - typed publication configuration loading
 - provider interface with static and RSS providers
-- extractor interface with deterministic reading-time extraction
+- extractor interface with deterministic reading-time extraction and AI-powered summary extraction
 - evaluator interface with deterministic rule-based relevance evaluation
 - optimiser interface with deterministic greedy issue proposals
 - immutable optimisation requests for traceable proposal generation
@@ -51,7 +51,7 @@ editorial list --db editorial.sqlite
 
 ## Extractors
 
-Configured extractors run over Articles already stored in SQLite and write separate Extraction records. Sprint 3 includes a deterministic reading-time extractor:
+Configured extractors run over Articles already stored in SQLite and write separate Extraction records. The platform supports both deterministic and AI-powered extractors. Sprint 3 includes a deterministic reading-time extractor:
 
 ```yaml
 extractors:
@@ -60,6 +60,8 @@ extractors:
 ```
 
 The extractor estimates reading time from article title, summary, and content without mutating the Article.
+
+The first AI-powered extractor is `LLMSummaryExtractor`. It uses the provider-neutral LLM abstraction to create concise editorial summaries and stores AI provenance in the Extraction payload. Tests use the deterministic fake LLM provider; no external LLM provider is required for the core test suite.
 
 ## Evaluators
 
