@@ -2,7 +2,7 @@
 
 ## Completed
 
-### v0.3 Ingestion
+### v0.3.0 Ingestion
 
 Completed:
 
@@ -12,7 +12,7 @@ Completed:
 - SQLite Article persistence.
 - `editorial ingest`.
 
-### v0.4 Extraction
+### v0.4.0 Extraction
 
 Completed:
 
@@ -21,7 +21,7 @@ Completed:
 - Deterministic reading-time extractor.
 - `editorial extract`.
 
-### v0.5 Evaluation
+### v0.5.0 Evaluation
 
 Completed:
 
@@ -31,7 +31,7 @@ Completed:
 - Evaluators receive Articles and associated Extractions.
 - `editorial evaluate`.
 
-### v0.6 Optimisation And Issue Proposals
+### v0.6.0 Optimisation & Issue Proposals
 
 Completed:
 
@@ -39,29 +39,23 @@ Completed:
 - Optimiser factory.
 - Deterministic greedy optimiser.
 - Append-only IssueProposal persistence.
+- Immutable OptimisationRequest records.
+- Request-aware optimiser execution.
+- Proposal traceability through `metadata.optimisation_request_id`.
 - `editorial optimise`.
+- `editorial optimisation-request create`, `list`, `show`, and `run`.
 
-### v0.7-alpha Generic Workflow Events
+### v0.7.0 Workflow Infrastructure
 
 Completed:
 
 - Generic WorkflowEvent domain model.
 - Append-only SQLite WorkflowEvent persistence.
 - Workflow state projection from event history.
+- Automatic `proposal-created` WorkflowEvent recording when a request creates a proposal.
 - `editorial workflow record`, `editorial workflow history`, and `editorial workflow state`.
 
-### v0.7 Optimisation Requests
-
-Completed:
-
-- Immutable OptimisationRequest domain model.
-- Append-only SQLite OptimisationRequest persistence.
-- Request-aware optimiser execution.
-- Proposal traceability through `metadata.optimisation_request_id`.
-- Automatic `proposal-created` WorkflowEvent recording when a request creates a proposal.
-- `editorial optimisation-request create`, `list`, `show`, and `run`.
-
-### v0.8 Generic Reviews
+### v0.8.0 Editorial Workflow
 
 Completed:
 
@@ -69,49 +63,32 @@ Completed:
 - Append-only SQLite Review persistence.
 - Reviews attached by generic `artefact_type` and `artefact_id`.
 - Findings and recommendations persistence.
-- Automatic `review-submitted` WorkflowEvent recording when a review is inserted.
-- `editorial review create`, `list`, and `show`.
-
-### v0.8 Publication And Markdown Publishing
-
-Completed:
-
+- Workflow recording for submitted reviews.
 - Immutable Publication and PublicationSection domain models.
 - Append-only SQLite Publication persistence.
 - PublicationBuilder for creating Publication artefacts from IssueProposal records.
 - Publisher protocol and MarkdownPublisher.
-- Automatic `publication-created` WorkflowEvent recording when a Publication is inserted.
-- `publication-published` WorkflowEvent recording when a Publication is rendered to Markdown.
+- Workflow recording for Publication creation and Markdown rendering.
+- Repository decoupling so repositories persist only their own artefacts.
+- SQLite repository helper cleanup.
+- Model and CLI organisation cleanup.
+- `editorial review create`, `list`, and `show`.
 - `editorial publication create`, `list`, and `show`.
 - `editorial publish markdown`.
 
 ## Planned
 
-### v0.8 Editorial Workflow
-
-Planned:
-
-- Approval workflow rules derived from review and workflow history.
-- Explicit publication readiness checks.
-
-### v0.9 Publishing
-
-Planned:
-
-- Additional publisher plugins.
-- Rendering from reviewed workflow state once approval rules exist.
-- Distribution workflows for rendered outputs.
-
-### v0.10 Agents And AI Providers
+### v0.9.0 AI Integration
 
 Planned:
 
 - AI-assisted providers and processors.
-- Agent participation in acquisition, extraction, evaluation, optimisation, review support,
-  and publication support.
-- Provenance and audit controls for AI outputs.
+- AI participants in acquisition, extraction, evaluation, optimisation, review support, and publication support.
+- Explicit provenance and audit controls for AI-generated or AI-assisted outputs.
+- Configuration patterns for enabling AI participants without making AI the platform architecture.
+- No automatic replacement of human workflow decisions.
 
-### v1.0 Stable Platform
+### v1.0.0 Stable Platform
 
 Planned:
 
