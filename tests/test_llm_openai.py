@@ -30,6 +30,16 @@ class RecordingClient:
         self.responses = RecordingResponses(response)
 
 
+class RecordingOpenAI:
+    calls = []
+
+    def __init__(self, **kwargs):
+        self.__class__.calls.append(kwargs)
+        self.responses = RecordingResponses(
+            SimpleNamespace(output_text="unused", model=kwargs.get("model"))
+        )
+
+
 def test_openai_provider_generates_with_injected_client():
     response = SimpleNamespace(
         id="resp_123",
@@ -118,4 +128,82 @@ def test_llm_provider_factory_builds_fake_provider():
 
 def test_llm_provider_factory_requires_openai_model():
     with pytest.raises(ValueError, match="requires an explicit model"):
-        build_llm_provider(LLMProviderFactoryConfig(provider="openai", api_key="key"))
+        build_llm_provider(LLMProviderFactoryConfig(provider="openai"))
+
+
+def test_llm_provider_factory_reads_openai_key_from_default_env(monkeypatch):
+    RecordingOpenAI.calls = []
+    monkeypatch.setenv("OPENAI_API_KEY", "secret-key")
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=RecordingOpenAI))
+
+    provider = build_llm_provider(
+        LLMProviderFactoryConfig(
+            provider="openai",
+            model="test-model",
+            metadata={"purpose": "factory-test"},
+        )
+    )
+
+    assert isinstance(provider, OpenAIProvider)
+    assert RecordingOpenAI.calls == [{"api_key": "secret-key"}]
+    assert provider.config.model == "test-model"
+    assert provider.config.metadata == {"purpose": "factory-test"}
+    assert "api_key" not in provider.config.metadata
+
+
+def test_llm_provider_factory_reads_openai_key_from_custom_env(monkeypatch):
+    RecordingOpenAI.calls = []
+    monkeypatch.setenv("EDITORIAL_OPENAI_KEY", "custom-secret")
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=RecordingOpenAI))
+
+    build_llm_provider(
+        LLMProviderFactoryConfig(
+            provider="openai",
+            model="test-model",
+            api_key_env="EDITORIAL_OPENAI_KEY",
+            base_url="https://example.test/v1",
+            organization="org_123",
+            project="proj_123",
+        )
+    )
+
+    assert RecordingOpenAI.calls == [
+        {
+            "api_key": "custom-secret",
+            "base_url": "https://example.test/v1",
+            "organization": "org_123",
+            "project": "proj_123",
+        }
+    ]
+
+
+def test_llm_provider_factory_does_not_store_resolved_key(monkeypatch):
+    RecordingOpenAI.calls = []
+    monkeypatch.setenv("OPENAI_API_KEY", "secret-key")
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=RecordingOpenAI))
+
+    config = LLMProviderFactoryConfig(provider="openai", model="test-model")
+    provider = build_llm_provider(config)
+
+    assert config.model_dump() == {
+        "provider": "openai",
+        "response_text": "Fake response",
+        "model": "test-model",
+        "api_key_env": "OPENAI_API_KEY",
+        "base_url": None,
+        "organization": None,
+        "project": None,
+        "metadata": {},
+    }
+    assert provider.config.api_key == "secret-key"
+    assert "secret-key" not in str(config.model_dump())
+    assert "secret-key" not in str(provider.config.metadata)
+
+
+def test_llm_provider_factory_requires_configured_env_var(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    with pytest.raises(ValueError, match="OPENAI_API_KEY"):
+        build_llm_provider(
+            LLMProviderFactoryConfig(provider="openai", model="test-model")
+        )
