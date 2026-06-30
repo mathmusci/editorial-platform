@@ -15,7 +15,7 @@ human workflow decisions.
 - typed publication configuration loading
 - provider interface with static and RSS providers
 - extractor interface with deterministic reading-time extraction
-- evaluator interface with deterministic rule-based relevance evaluation
+- evaluator interface with deterministic rule-based and AI-powered relevance evaluation
 - optimiser interface with deterministic greedy issue proposals
 - immutable optimisation requests for traceable proposal generation
 - generic immutable reviews for editorial judgement on any artefact
@@ -63,7 +63,7 @@ The extractor estimates reading time from article title, summary, and content wi
 
 ## Evaluators
 
-Configured evaluators run over stored Articles and their associated Extractions, then write separate Evaluation records. Sprint 4 includes a deterministic rule-based relevance evaluator:
+Configured evaluators run over stored Articles and their associated Extractions, then write separate Evaluation records. The platform supports both deterministic and AI-powered evaluators. Sprint 4 includes a deterministic rule-based relevance evaluator:
 
 ```yaml
 evaluators:
@@ -74,6 +74,8 @@ evaluators:
 ```
 
 Evaluation storage is idempotent by article, evaluator, and kind, so rerunning `editorial evaluate` updates existing relevance Evaluations instead of duplicating them.
+
+`LLMRelevanceEvaluator` is the first AI-powered evaluator. It uses the provider-neutral LLM abstraction, expects a JSON relevance assessment from the provider, and stores AI provenance in the Evaluation payload. Tests use the deterministic fake LLM provider and do not call external APIs.
 
 ## Optimisers
 
