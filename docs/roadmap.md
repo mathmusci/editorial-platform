@@ -85,6 +85,7 @@ Planned:
 - Provider-neutral LLM prompt, message, response, and provider abstractions.
 - Deterministic fake LLM provider for tests and future AI participant development.
 - AI-assisted providers and processors.
+- LLM review assistant that can produce Review recommendations without changing workflow rules.
 - AI participants in acquisition, extraction, evaluation, optimisation, review support, and publication support.
 - Explicit provenance and audit controls for AI-generated or AI-assisted outputs.
 - Configuration patterns for enabling AI participants without making AI the platform architecture.
