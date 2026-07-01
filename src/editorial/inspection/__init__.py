@@ -1,3 +1,8 @@
+from editorial.inspection.evaluations import (
+    EvaluationInspection,
+    EvaluationInspectionService,
+    EvaluationInspectionSummary,
+)
 from editorial.inspection.proposals import (
     ProposalArticleInspection,
     ProposalInspection,
@@ -6,6 +11,9 @@ from editorial.inspection.proposals import (
 )
 
 __all__ = [
+    "EvaluationInspection",
+    "EvaluationInspectionService",
+    "EvaluationInspectionSummary",
     "ProposalArticleInspection",
     "ProposalInspection",
     "ProposalInspectionService",

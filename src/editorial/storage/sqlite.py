@@ -270,6 +270,13 @@ class SQLiteEvaluationRepository:
             rows = conn.execute(query, params).fetchall()
         return [self._row_to_evaluation(row) for row in rows]
 
+    def get(self, evaluation_id: UUID) -> Evaluation | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM evaluations WHERE id = ?", (str(evaluation_id),)
+            ).fetchone()
+        return self._row_to_evaluation(row) if row else None
+
     def count(self) -> int:
         with self._connect() as conn:
             row = conn.execute("SELECT COUNT(*) AS n FROM evaluations").fetchone()

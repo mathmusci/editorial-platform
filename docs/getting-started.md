@@ -185,6 +185,13 @@ Show the optimisation request printed by `editorial optimise`:
 editorial optimisation-request show <request-id> --db bis-getting-started.sqlite
 ```
 
+List and inspect Evaluation artefacts:
+
+```bash
+editorial evaluation list --db bis-getting-started.sqlite
+editorial evaluation show <evaluation-id> --db bis-getting-started.sqlite
+```
+
 List and inspect IssueProposal artefacts:
 
 ```bash
