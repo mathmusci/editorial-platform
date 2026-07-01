@@ -2,26 +2,39 @@ publication:
   name: BIS Newsletter
   description: Royal Statistical Society Business & Industrial Section newsletter
 providers:
+  # static provider example
   - type: static
     name: Sprint 1 sample provider
     articles:
-      - title: "Industrial statistics and evidence-based decision-making"
-        url: "https://example.org/articles/industrial-statistics"
-        source: "Example Source"
-        authors: ["Example Author"]
-        summary: "A sample article used to exercise the Sprint 1 ingestion path."
+      - title: ""
+        url: "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Industrial_production_statistics"
+        source: "Eurostat"
+        authors: ["NA"]
+        summary: "Industrial production statistics."
         metadata: {section_hint: "Industry"}
-      - title: "Bayesian forecasting in supply chains"
-        url: "https://example.org/articles/bayesian-forecasting"
-        source: "Example Journal"
+      - title: "Statistics"
+        url: "https://en.wikipedia.org/wiki/Statistics"
+        source: "Wikipedia"
         authors: ["A. Statistician", "B. Practitioner"]
-        summary: "A sample article about probabilistic forecasting for operational decisions."
-        metadata: {section_hint: "Research"}
-  # Optional RSS provider example:
-  # - type: rss
-  #   name: RSS feed
-  #   url: "https://example.org/feed.xml"
-  #   source: "Example RSS Source"
+        summary: "A wiki page on statistics."
+        metadata: {section_hint: "Knowledge"}
+  # RSS provider example:
+  - type: rss
+    name: RSS feed
+    url: "https://feeds.bbci.co.uk/news/technology/rss.xml"
+    source: "BBC Science and Technology"
+  - type: rss
+    name: RSS feed
+    url: "https://rss.arxiv.org/rss/cs"
+    source: "Arxiv - Computer Science"
+  - type: rss
+    name: RSS feed
+    url: "https://rss.arxiv.org/rss/econ"
+    source: "Arxiv - Economics"
+  - type: rss
+    name: RSS feed
+    url: "https://rss.arxiv.org/rss/stat"
+    source: "Arxiv - Statistics"
 extractors:
   - type: reading_time
     name: Reading time
