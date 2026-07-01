@@ -2,6 +2,8 @@
 
 Editorial Platform is an extensible framework for evidence-based editorial decision making, combining statistical methods, deterministic algorithms, optimisation and AI within a configurable, auditable processing architecture.
 
+Editorial Platform occupies a different design space from traditional content management systems. Rather than managing existing content, it supports the complete editorial decision-making process—from acquiring candidate material, through extraction, evaluation and optimisation, to human review and publication. See `docs/landscape.md` for a comparison with related open-source projects.
+
 The BIS newsletter is the first reference application, not the whole platform.
 
 The current development focus is v0.9.x Validation: proving the implemented architecture
