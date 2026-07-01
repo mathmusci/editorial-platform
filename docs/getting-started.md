@@ -207,10 +207,11 @@ publication creation and rendering:
 editorial workflow history --db bis-getting-started.sqlite
 ```
 
-List reviews:
+List and inspect Review artefacts:
 
 ```bash
 editorial review list --db bis-getting-started.sqlite
+editorial review show <review-id> --db bis-getting-started.sqlite
 ```
 
 List and inspect Publication artefacts:

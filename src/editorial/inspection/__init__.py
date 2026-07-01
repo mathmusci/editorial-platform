@@ -24,6 +24,11 @@ from editorial.inspection.publications import (
     PublicationSectionInspection,
     RenderedOutputInspection,
 )
+from editorial.inspection.reviews import (
+    ReviewInspection,
+    ReviewInspectionService,
+    ReviewInspectionSummary,
+)
 
 __all__ = [
     "ArticleInspection",
@@ -44,4 +49,7 @@ __all__ = [
     "PublicationInspectionSummary",
     "PublicationSectionInspection",
     "RenderedOutputInspection",
+    "ReviewInspection",
+    "ReviewInspectionService",
+    "ReviewInspectionSummary",
 ]

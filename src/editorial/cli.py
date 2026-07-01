@@ -30,6 +30,8 @@ from editorial.inspection import (
     ProposalInspectionService,
     PublicationInspection,
     PublicationInspectionService,
+    ReviewInspection,
+    ReviewInspectionService,
 )
 from editorial.models import (
     EditorialStatus,
@@ -113,6 +115,16 @@ def _publication_inspection_service(db: Path) -> PublicationInspectionService:
         extractions=SQLiteExtractionRepository(db),
         evaluations=SQLiteEvaluationRepository(db),
         reviews=SQLiteReviewRepository(db),
+        workflow_events=SQLiteWorkflowEventRepository(db),
+    )
+
+
+def _review_inspection_service(db: Path) -> ReviewInspectionService:
+    return ReviewInspectionService(
+        reviews=SQLiteReviewRepository(db),
+        proposals=SQLiteIssueProposalRepository(db),
+        optimisation_requests=SQLiteOptimisationRequestRepository(db),
+        publications=SQLitePublicationRepository(db),
         workflow_events=SQLiteWorkflowEventRepository(db),
     )
 
@@ -878,29 +890,28 @@ def review_list(
     limit: int | None = typer.Option(None, "--limit"),
     db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
 ) -> None:
-    reviews = SQLiteReviewRepository(db).list(
+    reviews = _review_inspection_service(db).list(
         artefact_type=artefact_type, artefact_id=artefact_id, limit=limit
     )
     if not reviews:
         console.print("No reviews found.")
         return
 
-    table = Table(title="Reviews")
-    table.add_column("Created")
-    table.add_column("ID", no_wrap=True)
-    table.add_column("Artefact")
-    table.add_column("Reviewer")
-    table.add_column("Decision")
-    table.add_column("Comments")
+    table = Table(title="Reviews", show_lines=True)
+    table.add_column("Review ID", no_wrap=True)
+    table.add_column("Details")
     for review in reviews:
-        table.add_row(
-            review.created_at.isoformat(),
-            str(review.id),
-            f"{review.artefact_type}:{review.artefact_id}",
-            review.reviewer,
-            review.decision.value,
-            review.comments or "",
+        details = "\n".join(
+            [
+                f"Created: {review.created_at.isoformat()}",
+                f"Reviewer: {review.reviewer}",
+                f"Decision: {review.decision}",
+                f"Artefact type: {review.artefact_type}",
+                f"Artefact ID: {review.artefact_id}",
+                f"Comments: {review.comments_preview or 'not available'}",
+            ]
         )
+        table.add_row(str(review.review_id), details)
     console.print(table)
 
 
@@ -909,22 +920,125 @@ def review_show(
     review_id: UUID = typer.Argument(...),
     db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
 ) -> None:
-    review = SQLiteReviewRepository(db).get(review_id)
-    if review is None:
+    inspection = _review_inspection_service(db).get(review_id)
+    if inspection is None:
         console.print(f"Review not found: {review_id}")
         raise typer.Exit(1)
+    _render_review_inspection(inspection)
 
-    console.print(f"Review: {review.id}")
-    console.print(f"Artefact: {review.artefact_type}:{review.artefact_id}")
-    console.print(f"Reviewer: {review.reviewer}")
-    console.print(f"Decision: {review.decision.value}")
-    console.print(f"Comments: {review.comments or ''}")
-    console.print(f"Created at: {review.created_at.isoformat()}")
-    console.print(f"Findings: {json.dumps(review.findings, sort_keys=True)}")
-    console.print(
-        f"Recommendations: {json.dumps(review.recommendations, sort_keys=True)}"
+
+def _render_review_inspection(inspection: ReviewInspection) -> None:
+    review = inspection.review
+    details = "\n".join(
+        [
+            f"[bold]Review:[/bold] {review.id}",
+            f"[bold]Created:[/bold] {review.created_at.isoformat()}",
+            f"[bold]Reviewer:[/bold] {review.reviewer}",
+            f"[bold]Decision:[/bold] {review.decision.value}",
+            f"[bold]Comments:[/bold] {_format_available(review.comments)}",
+            f"[bold]Reviewed artefact:[/bold] {review.artefact_type}:{review.artefact_id}",
+        ]
     )
-    console.print(f"Metadata: {json.dumps(review.metadata, sort_keys=True)}")
+    console.print(Panel(details, title="Review", expand=False))
+    _render_review_proposal_context(inspection)
+    _render_review_publications(inspection)
+    _render_review_workflow(inspection)
+    _render_review_metadata(inspection)
+
+
+def _render_review_proposal_context(inspection: ReviewInspection) -> None:
+    review = inspection.review
+    if review.artefact_type != "issue_proposal":
+        console.print(
+            Panel(
+                "Detailed inspection for this artefact type is not currently available.",
+                title="Reviewed Artefact",
+            )
+        )
+        return
+
+    proposal = inspection.issue_proposal
+    if proposal is None:
+        console.print(Panel("IssueProposal not found.", title="IssueProposal"))
+        return
+
+    request_id = (
+        str(inspection.optimisation_request.id)
+        if inspection.optimisation_request
+        else "not available"
+    )
+    details = "\n".join(
+        [
+            f"[bold]Proposal:[/bold] {proposal.id}",
+            f"[bold]Created:[/bold] {proposal.created_at.isoformat()}",
+            f"[bold]Optimiser:[/bold] {proposal.optimiser}",
+            f"[bold]Selected articles:[/bold] {len(proposal.article_ids)}",
+            f"[bold]Objective value:[/bold] {proposal.objective_value}",
+            f"[bold]Optimisation request:[/bold] {request_id}",
+        ]
+    )
+    console.print(Panel(details, title="IssueProposal Context", expand=False))
+
+
+def _render_review_publications(inspection: ReviewInspection) -> None:
+    if not inspection.publications:
+        console.print(Panel("No linked publications found.", title="Publications"))
+        return
+
+    table = Table(title="Linked Publications")
+    table.add_column("Created")
+    table.add_column("ID", no_wrap=True)
+    table.add_column("Title")
+    for publication in inspection.publications:
+        table.add_row(
+            publication.created_at.isoformat(),
+            str(publication.id),
+            publication.title,
+        )
+    console.print(table)
+
+
+def _render_review_workflow(inspection: ReviewInspection) -> None:
+    if not inspection.review_workflow_events:
+        console.print(
+            Panel("No review workflow events found.", title="Review Workflow")
+        )
+    else:
+        _render_workflow_table("Review Workflow", inspection.review_workflow_events)
+
+    if not inspection.artefact_workflow_events:
+        console.print(
+            Panel(
+                "No reviewed artefact workflow events found.", title="Artefact Workflow"
+            )
+        )
+    else:
+        _render_workflow_table("Artefact Workflow", inspection.artefact_workflow_events)
+
+
+def _render_review_metadata(inspection: ReviewInspection) -> None:
+    review = inspection.review
+    if review.findings:
+        console.print(f"Findings: {json.dumps(review.findings, sort_keys=True)}")
+        _render_key_value_table("Findings", review.findings)
+    if review.recommendations:
+        console.print(
+            f"Recommendations: {json.dumps(review.recommendations, sort_keys=True)}"
+        )
+        _render_key_value_table("Recommendations", review.recommendations)
+    if inspection.metadata:
+        _render_key_value_table("Metadata", inspection.metadata)
+    if not review.findings and not review.recommendations and not inspection.metadata:
+        console.print(Panel("No metadata stored.", title="Review Metadata"))
+
+
+def _render_key_value_table(title: str, values: dict[str, object]) -> None:
+    table = Table(title=title)
+    table.add_column("Key")
+    table.add_column("Value")
+    for key, value in sorted(values.items()):
+        table.add_row(key, json.dumps(value, sort_keys=True))
+    console.print(table)
 
 
 @publication_app.command("create")
