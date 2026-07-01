@@ -101,15 +101,20 @@ editorial optimise --config examples/bis/publication.yaml --db bis-getting-start
 Expected outcome: the command prints the optimiser name, optimisation request
 ID, selected article count, objective value and constraint results.
 
-The current CLI does not have a dedicated proposal list command. To find the
-IssueProposal ID created by optimisation, inspect the workflow history:
+List the proposals created so far:
 
 ```bash
-editorial workflow history --db bis-getting-started.sqlite
+editorial proposal list --db bis-getting-started.sqlite
 ```
 
-Look for the `proposal-created` event. Its Artefact value has the form
-`issue_proposal:<proposal-id>`. Use that `<proposal-id>` in the next commands.
+Use the proposal ID from that list to inspect what the reviewer is being asked
+to approve:
+
+```bash
+editorial proposal show <proposal-id> --db bis-getting-started.sqlite
+```
+
+Use that `<proposal-id>` in the next commands.
 
 ### 5. Review the proposal
 
@@ -178,6 +183,13 @@ Show the optimisation request printed by `editorial optimise`:
 
 ```bash
 editorial optimisation-request show <request-id> --db bis-getting-started.sqlite
+```
+
+List and inspect IssueProposal artefacts:
+
+```bash
+editorial proposal list --db bis-getting-started.sqlite
+editorial proposal show <proposal-id> --db bis-getting-started.sqlite
 ```
 
 Inspect workflow events, including proposal creation, review submission,

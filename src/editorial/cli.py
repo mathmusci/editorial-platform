@@ -6,6 +6,7 @@ from uuid import UUID
 
 import typer
 from rich.console import Console
+from rich.panel import Panel
 from rich.table import Table
 from editorial.cli_helpers import (
     parse_key_values,
@@ -20,6 +21,7 @@ from editorial.config import load_publication_config
 from editorial.engine import EditorialEngine
 from editorial.evaluators import build_evaluator
 from editorial.extractors import build_extractor
+from editorial.inspection import ProposalInspection, ProposalInspectionService
 from editorial.models import (
     EditorialStatus,
     Review,
@@ -46,12 +48,31 @@ optimisation_request_app = typer.Typer(help="Create and run optimisation request
 review_app = typer.Typer(help="Create and inspect editorial reviews")
 publication_app = typer.Typer(help="Create and inspect publication artefacts")
 publish_app = typer.Typer(help="Render publications to output formats")
+proposal_app = typer.Typer(help="Inspect issue proposals")
 app.add_typer(workflow_app, name="workflow")
 app.add_typer(optimisation_request_app, name="optimisation-request")
 app.add_typer(review_app, name="review")
 app.add_typer(publication_app, name="publication")
 app.add_typer(publish_app, name="publish")
+app.add_typer(proposal_app, name="proposal")
 console = Console()
+
+
+def _proposal_inspection_service(db: Path) -> ProposalInspectionService:
+    return ProposalInspectionService(
+        proposals=SQLiteIssueProposalRepository(db),
+        articles=SQLiteArticleRepository(db),
+        extractions=SQLiteExtractionRepository(db),
+        evaluations=SQLiteEvaluationRepository(db),
+        optimisation_requests=SQLiteOptimisationRequestRepository(db),
+        workflow_events=SQLiteWorkflowEventRepository(db),
+        reviews=SQLiteReviewRepository(db),
+        publications=SQLitePublicationRepository(db),
+    )
+
+
+def _format_optional(value: object | None) -> str:
+    return "" if value is None else str(value)
 
 
 @app.command()
@@ -141,6 +162,207 @@ def list_articles(
         table.add_row(
             a.status.value, a.source or "", a.title, str(a.url) if a.url else ""
         )
+    console.print(table)
+
+
+@proposal_app.command("list")
+def proposal_list(
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+    limit: int | None = typer.Option(None, "--limit"),
+) -> None:
+    proposals = _proposal_inspection_service(db).list(limit=limit)
+    if not proposals:
+        console.print("No proposals found.")
+        return
+
+    table = Table(title="Issue Proposals", show_lines=True)
+    table.add_column("Proposal ID", no_wrap=True)
+    table.add_column("Details")
+    for proposal in proposals:
+        status_parts = [
+            f"reviews: {proposal.review_count}",
+            f"publications: {proposal.publication_count}",
+        ]
+        request = _format_optional(proposal.optimisation_request_id)
+        details = "\n".join(
+            [
+                f"Created: {proposal.created_at.isoformat()}",
+                "Optimisation request:",
+                request or "not available",
+                f"Articles: {proposal.selected_article_count}",
+                f"Objective: {proposal.objective_value}",
+                f"Publication: {proposal.publication_name or 'not available'}",
+                f"Status: {', '.join(status_parts)}",
+            ]
+        )
+        table.add_row(
+            str(proposal.proposal_id),
+            details,
+        )
+    console.print(table)
+
+
+@proposal_app.command("show")
+def proposal_show(
+    proposal_id: UUID = typer.Argument(...),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    inspection = _proposal_inspection_service(db).get(proposal_id)
+    if inspection is None:
+        console.print(f"Issue proposal not found: {proposal_id}")
+        raise typer.Exit(1)
+    _render_proposal_inspection(inspection)
+
+
+def _render_proposal_inspection(inspection: ProposalInspection) -> None:
+    proposal = inspection.proposal
+    request_id = (
+        str(inspection.optimisation_request.id)
+        if inspection.optimisation_request
+        else _format_optional(proposal.metadata.get("optimisation_request_id"))
+    )
+    summary = "\n".join(
+        [
+            f"[bold]Proposal:[/bold] {proposal.id}",
+            f"[bold]Created:[/bold] {proposal.created_at.isoformat()}",
+            f"[bold]Optimisation request:[/bold] {request_id or 'not available'}",
+            f"[bold]Publication:[/bold] {inspection.publication_name or 'not available'}",
+            f"[bold]Objective value:[/bold] {proposal.objective_value}",
+            f"[bold]Selected articles:[/bold] {len(proposal.article_ids)}",
+        ]
+    )
+    console.print(Panel(summary, title="Issue Proposal", expand=False))
+    _render_selected_articles(inspection)
+    _render_constraints(inspection)
+    _render_workflow_events(inspection)
+    _render_reviews(inspection)
+    _render_publications(inspection)
+    _render_metadata(inspection)
+
+
+def _render_selected_articles(inspection: ProposalInspection) -> None:
+    console.print("[bold]Selected Articles[/bold]")
+    for article in inspection.selected_articles:
+        reading = (
+            "not available"
+            if article.reading_minutes is None
+            else f"{article.reading_minutes} min"
+        )
+        relevance = (
+            "not available"
+            if article.relevance_score is None
+            else str(article.relevance_score)
+        )
+        details = "\n".join(
+            [
+                f"[bold]Title:[/bold] {article.title}",
+                f"[bold]Source:[/bold] {article.source or 'not available'}",
+                f"[bold]URL:[/bold] {article.url or 'not available'}",
+                f"Reading time: {reading}",
+                f"Relevance: {relevance}",
+                f"Rationale: {article.relevance_rationale or 'not available'}",
+            ]
+        )
+        console.print(Panel(details, title=str(article.article_id), expand=False))
+
+
+def _render_constraints(inspection: ProposalInspection) -> None:
+    if not inspection.constraint_results:
+        console.print(Panel("No constraint results available.", title="Constraints"))
+        return
+
+    table = Table(title="Constraints")
+    table.add_column("Name")
+    table.add_column("Kind")
+    table.add_column("Satisfied")
+    table.add_column("Value")
+    table.add_column("Target")
+    table.add_column("Penalty")
+    table.add_column("Message")
+    for constraint in inspection.constraint_results:
+        table.add_row(
+            constraint.name,
+            constraint.kind,
+            str(constraint.satisfied),
+            _format_optional(constraint.value),
+            _format_optional(constraint.target),
+            str(constraint.penalty),
+            constraint.message or "",
+        )
+    console.print(table)
+
+
+def _render_workflow_events(inspection: ProposalInspection) -> None:
+    if not inspection.workflow_events:
+        console.print(Panel("No workflow events found.", title="Workflow"))
+        return
+
+    table = Table(title="Workflow")
+    table.add_column("Created")
+    table.add_column("Event")
+    table.add_column("Actor")
+    table.add_column("Reason")
+    for event in inspection.workflow_events:
+        table.add_row(
+            event.created_at.isoformat(),
+            event.event_type,
+            event.actor or "",
+            event.reason or "",
+        )
+    console.print(table)
+
+
+def _render_reviews(inspection: ProposalInspection) -> None:
+    if not inspection.reviews:
+        console.print(Panel("No reviews found.", title="Reviews"))
+        return
+
+    table = Table(title="Reviews")
+    table.add_column("Created")
+    table.add_column("ID", no_wrap=True)
+    table.add_column("Reviewer")
+    table.add_column("Decision")
+    table.add_column("Comments")
+    for review in inspection.reviews:
+        table.add_row(
+            review.created_at.isoformat(),
+            str(review.id),
+            review.reviewer,
+            review.decision.value,
+            review.comments or "",
+        )
+    console.print(table)
+
+
+def _render_publications(inspection: ProposalInspection) -> None:
+    if not inspection.publications:
+        console.print(Panel("No publications found.", title="Publications"))
+        return
+
+    table = Table(title="Publications")
+    table.add_column("Created")
+    table.add_column("ID", no_wrap=True)
+    table.add_column("Title")
+    table.add_column("Sections")
+    for publication in inspection.publications:
+        table.add_row(
+            publication.created_at.isoformat(),
+            str(publication.id),
+            publication.title,
+            str(len(publication.sections)),
+        )
+    console.print(table)
+
+
+def _render_metadata(inspection: ProposalInspection) -> None:
+    if not inspection.metadata:
+        return
+
+    table = Table(title="Metadata")
+    table.add_column("Key")
+    table.add_column("Value")
+    for key, value in sorted(inspection.metadata.items()):
+        table.add_row(key, json.dumps(value, sort_keys=True))
     console.print(table)
 
 
