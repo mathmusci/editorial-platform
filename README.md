@@ -4,18 +4,21 @@ Editorial Platform is an extensible framework for evidence-based editorial decis
 
 The BIS newsletter is the first reference application, not the whole platform.
 
-The next development focus is v0.9.0 AI Integration: introducing AI participants and
-providers with explicit provenance and audit controls, without replacing the platform's
-human workflow decisions.
+The current development focus is v0.9.x Validation: proving the implemented architecture
+through the BIS newsletter reference workflow, improving documentation, and recording
+friction found in practical CLI use.
 
 ## Includes
 
 - `src/editorial/` package layout
 - typed domain models
 - typed publication configuration loading
-- provider interface with static and RSS providers
-- extractor interface with deterministic reading-time extraction and AI-powered summary extraction
-- evaluator interface with deterministic rule-based relevance evaluation
+- provider interface with RSS and static content providers
+- extractor interface with deterministic and AI-powered extractors
+- evaluator interface with deterministic and AI-powered evaluators
+- optimiser interface for constructing editorial issue proposals
+- human review workflow for editorial approval
+- publication and rendering pipeline with immutable editorial artefacts
 - optimiser interface with deterministic greedy issue proposals
 - immutable optimisation requests for traceable proposal generation
 - generic immutable reviews for editorial judgement on any artefact
@@ -25,11 +28,21 @@ human workflow decisions.
 - CLI commands: `editorial ingest`, `editorial extract`, `editorial evaluate`, `editorial optimise`, `editorial list`, `editorial workflow`, `editorial optimisation-request`, `editorial review`, `editorial publication`, and `editorial publish`
 - tests
 
+## Current Implementations
+
+* Providers: RSS, Static
+* Extractors: Reading Time, LLM Summary
+* Evaluators: Rule-based Relevance, LLM Relevance
+* Optimisers: Greedy
+* Renderers: Markdown
+
 ## Documentation
 
 - [Philosophy](docs/philosophy.md)
 - [Architecture](docs/architecture.md)
+- [Product Vision](docs/product-vision.md)
 - [Roadmap](docs/roadmap.md)
+- BIS tutorial: forthcoming
 
 ## Install
 
@@ -65,7 +78,7 @@ The first AI-powered extractor is `LLMSummaryExtractor`. It uses the provider-ne
 
 ## Evaluators
 
-Configured evaluators run over stored Articles and their associated Extractions, then write separate Evaluation records. Sprint 4 includes a deterministic rule-based relevance evaluator:
+Configured evaluators run over stored Articles and their associated Extractions, then write separate Evaluation records. The platform supports both deterministic and AI-powered evaluators. Sprint 4 includes a deterministic rule-based relevance evaluator:
 
 ```yaml
 evaluators:
@@ -76,6 +89,8 @@ evaluators:
 ```
 
 Evaluation storage is idempotent by article, evaluator, and kind, so rerunning `editorial evaluate` updates existing relevance Evaluations instead of duplicating them.
+
+`LLMRelevanceEvaluator` is the first AI-powered evaluator. It uses the provider-neutral LLM abstraction, expects a JSON relevance assessment from the provider, and stores AI provenance in the Evaluation payload. Tests use the deterministic fake LLM provider and do not call external APIs.
 
 ## Optimisers
 

@@ -3,6 +3,8 @@ from typer.testing import CliRunner
 from editorial.cli import app
 from editorial.storage import SQLiteIssueProposalRepository
 
+BIS_FIXTURE_CONFIG = "tests/fixtures/bis/publication.yaml"
+
 
 def test_cli_optimise_stores_append_only_issue_proposals(tmp_path):
     db_path = tmp_path / "test.sqlite"
@@ -14,7 +16,7 @@ def test_cli_optimise_stores_append_only_issue_proposals(tmp_path):
             [
                 "ingest",
                 "--config",
-                "examples/bis/publication.yaml",
+                BIS_FIXTURE_CONFIG,
                 "--db",
                 str(db_path),
             ],
@@ -27,7 +29,7 @@ def test_cli_optimise_stores_append_only_issue_proposals(tmp_path):
             [
                 "extract",
                 "--config",
-                "examples/bis/publication.yaml",
+                BIS_FIXTURE_CONFIG,
                 "--db",
                 str(db_path),
             ],
@@ -40,7 +42,7 @@ def test_cli_optimise_stores_append_only_issue_proposals(tmp_path):
             [
                 "evaluate",
                 "--config",
-                "examples/bis/publication.yaml",
+                BIS_FIXTURE_CONFIG,
                 "--db",
                 str(db_path),
             ],
@@ -49,11 +51,11 @@ def test_cli_optimise_stores_append_only_issue_proposals(tmp_path):
     )
     first = runner.invoke(
         app,
-        ["optimise", "--config", "examples/bis/publication.yaml", "--db", str(db_path)],
+        ["optimise", "--config", BIS_FIXTURE_CONFIG, "--db", str(db_path)],
     )
     second = runner.invoke(
         app,
-        ["optimise", "--config", "examples/bis/publication.yaml", "--db", str(db_path)],
+        ["optimise", "--config", BIS_FIXTURE_CONFIG, "--db", str(db_path)],
     )
 
     assert first.exit_code == 0
