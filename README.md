@@ -13,9 +13,12 @@ friction found in practical CLI use.
 - `src/editorial/` package layout
 - typed domain models
 - typed publication configuration loading
-- provider interface with static and RSS providers
-- extractor interface with deterministic reading-time extraction
-- evaluator interface with deterministic rule-based and AI-powered relevance evaluation
+- provider interface with RSS and static content providers
+- extractor interface with deterministic and AI-powered extractors
+- evaluator interface with deterministic and AI-powered evaluators
+- optimiser interface for constructing editorial issue proposals
+- human review workflow for editorial approval
+- publication and rendering pipeline with immutable editorial artefacts
 - optimiser interface with deterministic greedy issue proposals
 - immutable optimisation requests for traceable proposal generation
 - generic immutable reviews for editorial judgement on any artefact
@@ -24,6 +27,14 @@ friction found in practical CLI use.
 - minimal editorial engine
 - CLI commands: `editorial ingest`, `editorial extract`, `editorial evaluate`, `editorial optimise`, `editorial list`, `editorial workflow`, `editorial optimisation-request`, `editorial review`, `editorial publication`, and `editorial publish`
 - tests
+
+## Current Implementations
+
+* Providers: RSS, Static
+* Extractors: Reading Time, LLM Summary
+* Evaluators: Rule-based Relevance, LLM Relevance
+* Optimisers: Greedy
+* Renderers: Markdown
 
 ## Documentation
 
@@ -53,7 +64,7 @@ editorial list --db editorial.sqlite
 
 ## Extractors
 
-Configured extractors run over Articles already stored in SQLite and write separate Extraction records. Sprint 3 includes a deterministic reading-time extractor:
+Configured extractors run over Articles already stored in SQLite and write separate Extraction records. The platform supports both deterministic and AI-powered extractors. Sprint 3 includes a deterministic reading-time extractor:
 
 ```yaml
 extractors:
@@ -62,6 +73,8 @@ extractors:
 ```
 
 The extractor estimates reading time from article title, summary, and content without mutating the Article.
+
+The first AI-powered extractor is `LLMSummaryExtractor`. It uses the provider-neutral LLM abstraction to create concise editorial summaries and stores AI provenance in the Extraction payload. Tests use the deterministic fake LLM provider; no external LLM provider is required for the core test suite.
 
 ## Evaluators
 
