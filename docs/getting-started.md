@@ -213,10 +213,11 @@ List reviews:
 editorial review list --db bis-getting-started.sqlite
 ```
 
-List publications:
+List and inspect Publication artefacts:
 
 ```bash
 editorial publication list --db bis-getting-started.sqlite
+editorial publication show <publication-id> --db bis-getting-started.sqlite
 ```
 
 These commands are enough to confirm that the first workflow completed. They are

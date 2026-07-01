@@ -16,6 +16,14 @@ from editorial.inspection.proposals import (
     ProposalInspectionService,
     ProposalInspectionSummary,
 )
+from editorial.inspection.publications import (
+    PublicationArticleInspection,
+    PublicationInspection,
+    PublicationInspectionService,
+    PublicationInspectionSummary,
+    PublicationSectionInspection,
+    RenderedOutputInspection,
+)
 
 __all__ = [
     "ArticleInspection",
@@ -30,4 +38,10 @@ __all__ = [
     "ProposalInspection",
     "ProposalInspectionService",
     "ProposalInspectionSummary",
+    "PublicationArticleInspection",
+    "PublicationInspection",
+    "PublicationInspectionService",
+    "PublicationInspectionSummary",
+    "PublicationSectionInspection",
+    "RenderedOutputInspection",
 ]
