@@ -22,6 +22,8 @@ from editorial.engine import EditorialEngine
 from editorial.evaluators import build_evaluator
 from editorial.extractors import build_extractor
 from editorial.inspection import (
+    ArticleInspection,
+    ArticleInspectionService,
     EvaluationInspection,
     EvaluationInspectionService,
     ProposalInspection,
@@ -55,6 +57,7 @@ publication_app = typer.Typer(help="Create and inspect publication artefacts")
 publish_app = typer.Typer(help="Render publications to output formats")
 proposal_app = typer.Typer(help="Inspect issue proposals")
 evaluation_app = typer.Typer(help="Inspect evaluations")
+article_app = typer.Typer(help="Inspect articles")
 app.add_typer(workflow_app, name="workflow")
 app.add_typer(optimisation_request_app, name="optimisation-request")
 app.add_typer(review_app, name="review")
@@ -62,6 +65,7 @@ app.add_typer(publication_app, name="publication")
 app.add_typer(publish_app, name="publish")
 app.add_typer(proposal_app, name="proposal")
 app.add_typer(evaluation_app, name="evaluation")
+app.add_typer(article_app, name="article")
 console = Console()
 
 
@@ -87,12 +91,32 @@ def _evaluation_inspection_service(db: Path) -> EvaluationInspectionService:
     )
 
 
+def _article_inspection_service(db: Path) -> ArticleInspectionService:
+    return ArticleInspectionService(
+        articles=SQLiteArticleRepository(db),
+        extractions=SQLiteExtractionRepository(db),
+        evaluations=SQLiteEvaluationRepository(db),
+        proposals=SQLiteIssueProposalRepository(db),
+        publications=SQLitePublicationRepository(db),
+        workflow_events=SQLiteWorkflowEventRepository(db),
+    )
+
+
 def _format_optional(value: object | None) -> str:
     return "" if value is None else str(value)
 
 
 def _format_available(value: object | None) -> str:
     return "not available" if value is None else str(value)
+
+
+def _preview(value: str | None, limit: int = 500) -> str:
+    if not value:
+        return "not available"
+    collapsed = " ".join(value.split())
+    if len(collapsed) <= limit:
+        return collapsed
+    return collapsed[: limit - 3].rstrip() + "..."
 
 
 @app.command()
@@ -181,6 +205,202 @@ def list_articles(
     for a in articles:
         table.add_row(
             a.status.value, a.source or "", a.title, str(a.url) if a.url else ""
+        )
+    console.print(table)
+
+
+@article_app.command("list")
+def article_list(
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+    limit: int | None = typer.Option(None, "--limit"),
+) -> None:
+    articles = _article_inspection_service(db).list(limit=limit)
+    if not articles:
+        console.print("No articles found.")
+        return
+
+    table = Table(title="Articles", show_lines=True)
+    table.add_column("Article ID", no_wrap=True)
+    table.add_column("Details")
+    for article in articles:
+        details = "\n".join(
+            [
+                f"Title: {article.title}",
+                f"Source: {article.source or 'not available'}",
+                f"Status: {article.status}",
+                f"Published: {_format_available(article.published_at.isoformat() if article.published_at else None)}",
+                f"URL: {article.url or 'not available'}",
+                f"Extractions: {article.extraction_count}",
+                f"Evaluations: {article.evaluation_count}",
+            ]
+        )
+        table.add_row(str(article.article_id), details)
+    console.print(table)
+
+
+@article_app.command("show")
+def article_show(
+    article_id: UUID = typer.Argument(...),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    inspection = _article_inspection_service(db).get(article_id)
+    if inspection is None:
+        console.print(f"Article not found: {article_id}")
+        raise typer.Exit(1)
+    _render_article_inspection(inspection)
+
+
+def _render_article_inspection(inspection: ArticleInspection) -> None:
+    article = inspection.article
+    details = "\n".join(
+        [
+            f"[bold]Article:[/bold] {article.id}",
+            f"[bold]Title:[/bold] {article.title}",
+            f"[bold]Source:[/bold] {_format_available(article.source)}",
+            f"[bold]Status:[/bold] {article.status.value}",
+            f"[bold]Authors:[/bold] {', '.join(article.authors) if article.authors else 'not available'}",
+            f"[bold]URL:[/bold] {_format_available(article.url)}",
+            f"[bold]Published:[/bold] {_format_available(article.published_at.isoformat() if article.published_at else None)}",
+        ]
+    )
+    console.print(Panel(details, title="Article", expand=False))
+    console.print(Panel(_preview(article.summary), title="Summary", expand=False))
+    console.print(
+        Panel(_preview(article.content), title="Content Preview", expand=False)
+    )
+    _render_article_metadata(inspection)
+    _render_article_extractions(inspection)
+    _render_article_evaluations(inspection)
+    _render_article_proposals(inspection)
+    _render_article_publications(inspection)
+    _render_article_workflow_events(inspection)
+
+
+def _render_article_metadata(inspection: ArticleInspection) -> None:
+    if not inspection.article.metadata:
+        console.print(Panel("No metadata stored.", title="Metadata"))
+        return
+
+    table = Table(title="Metadata")
+    table.add_column("Key")
+    table.add_column("Value")
+    for key, value in sorted(inspection.article.metadata.items()):
+        table.add_row(key, json.dumps(value, sort_keys=True))
+    console.print(table)
+
+
+def _render_article_extractions(inspection: ArticleInspection) -> None:
+    if not inspection.extractions:
+        console.print(Panel("No extractions found.", title="Extractions"))
+        return
+
+    table = Table(title="Extractions", show_lines=True)
+    table.add_column("ID", no_wrap=True)
+    table.add_column("Details")
+    for item in inspection.extractions:
+        extraction = item.extraction
+        details = [
+            f"Extractor: {extraction.extractor}",
+            f"Version: {_format_available(extraction.extractor_version)}",
+            f"Kind: {extraction.kind}",
+            f"Created: {extraction.created_at.isoformat()}",
+        ]
+        if item.payload_highlights:
+            details.append(
+                f"Highlights: {json.dumps(item.payload_highlights, sort_keys=True)}"
+            )
+        if item.ai_provenance:
+            details.append(
+                f"AI provenance: {json.dumps(item.ai_provenance, sort_keys=True)}"
+            )
+        if not item.payload_highlights:
+            details.append(f"Payload: {json.dumps(extraction.payload, sort_keys=True)}")
+        table.add_row(str(extraction.id), "\n".join(details))
+    console.print(table)
+
+
+def _render_article_evaluations(inspection: ArticleInspection) -> None:
+    if not inspection.evaluations:
+        console.print(Panel("No evaluations found.", title="Evaluations"))
+        return
+
+    table = Table(title="Evaluations", show_lines=True)
+    table.add_column("ID", no_wrap=True)
+    table.add_column("Details")
+    for item in inspection.evaluations:
+        evaluation = item.evaluation
+        details = [
+            f"Evaluator: {evaluation.evaluator}",
+            f"Version: {_format_available(evaluation.evaluator_version)}",
+            f"Kind: {evaluation.kind}",
+            f"Score: {_format_available(evaluation.score)}",
+            f"Confidence: {_format_available(evaluation.confidence)}",
+            f"Rationale: {_format_available(evaluation.rationale)}",
+        ]
+        if item.ai_provenance:
+            details.append(
+                f"AI provenance: {json.dumps(item.ai_provenance, sort_keys=True)}"
+            )
+        table.add_row(str(evaluation.id), "\n".join(details))
+    console.print(table)
+
+
+def _render_article_proposals(inspection: ArticleInspection) -> None:
+    if not inspection.proposals:
+        console.print(Panel("No proposals found.", title="Proposals"))
+        return
+
+    table = Table(title="Proposals", show_lines=True)
+    table.add_column("ID", no_wrap=True)
+    table.add_column("Details")
+    for proposal in inspection.proposals:
+        details = "\n".join(
+            [
+                f"Created: {proposal.created_at.isoformat()}",
+                f"Optimiser: {proposal.optimiser}",
+                f"Objective: {proposal.objective_value}",
+            ]
+        )
+        table.add_row(str(proposal.id), details)
+    console.print(table)
+
+
+def _render_article_publications(inspection: ArticleInspection) -> None:
+    if not inspection.publications:
+        console.print(Panel("No publications found.", title="Publications"))
+        return
+
+    table = Table(title="Publications", show_lines=True)
+    table.add_column("ID", no_wrap=True)
+    table.add_column("Details")
+    for publication in inspection.publications:
+        details = "\n".join(
+            [
+                f"Created: {publication.created_at.isoformat()}",
+                f"Title: {publication.title}",
+                f"Proposal: {publication.proposal_id}",
+            ]
+        )
+        table.add_row(str(publication.id), details)
+    console.print(table)
+
+
+def _render_article_workflow_events(inspection: ArticleInspection) -> None:
+    if not inspection.workflow_events:
+        console.print(Panel("No workflow events found.", title="Workflow"))
+        return
+
+    table = Table(title="Workflow")
+    table.add_column("Created")
+    table.add_column("Event")
+    table.add_column("Actor")
+    table.add_column("Reason")
+    for event in inspection.workflow_events:
+        table.add_row(
+            event.created_at.isoformat(),
+            event.event_type,
+            event.actor or "",
+            event.reason or "",
         )
     console.print(table)
 

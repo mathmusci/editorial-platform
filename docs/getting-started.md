@@ -167,10 +167,11 @@ to `bis-newsletter.md`. Open that file to inspect the generated newsletter.
 
 Use these commands to inspect what the previous workflow produced.
 
-List ingested Articles:
+List and inspect Article artefacts:
 
 ```bash
-editorial list --db bis-getting-started.sqlite
+editorial article list --db bis-getting-started.sqlite
+editorial article show <article-id> --db bis-getting-started.sqlite
 ```
 
 List optimisation requests:
