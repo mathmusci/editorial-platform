@@ -18,6 +18,8 @@ from editorial.storage import (
 )
 from editorial.workflow import WorkflowProjection
 
+BIS_FIXTURE_CONFIG = "tests/fixtures/bis/publication.yaml"
+
 
 def test_optimisation_request_model_validation_and_immutability():
     request = OptimisationRequest(
@@ -121,7 +123,7 @@ def test_cli_optimisation_request_create_list_show_and_run(tmp_path):
             [
                 command,
                 "--config",
-                "examples/bis/publication.yaml",
+                BIS_FIXTURE_CONFIG,
                 "--db",
                 str(db_path),
             ],
@@ -134,7 +136,7 @@ def test_cli_optimisation_request_create_list_show_and_run(tmp_path):
             "optimisation-request",
             "create",
             "--config",
-            "examples/bis/publication.yaml",
+            BIS_FIXTURE_CONFIG,
             "--created-by",
             "Andy",
             "--db",
@@ -174,7 +176,7 @@ def test_existing_optimise_command_creates_request_and_workflow_event(tmp_path):
             [
                 command,
                 "--config",
-                "examples/bis/publication.yaml",
+                BIS_FIXTURE_CONFIG,
                 "--db",
                 str(db_path),
             ],
@@ -183,7 +185,7 @@ def test_existing_optimise_command_creates_request_and_workflow_event(tmp_path):
 
     result = runner.invoke(
         app,
-        ["optimise", "--config", "examples/bis/publication.yaml", "--db", str(db_path)],
+        ["optimise", "--config", BIS_FIXTURE_CONFIG, "--db", str(db_path)],
     )
 
     assert result.exit_code == 0
@@ -204,7 +206,7 @@ def test_cli_optimisation_request_accepts_parent_ids(tmp_path):
             "optimisation-request",
             "create",
             "--config",
-            "examples/bis/publication.yaml",
+            BIS_FIXTURE_CONFIG,
             "--parent-request-id",
             str(parent_request_id),
             "--parent-proposal-id",
