@@ -21,7 +21,12 @@ from editorial.config import load_publication_config
 from editorial.engine import EditorialEngine
 from editorial.evaluators import build_evaluator
 from editorial.extractors import build_extractor
-from editorial.inspection import ProposalInspection, ProposalInspectionService
+from editorial.inspection import (
+    EvaluationInspection,
+    EvaluationInspectionService,
+    ProposalInspection,
+    ProposalInspectionService,
+)
 from editorial.models import (
     EditorialStatus,
     Review,
@@ -49,12 +54,14 @@ review_app = typer.Typer(help="Create and inspect editorial reviews")
 publication_app = typer.Typer(help="Create and inspect publication artefacts")
 publish_app = typer.Typer(help="Render publications to output formats")
 proposal_app = typer.Typer(help="Inspect issue proposals")
+evaluation_app = typer.Typer(help="Inspect evaluations")
 app.add_typer(workflow_app, name="workflow")
 app.add_typer(optimisation_request_app, name="optimisation-request")
 app.add_typer(review_app, name="review")
 app.add_typer(publication_app, name="publication")
 app.add_typer(publish_app, name="publish")
 app.add_typer(proposal_app, name="proposal")
+app.add_typer(evaluation_app, name="evaluation")
 console = Console()
 
 
@@ -71,8 +78,21 @@ def _proposal_inspection_service(db: Path) -> ProposalInspectionService:
     )
 
 
+def _evaluation_inspection_service(db: Path) -> EvaluationInspectionService:
+    return EvaluationInspectionService(
+        evaluations=SQLiteEvaluationRepository(db),
+        articles=SQLiteArticleRepository(db),
+        extractions=SQLiteExtractionRepository(db),
+        workflow_events=SQLiteWorkflowEventRepository(db),
+    )
+
+
 def _format_optional(value: object | None) -> str:
     return "" if value is None else str(value)
+
+
+def _format_available(value: object | None) -> str:
+    return "not available" if value is None else str(value)
 
 
 @app.command()
@@ -198,6 +218,165 @@ def proposal_list(
         table.add_row(
             str(proposal.proposal_id),
             details,
+        )
+    console.print(table)
+
+
+@evaluation_app.command("list")
+def evaluation_list(
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+    limit: int | None = typer.Option(None, "--limit"),
+) -> None:
+    evaluations = _evaluation_inspection_service(db).list(limit=limit)
+    if not evaluations:
+        console.print("No evaluations found.")
+        return
+
+    table = Table(title="Evaluations", show_lines=True)
+    table.add_column("Evaluation ID", no_wrap=True)
+    table.add_column("Details")
+    for evaluation in evaluations:
+        details = "\n".join(
+            [
+                f"Created: {evaluation.created_at.isoformat()}",
+                f"Article: {evaluation.article_title or 'not available'}",
+                f"Source: {evaluation.article_source or 'not available'}",
+                f"Evaluator: {evaluation.evaluator}",
+                f"Kind: {evaluation.kind}",
+                f"Score: {_format_available(evaluation.score)}",
+                f"Confidence: {_format_available(evaluation.confidence)}",
+            ]
+        )
+        table.add_row(
+            str(evaluation.evaluation_id),
+            details,
+        )
+    console.print(table)
+
+
+@evaluation_app.command("show")
+def evaluation_show(
+    evaluation_id: UUID = typer.Argument(...),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    inspection = _evaluation_inspection_service(db).get(evaluation_id)
+    if inspection is None:
+        console.print(f"Evaluation not found: {evaluation_id}")
+        raise typer.Exit(1)
+    _render_evaluation_inspection(inspection)
+
+
+def _render_evaluation_inspection(inspection: EvaluationInspection) -> None:
+    evaluation = inspection.evaluation
+    summary = "\n".join(
+        [
+            f"[bold]Evaluation:[/bold] {evaluation.id}",
+            f"[bold]Created:[/bold] {evaluation.created_at.isoformat()}",
+            f"[bold]Evaluator:[/bold] {evaluation.evaluator}",
+            f"[bold]Evaluator version:[/bold] {_format_available(evaluation.evaluator_version)}",
+            f"[bold]Kind:[/bold] {evaluation.kind}",
+            f"[bold]Score:[/bold] {_format_available(evaluation.score)}",
+            f"[bold]Confidence:[/bold] {_format_available(evaluation.confidence)}",
+            f"[bold]Rationale:[/bold] {_format_available(evaluation.rationale)}",
+        ]
+    )
+    console.print(Panel(summary, title="Evaluation", expand=False))
+    _render_evaluation_article(inspection)
+    _render_evaluation_extractions(inspection)
+    _render_evaluation_payload(inspection)
+    _render_evaluation_workflow_events(inspection)
+
+
+def _render_evaluation_article(inspection: EvaluationInspection) -> None:
+    evaluation = inspection.evaluation
+    article = inspection.article
+    if article is None:
+        details = "\n".join(
+            [
+                f"[bold]Article ID:[/bold] {evaluation.article_id}",
+                "[bold]Status:[/bold] not available",
+            ]
+        )
+        console.print(Panel(details, title="Article", expand=False))
+        return
+
+    details = "\n".join(
+        [
+            f"[bold]Article ID:[/bold] {article.id}",
+            f"[bold]Title:[/bold] {article.title}",
+            f"[bold]Source:[/bold] {_format_available(article.source)}",
+            f"[bold]URL:[/bold] {_format_available(article.url)}",
+            f"[bold]Published:[/bold] {_format_available(article.published_at.isoformat() if article.published_at else None)}",
+        ]
+    )
+    console.print(Panel(details, title="Article", expand=False))
+
+
+def _render_evaluation_extractions(inspection: EvaluationInspection) -> None:
+    if not inspection.extractions:
+        console.print(Panel("No related extractions found.", title="Extractions"))
+        return
+
+    table = Table(title="Related Extractions", show_lines=True)
+    table.add_column("Created")
+    table.add_column("Extractor")
+    table.add_column("Kind")
+    table.add_column("Payload")
+    for extraction in inspection.extractions:
+        table.add_row(
+            extraction.created_at.isoformat(),
+            extraction.extractor,
+            extraction.kind,
+            json.dumps(extraction.payload, sort_keys=True),
+        )
+    console.print(table)
+
+
+def _render_evaluation_payload(inspection: EvaluationInspection) -> None:
+    if inspection.payload_highlights:
+        table = Table(title="Payload Highlights")
+        table.add_column("Field")
+        table.add_column("Value")
+        for key, value in inspection.payload_highlights.items():
+            table.add_row(key, json.dumps(value, sort_keys=True))
+        console.print(table)
+
+    if inspection.ai_provenance:
+        table = Table(title="AI Provenance")
+        table.add_column("Field")
+        table.add_column("Value")
+        for key, value in inspection.ai_provenance.items():
+            table.add_row(key, json.dumps(value, sort_keys=True))
+        console.print(table)
+
+    if not inspection.evaluation.payload:
+        console.print(Panel("No payload stored.", title="Payload"))
+        return
+
+    table = Table(title="Payload")
+    table.add_column("Key")
+    table.add_column("Value")
+    for key, value in sorted(inspection.evaluation.payload.items()):
+        table.add_row(key, json.dumps(value, sort_keys=True))
+    console.print(table)
+
+
+def _render_evaluation_workflow_events(inspection: EvaluationInspection) -> None:
+    if not inspection.workflow_events:
+        console.print(Panel("No workflow events found.", title="Workflow"))
+        return
+
+    table = Table(title="Workflow")
+    table.add_column("Created")
+    table.add_column("Event")
+    table.add_column("Actor")
+    table.add_column("Reason")
+    for event in inspection.workflow_events:
+        table.add_row(
+            event.created_at.isoformat(),
+            event.event_type,
+            event.actor or "",
+            event.reason or "",
         )
     console.print(table)
 
