@@ -56,6 +56,15 @@ editorial explain proposal <proposal-id>
 
 It reuses proposal inspection data, explains recorded constraints and penalties, summarises selected articles and visible trade-offs, and suggests next editorial commands. It does not call an LLM and does not change optimiser behaviour.
 
+Optimisation requests can also be explained directly:
+
+editorial explain optimisation-request <request-id>
+
+This deterministic explanation summarises the request settings, goals,
+constraints and preferences, links any generated IssueProposal artefacts, and
+describes the recorded outcome without using workflow history or querying
+SQLite directly.
+
 Conclusion
 
 Keep explainability separate from inspection. Inspection should expose artefacts; explainability should interpret artefacts using stored evidence.
