@@ -65,6 +65,15 @@ constraints and preferences, links any generated IssueProposal artefacts, and
 describes the recorded outcome without using workflow history or querying
 SQLite directly.
 
+Article selection can be explained in relation to a proposal:
+
+editorial explain article-selection <proposal-id> <article-id>
+
+This command reports whether the Article is included in the stored
+IssueProposal, shows related extraction and evaluation evidence, and presents
+proposal-level constraint context. For non-selected articles it deliberately
+states that the exact exclusion reason is not recorded.
+
 Conclusion
 
 Keep explainability separate from inspection. Inspection should expose artefacts; explainability should interpret artefacts using stored evidence.
