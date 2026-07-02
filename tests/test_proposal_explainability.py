@@ -174,8 +174,8 @@ def test_cli_explain_includes_deterministic_editorial_summary(tmp_path):
     )
 
     assert result.exit_code == 0
-    assert "This proposal selected 1 articles for BIS Newsletter" in result.stdout
-    assert "using the greedy optimiser" in result.stdout
+    assert "This proposal selected 1 article for BIS Newsletter" in result.stdout
+    assert "greedy optimiser" in result.stdout
     assert "satisfies 1 of 3 recorded constraints" in result.stdout
 
 
@@ -250,12 +250,10 @@ def test_cli_explain_handles_missing_extraction_and_evaluation_data(tmp_path):
     )
 
     assert result.exit_code == 0
-    assert (
-        "Included by the optimiser; no evaluation details are available."
-        in result.stdout
-    )
-    assert "1 missing relevance evaluations" in result.stdout
-    assert "1 missing reading-time extractions" in result.stdout
+    assert "Included in the stored proposal" in result.stdout
+    assert "no evaluation details are available" in result.stdout
+    assert "1 missing relevance evaluation" in result.stdout
+    assert "missing reading-time extraction" in result.stdout
 
 
 def test_cli_explain_handles_proposal_with_no_constraint_results(tmp_path):

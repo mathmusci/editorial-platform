@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from editorial.explain.common import NextAction
+from editorial.explain.common import NextAction, pluralize, workflow_event_label
 from editorial.inspection import PublicationInspection
 from editorial.inspection.publications import PublicationInspectionService
 
@@ -190,7 +190,13 @@ class PublicationExplanationService:
         )
         workflow = PublicationWorkflowSummary(
             events=[
-                f"{event.created_at.isoformat()} {event.artefact_type} {event.event_type}"
+                " ".join(
+                    [
+                        event.created_at.isoformat(),
+                        event.artefact_type,
+                        workflow_event_label(event.event_type),
+                    ]
+                )
                 for event in workflow_events
             ],
             rendered_output_count=len(inspection.rendered_outputs),
@@ -227,21 +233,27 @@ class PublicationExplanationService:
         composition: PublicationComposition,
         evidence: PublicationEvidence,
     ) -> str:
-        proposal_text = f"This publication was created from IssueProposal {inspection.publication.proposal_id}."
+        proposal_text = (
+            "This publication was created from IssueProposal "
+            f"{inspection.publication.proposal_id}."
+        )
         selected_text = (
-            f" The proposal selected {len(inspection.proposal.article_ids)} articles."
+            " The proposal selected "
+            f"{pluralize(len(inspection.proposal.article_ids), 'article')}."
             if inspection.proposal
             else " The originating proposal record is not available."
         )
         review_text = (
-            f" {len(inspection.proposal_reviews)} editorial review(s) are recorded."
+            f" {pluralize(len(inspection.proposal_reviews), 'editorial review')} "
+            "recorded."
         )
         publication_text = (
-            f" The publication contains {composition.section_count} sections "
-            f"and {composition.article_count} articles."
+            " The publication contains "
+            f"{pluralize(composition.section_count, 'section')} "
+            f"and {pluralize(composition.article_count, 'article')}."
         )
         workflow_text = (
-            f" {len(evidence.workflow.events)} workflow event(s) are recorded."
+            f" {pluralize(len(evidence.workflow.events), 'workflow event')} recorded."
         )
         return (
             proposal_text

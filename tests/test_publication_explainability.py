@@ -255,7 +255,7 @@ def test_editorial_summary_shown(tmp_path):
     assert str(proposal.id) in result.stdout
     assert "The proposal selected 2 articles." in result.stdout
     assert "The publication contains" in result.stdout
-    assert "1 sections" in result.stdout
+    assert "1 section" in result.stdout
     assert "2 articles" in result.stdout
 
 
@@ -269,9 +269,9 @@ def test_workflow_chronology_shown(tmp_path):
 
     assert result.exit_code == 0
     assert "Editorial Workflow" in result.stdout
-    assert "proposal-created" in result.stdout
-    assert "publication-created" in result.stdout
-    assert "publication-published" in result.stdout
+    assert "Proposal created" in result.stdout
+    assert "Publication created" in result.stdout
+    assert "Publication published" in result.stdout
 
 
 def test_review_linkage_and_comments_shown(tmp_path):

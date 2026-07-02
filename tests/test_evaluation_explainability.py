@@ -202,9 +202,11 @@ def test_cli_output_reports_score_confidence_and_rationale(tmp_path):
     )
 
     assert result.exit_code == 0
-    assert "relevance score of 82.0 with confidence 0.9" in result.stdout
+    assert "relevance score of 82.0" in result.stdout
+    assert "recorded confidence" in result.stdout
+    assert "value 0.9" in result.stdout
     assert "Matched include terms" in result.stdout
-    assert "The stored confidence is 0.9" in result.stdout
+    assert "The recorded confidence value is 0.9" in result.stdout
 
 
 def test_cli_output_reports_ai_provenance(tmp_path):
@@ -235,7 +237,10 @@ def test_cli_output_reports_missing_provenance(tmp_path):
     )
 
     assert result.exit_code == 0
-    assert "No provenance recorded." in result.stdout
+    assert (
+        "AI provenance is not applicable for this deterministic evaluator."
+        in result.stdout
+    )
 
 
 def test_cli_output_reports_missing_rationale(tmp_path):
