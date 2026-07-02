@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 import typer
@@ -199,6 +199,55 @@ def _format_optional(value: object | None) -> str:
 
 def _format_available(value: object | None) -> str:
     return "not available" if value is None else str(value)
+
+
+def _format_scalar(value: object | None) -> str:
+    if value is None:
+        return "not available"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
+def _format_label(value: object) -> str:
+    text = str(value)
+    if "_" not in text:
+        return text
+    return text.replace("_", " ").capitalize()
+
+
+def _format_structured_value(value: object | None, *, indent: int = 0) -> str:
+    prefix = " " * indent
+    if isinstance(value, dict):
+        if not value:
+            return "none"
+        return "\n".join(
+            f"{prefix}{_format_label(key)}: "
+            f"{_format_structured_value(nested, indent=indent + 2).lstrip()}"
+            for key, nested in sorted(value.items())
+        )
+    if isinstance(value, list | tuple | set):
+        if not value:
+            return "none"
+        return "\n".join(
+            f"{prefix}- {_format_structured_value(item, indent=indent + 2).lstrip()}"
+            for item in value
+        )
+    return f"{prefix}{_format_scalar(value)}"
+
+
+def _format_details(label: str, value: object | None) -> str:
+    formatted = _format_structured_value(value)
+    if "\n" in formatted:
+        return f"{label}:\n{formatted}"
+    return f"{label}: {formatted}"
+
+
+def _without_metadata_keys(
+    metadata: dict[str, Any],
+    duplicated_keys: set[str],
+) -> dict[str, Any]:
+    return {key: value for key, value in metadata.items() if key not in duplicated_keys}
 
 
 def _format_evaluation_confidence(explanation: EvaluationExplanation) -> str:
@@ -443,7 +492,7 @@ def _render_publication_explanation_composition(
         if composition.section_titles
         else "none",
         "Article count": composition.article_count,
-        "Source counts": json.dumps(composition.source_counts, sort_keys=True),
+        "Sources represented": composition.source_counts,
         "Total reading minutes": _format_available(composition.total_reading_minutes),
         "Average relevance score": _format_available(
             composition.average_relevance_score
@@ -476,9 +525,16 @@ def _render_publication_explanation_evidence(
         "Review comments": " | ".join(context.review_comments)
         if context.review_comments
         else "none",
-        "Metadata": json.dumps(context.metadata, sort_keys=True)
-        if context.metadata
-        else "none",
+        "Additional metadata": _without_metadata_keys(
+            context.metadata,
+            {
+                "article_count",
+                "objective_value",
+                "optimiser",
+                "proposal_id",
+            },
+        )
+        or None,
     }
     _render_key_value_table("Editorial Evidence", rows)
 
@@ -490,7 +546,7 @@ def _render_publication_explanation_related(
     table.add_column("Type")
     table.add_column("Values")
     for key, values in explanation.related_artefacts.items():
-        table.add_row(key, "\n".join(values))
+        table.add_row(_format_label(key), "\n".join(values))
     console.print(table)
 
 
@@ -549,7 +605,7 @@ def _render_evaluation_explanation_evidence(
             evidence.evidence_type,
             evidence.kind,
             evidence.source,
-            json.dumps(evidence.highlights, sort_keys=True),
+            _format_structured_value(evidence.highlights),
         )
     console.print(table)
 
@@ -571,7 +627,7 @@ def _render_evaluation_explanation_provenance(
     table.add_column("Value")
     table.add_row("evaluator_type", explanation.provenance.evaluator_type)
     for key, value in sorted(explanation.provenance.fields.items()):
-        table.add_row(key, json.dumps(value, sort_keys=True))
+        table.add_row(_format_label(key), _format_structured_value(value))
     console.print(table)
 
 
@@ -718,9 +774,7 @@ def _render_article_selection_evidence(
             if evidence.rationale:
                 details.append(f"Rationale: {evidence.rationale}")
         if evidence.highlights:
-            details.append(
-                f"Highlights: {json.dumps(evidence.highlights, sort_keys=True)}"
-            )
+            details.append(_format_details("Highlights", evidence.highlights))
         table.add_row(
             evidence.evidence_type,
             evidence.kind,
@@ -751,7 +805,7 @@ def _render_article_selection_proposal_context(
             if context.largest_penalties
             else "none"
         ),
-        "Source counts": json.dumps(context.source_counts, sort_keys=True),
+        "Sources represented": context.source_counts,
         "Article source represented": _format_available(
             context.article_source_represented
         ),
@@ -834,7 +888,7 @@ def _render_optimisation_settings(
             setting.name,
             "\n".join(
                 [
-                    f"Value: {json.dumps(setting.value, sort_keys=True)}",
+                    _format_details("Value", setting.value),
                     setting.explanation,
                 ]
             ),
@@ -1043,7 +1097,7 @@ def _render_trade_off_summary(explanation: ProposalExplanation) -> None:
             f"Average relevance score: {_format_available(trade_offs.average_relevance_score)}",
             f"Missing evaluations: {trade_offs.missing_evaluation_count}",
             f"Missing reading-time data: {trade_offs.missing_reading_time_count}",
-            f"Source counts: {json.dumps(trade_offs.source_counts, sort_keys=True)}",
+            _format_details("Sources represented", trade_offs.source_counts),
         ]
     )
     console.print(Panel(details, title="Trade-Off Summary", expand=False))
@@ -1129,7 +1183,7 @@ def _render_article_metadata(inspection: ArticleInspection) -> None:
     table.add_column("Key")
     table.add_column("Value")
     for key, value in sorted(inspection.article.metadata.items()):
-        table.add_row(key, json.dumps(value, sort_keys=True))
+        table.add_row(_format_label(key), _format_structured_value(value))
     console.print(table)
 
 
@@ -1150,15 +1204,11 @@ def _render_article_extractions(inspection: ArticleInspection) -> None:
             f"Created: {extraction.created_at.isoformat()}",
         ]
         if item.payload_highlights:
-            details.append(
-                f"Highlights: {json.dumps(item.payload_highlights, sort_keys=True)}"
-            )
+            details.append(_format_details("Highlights", item.payload_highlights))
         if item.ai_provenance:
-            details.append(
-                f"AI provenance: {json.dumps(item.ai_provenance, sort_keys=True)}"
-            )
+            details.append(_format_details("AI provenance", item.ai_provenance))
         if not item.payload_highlights:
-            details.append(f"Payload: {json.dumps(extraction.payload, sort_keys=True)}")
+            details.append(_format_details("Payload", extraction.payload))
         table.add_row(str(extraction.id), "\n".join(details))
     console.print(table)
 
@@ -1182,9 +1232,7 @@ def _render_article_evaluations(inspection: ArticleInspection) -> None:
             f"Rationale: {_format_available(evaluation.rationale)}",
         ]
         if item.ai_provenance:
-            details.append(
-                f"AI provenance: {json.dumps(item.ai_provenance, sort_keys=True)}"
-            )
+            details.append(_format_details("AI provenance", item.ai_provenance))
         table.add_row(str(evaluation.id), "\n".join(details))
     console.print(table)
 
@@ -1391,7 +1439,7 @@ def _render_evaluation_extractions(inspection: EvaluationInspection) -> None:
             extraction.created_at.isoformat(),
             extraction.extractor,
             extraction.kind,
-            json.dumps(extraction.payload, sort_keys=True),
+            _format_structured_value(extraction.payload),
         )
     console.print(table)
 
@@ -1402,7 +1450,7 @@ def _render_evaluation_payload(inspection: EvaluationInspection) -> None:
         table.add_column("Field")
         table.add_column("Value")
         for key, value in inspection.payload_highlights.items():
-            table.add_row(key, json.dumps(value, sort_keys=True))
+            table.add_row(_format_label(key), _format_structured_value(value))
         console.print(table)
 
     if inspection.ai_provenance:
@@ -1410,7 +1458,7 @@ def _render_evaluation_payload(inspection: EvaluationInspection) -> None:
         table.add_column("Field")
         table.add_column("Value")
         for key, value in inspection.ai_provenance.items():
-            table.add_row(key, json.dumps(value, sort_keys=True))
+            table.add_row(_format_label(key), _format_structured_value(value))
         console.print(table)
 
     if not inspection.evaluation.payload:
@@ -1421,7 +1469,7 @@ def _render_evaluation_payload(inspection: EvaluationInspection) -> None:
     table.add_column("Key")
     table.add_column("Value")
     for key, value in sorted(inspection.evaluation.payload.items()):
-        table.add_row(key, json.dumps(value, sort_keys=True))
+        table.add_row(_format_label(key), _format_structured_value(value))
     console.print(table)
 
 
@@ -1468,7 +1516,7 @@ def extraction_list(
                 f"Extractor: {extraction.extractor}",
                 f"Version: {_format_available(extraction.extractor_version)}",
                 f"Kind: {extraction.kind}",
-                f"Payload preview: {json.dumps(extraction.payload_preview, sort_keys=True)}",
+                _format_details("Payload preview", extraction.payload_preview),
             ]
         )
         table.add_row(str(extraction.extraction_id), details)
@@ -1539,7 +1587,7 @@ def _render_extraction_payload(inspection: ExtractionArtefactInspection) -> None
         table.add_column("Field")
         table.add_column("Value")
         for key, value in inspection.payload_highlights.items():
-            table.add_row(key, json.dumps(value, sort_keys=True))
+            table.add_row(_format_label(key), _format_structured_value(value))
         console.print(table)
 
     if inspection.provenance:
@@ -1547,7 +1595,7 @@ def _render_extraction_payload(inspection: ExtractionArtefactInspection) -> None
         table.add_column("Field")
         table.add_column("Value")
         for key, value in inspection.provenance.items():
-            table.add_row(key, json.dumps(value, sort_keys=True))
+            table.add_row(_format_label(key), _format_structured_value(value))
         console.print(table)
 
     if not inspection.extraction.payload:
@@ -1558,7 +1606,7 @@ def _render_extraction_payload(inspection: ExtractionArtefactInspection) -> None
     table.add_column("Key")
     table.add_column("Value")
     for key, value in sorted(inspection.extraction.payload.items()):
-        table.add_row(key, json.dumps(value, sort_keys=True))
+        table.add_row(_format_label(key), _format_structured_value(value))
     console.print(table)
 
 
@@ -1737,14 +1785,24 @@ def _render_publications(inspection: ProposalInspection) -> None:
 
 
 def _render_metadata(inspection: ProposalInspection) -> None:
-    if not inspection.metadata:
+    metadata = _without_metadata_keys(
+        inspection.metadata,
+        {
+            "article_ids",
+            "articles",
+            "optimisation_request_id",
+            "selected_article_ids",
+            "selected_articles",
+        },
+    )
+    if not metadata:
         return
 
     table = Table(title="Metadata")
     table.add_column("Key")
     table.add_column("Value")
-    for key, value in sorted(inspection.metadata.items()):
-        table.add_row(key, json.dumps(value, sort_keys=True))
+    for key, value in sorted(metadata.items()):
+        table.add_row(_format_label(key), _format_structured_value(value))
     console.print(table)
 
 
@@ -1975,12 +2033,8 @@ def _render_review_workflow(inspection: ReviewInspection) -> None:
 def _render_review_metadata(inspection: ReviewInspection) -> None:
     review = inspection.review
     if review.findings:
-        console.print(f"Findings: {json.dumps(review.findings, sort_keys=True)}")
         _render_key_value_table("Findings", review.findings)
     if review.recommendations:
-        console.print(
-            f"Recommendations: {json.dumps(review.recommendations, sort_keys=True)}"
-        )
         _render_key_value_table("Recommendations", review.recommendations)
     if inspection.metadata:
         _render_key_value_table("Metadata", inspection.metadata)
@@ -1993,7 +2047,7 @@ def _render_key_value_table(title: str, values: dict[str, object]) -> None:
     table.add_column("Key")
     table.add_column("Value")
     for key, value in sorted(values.items()):
-        table.add_row(key, json.dumps(value, sort_keys=True))
+        table.add_row(str(key), _format_structured_value(value))
     console.print(table)
 
 
@@ -2203,15 +2257,24 @@ def _render_workflow_table(title: str, events: list[WorkflowEvent]) -> None:
 
 
 def _render_publication_metadata(inspection: PublicationInspection) -> None:
-    if not inspection.metadata:
+    metadata = _without_metadata_keys(
+        inspection.metadata,
+        {
+            "article_count",
+            "objective_value",
+            "optimiser",
+            "proposal_id",
+        },
+    )
+    if not metadata:
         console.print(Panel("No metadata stored.", title="Metadata"))
         return
 
     table = Table(title="Metadata")
     table.add_column("Key")
     table.add_column("Value")
-    for key, value in sorted(inspection.metadata.items()):
-        table.add_row(key, json.dumps(value, sort_keys=True))
+    for key, value in sorted(metadata.items()):
+        table.add_row(_format_label(key), _format_structured_value(value))
     console.print(table)
 
 
@@ -2292,10 +2355,10 @@ def optimisation_request_show(
     console.print(f"Strategy: {request.strategy}")
     console.print(f"Created by: {request.created_by or ''}")
     console.print(f"Created at: {request.created_at.isoformat()}")
-    console.print(f"Settings: {json.dumps(request.settings, sort_keys=True)}")
-    console.print(f"Constraints: {json.dumps(request.constraints, sort_keys=True)}")
-    console.print(f"Goals: {json.dumps(request.goals, sort_keys=True)}")
-    console.print(f"Preferences: {json.dumps(request.preferences, sort_keys=True)}")
+    _render_key_value_table("Settings", request.settings)
+    _render_key_value_table("Constraints", request.constraints)
+    _render_key_value_table("Goals", request.goals)
+    _render_key_value_table("Preferences", request.preferences)
 
 
 @optimisation_request_app.command("run")

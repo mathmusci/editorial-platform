@@ -46,6 +46,7 @@ def _store_proposal(
     *,
     with_extraction: bool = True,
     with_evaluation: bool = True,
+    metadata: dict | None = None,
 ) -> tuple[IssueProposal, OptimisationRequest, Article]:
     article = Article(
         title="Industrial statistics",
@@ -74,7 +75,10 @@ def _store_proposal(
                 message="Within target",
             )
         ],
-        metadata={"optimisation_request_id": str(request.id)},
+        metadata={
+            "optimisation_request_id": str(request.id),
+            **(metadata or {}),
+        },
     )
 
     SQLiteArticleRepository(db_path).upsert(article)
@@ -157,6 +161,27 @@ def test_cli_proposal_show_displays_optimisation_request_linkage(tmp_path):
     assert result.exit_code == 0
     assert "Optimisation request:" in result.stdout
     assert str(request.id) in result.stdout
+
+
+def test_cli_proposal_show_filters_structurally_rendered_metadata(tmp_path):
+    db_path = tmp_path / "test.sqlite"
+    proposal, _request, _article = _store_proposal(
+        db_path,
+        metadata={
+            "candidate_count": 3,
+            "selected_article_ids": ["already-rendered"],
+        },
+    )
+
+    result = CliRunner().invoke(
+        app, ["proposal", "show", str(proposal.id), "--db", str(db_path)]
+    )
+
+    assert result.exit_code == 0
+    assert "Candidate count" in result.stdout
+    assert "3" in result.stdout
+    assert "selected_article_ids" not in result.stdout
+    assert '{"candidate_count"' not in result.stdout
 
 
 def test_cli_proposal_show_handles_missing_optional_extraction_and_evaluation(tmp_path):

@@ -295,8 +295,8 @@ def test_output_includes_reading_time(tmp_path):
     )
 
     assert result.exit_code == 0
-    assert "reading_minutes" in result.stdout
-    assert "word_count" in result.stdout
+    assert "Reading minutes" in result.stdout
+    assert "Word count" in result.stdout
 
 
 def test_output_handles_missing_extraction_and_evaluation_data(tmp_path):
@@ -342,6 +342,9 @@ def test_output_includes_proposal_objective_and_selected_count(tmp_path):
     assert "80.0" in result.stdout
     assert "Selected article count" in result.stdout
     assert "1" in result.stdout
+    assert "Sources represented" in result.stdout
+    assert "Fixture Source" in result.stdout
+    assert '{"Fixture Source"' not in result.stdout
 
 
 def test_output_includes_constraint_context_where_recorded(tmp_path):

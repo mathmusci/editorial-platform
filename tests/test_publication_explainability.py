@@ -301,6 +301,7 @@ def test_composition_article_counts_and_source_counts_shown(tmp_path):
     assert "2" in result.stdout
     assert "Fixture Source" in result.stdout
     assert "Second Source" in result.stdout
+    assert '{"Fixture Source"' not in result.stdout
 
 
 def test_reading_time_and_relevance_aggregates_shown(tmp_path):
@@ -333,7 +334,9 @@ def test_editorial_evidence_shown(tmp_path):
     assert "Satisfied constraints" in result.stdout
     assert "Failed constraints" in result.stdout
     assert "reading_time_target_minutes" in result.stdout
-    assert "article_count" in result.stdout
+    assert "Article count" in result.stdout
+    assert "article_count" not in result.stdout
+    assert '{"article_count"' not in result.stdout
 
 
 def test_interpretation_and_limitations_shown(tmp_path):

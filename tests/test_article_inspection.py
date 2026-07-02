@@ -198,8 +198,8 @@ def test_cli_article_show_displays_related_extractions(tmp_path):
     assert result.exit_code == 0
     assert "Extractions" in result.stdout
     assert "reading_time" in result.stdout
-    assert "reading_minutes" in result.stdout
-    assert "word_count" in result.stdout
+    assert "Reading minutes" in result.stdout
+    assert "Word count" in result.stdout
 
 
 def test_cli_article_show_displays_related_evaluations(tmp_path):
