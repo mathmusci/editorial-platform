@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 from editorial.interfaces import Evaluator, Extractor, Optimiser, Provider
-from editorial.models import OptimisationRequest, WorkflowEvent
+from editorial.models import Article, OptimisationRequest, WorkflowEvent
 from editorial.storage import (
     SQLiteArticleRepository,
     SQLiteEvaluationRepository,
@@ -15,8 +15,17 @@ from editorial.storage import (
 @dataclass(frozen=True)
 class IngestResult:
     fetched: int
-    inserted: int
-    skipped_duplicates: int
+    added: int
+    duplicates_in_source: int
+    already_in_database: int
+
+    @property
+    def inserted(self) -> int:
+        return self.added
+
+    @property
+    def skipped_duplicates(self) -> int:
+        return self.duplicates_in_source + self.already_in_database
 
 
 @dataclass(frozen=True)
@@ -59,15 +68,31 @@ class EditorialEngine:
         self.workflow_event_repository = workflow_event_repository
 
     def ingest(self, providers: Iterable[Provider]) -> IngestResult:
-        fetched = inserted = skipped = 0
+        fetched = added = duplicates_in_source = already_in_database = 0
+        seen_identities: set[str] = set()
         for provider in providers:
             for article in provider.fetch():
                 fetched += 1
-                if self.article_repository.upsert(article):
-                    inserted += 1
+                identity = self._article_identity(article)
+                if identity in seen_identities:
+                    duplicates_in_source += 1
+                    continue
+                seen_identities.add(identity)
+
+                if self.article_repository.exists(article):
+                    already_in_database += 1
                 else:
-                    skipped += 1
-        return IngestResult(fetched, inserted, skipped)
+                    self.article_repository.upsert(article)
+                    added += 1
+        return IngestResult(
+            fetched=fetched,
+            added=added,
+            duplicates_in_source=duplicates_in_source,
+            already_in_database=already_in_database,
+        )
+
+    def _article_identity(self, article: Article) -> str:
+        return str(article.url) if article.url is not None else str(article.id)
 
     def extract(self, extractors: Iterable[Extractor]) -> ExtractionRunResult:
         if self.extraction_repository is None:

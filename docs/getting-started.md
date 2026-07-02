@@ -66,7 +66,7 @@ editorial ingest --config examples/bis/publication.yaml --db bis-getting-started
 ```
 
 Expected outcome: the command prints the publication name plus counts for
-fetched, inserted and skipped duplicate articles.
+fetched, added, duplicate source and already-stored articles.
 
 ### 2. Extract article evidence
 
@@ -172,6 +172,13 @@ List and inspect Article artefacts:
 ```bash
 editorial article list --db bis-getting-started.sqlite
 editorial article show <article-id> --db bis-getting-started.sqlite
+```
+
+List and inspect Extraction artefacts:
+
+```bash
+editorial extraction list --db bis-getting-started.sqlite
+editorial extraction show <extraction-id> --db bis-getting-started.sqlite
 ```
 
 List optimisation requests:

@@ -39,6 +39,8 @@ from editorial.inspection import (
     ArticleInspectionService,
     EvaluationInspection,
     EvaluationInspectionService,
+    ExtractionArtefactInspection,
+    ExtractionInspectionService,
     ProposalInspection,
     ProposalInspectionService,
     PublicationInspection,
@@ -74,6 +76,7 @@ publication_app = typer.Typer(help="Create and inspect publication artefacts")
 publish_app = typer.Typer(help="Render publications to output formats")
 proposal_app = typer.Typer(help="Inspect issue proposals")
 evaluation_app = typer.Typer(help="Inspect evaluations")
+extraction_app = typer.Typer(help="Inspect extractions")
 article_app = typer.Typer(help="Inspect articles")
 explain_app = typer.Typer(help="Explain editorial artefacts")
 app.add_typer(workflow_app, name="workflow")
@@ -83,6 +86,7 @@ app.add_typer(publication_app, name="publication")
 app.add_typer(publish_app, name="publish")
 app.add_typer(proposal_app, name="proposal")
 app.add_typer(evaluation_app, name="evaluation")
+app.add_typer(extraction_app, name="extraction")
 app.add_typer(article_app, name="article")
 app.add_typer(explain_app, name="explain")
 console = Console()
@@ -106,6 +110,14 @@ def _evaluation_inspection_service(db: Path) -> EvaluationInspectionService:
         evaluations=SQLiteEvaluationRepository(db),
         articles=SQLiteArticleRepository(db),
         extractions=SQLiteExtractionRepository(db),
+        workflow_events=SQLiteWorkflowEventRepository(db),
+    )
+
+
+def _extraction_inspection_service(db: Path) -> ExtractionInspectionService:
+    return ExtractionInspectionService(
+        extractions=SQLiteExtractionRepository(db),
+        articles=SQLiteArticleRepository(db),
         workflow_events=SQLiteWorkflowEventRepository(db),
     )
 
@@ -219,8 +231,9 @@ def ingest(
     result = EditorialEngine(SQLiteArticleRepository(db)).ingest(providers)
     console.print(f"[bold]Publication:[/bold] {cfg.publication.name}")
     console.print(f"Fetched: {result.fetched}")
-    console.print(f"Inserted: {result.inserted}")
-    console.print(f"Skipped duplicates: {result.skipped_duplicates}")
+    console.print(f"Added: {result.added}")
+    console.print(f"Duplicates in source: {result.duplicates_in_source}")
+    console.print(f"Already in database: {result.already_in_database}")
 
 
 @app.command()
@@ -1401,6 +1414,145 @@ def _render_evaluation_payload(inspection: EvaluationInspection) -> None:
 
 
 def _render_evaluation_workflow_events(inspection: EvaluationInspection) -> None:
+    if not inspection.workflow_events:
+        console.print(Panel("No workflow events found.", title="Workflow"))
+        return
+
+    table = Table(title="Workflow")
+    table.add_column("Created")
+    table.add_column("Event")
+    table.add_column("Actor")
+    table.add_column("Reason")
+    for event in inspection.workflow_events:
+        table.add_row(
+            event.created_at.isoformat(),
+            event.event_type,
+            event.actor or "",
+            event.reason or "",
+        )
+    console.print(table)
+
+
+@extraction_app.command("list")
+def extraction_list(
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+    limit: int | None = typer.Option(None, "--limit"),
+) -> None:
+    extractions = _extraction_inspection_service(db).list(limit=limit)
+    if not extractions:
+        console.print("No extractions found.")
+        return
+
+    table = Table(title="Extractions", show_lines=True)
+    table.add_column("Extraction ID", no_wrap=True)
+    table.add_column("Details", overflow="fold")
+    for extraction in extractions:
+        details = "\n".join(
+            [
+                f"Created: {extraction.created_at.isoformat()}",
+                f"Article: {extraction.article_title or 'not available'}",
+                f"Source: {extraction.article_source or 'not available'}",
+                f"URL: {extraction.article_url or 'not available'}",
+                f"Extractor: {extraction.extractor}",
+                f"Version: {_format_available(extraction.extractor_version)}",
+                f"Kind: {extraction.kind}",
+                f"Payload preview: {json.dumps(extraction.payload_preview, sort_keys=True)}",
+            ]
+        )
+        table.add_row(str(extraction.extraction_id), details)
+    console.print(table)
+
+
+@extraction_app.command("show")
+def extraction_show(
+    extraction_id: UUID = typer.Argument(...),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    inspection = _extraction_inspection_service(db).get(extraction_id)
+    if inspection is None:
+        console.print(f"Extraction not found: {extraction_id}")
+        raise typer.Exit(1)
+    _render_extraction_inspection(inspection)
+
+
+def _render_extraction_inspection(inspection: ExtractionArtefactInspection) -> None:
+    extraction = inspection.extraction
+    details = "\n".join(
+        [
+            f"[bold]Extraction:[/bold] {extraction.id}",
+            f"[bold]Created:[/bold] {extraction.created_at.isoformat()}",
+            f"[bold]Extractor:[/bold] {extraction.extractor}",
+            f"[bold]Extractor version:[/bold] {_format_available(extraction.extractor_version)}",
+            f"[bold]Kind:[/bold] {extraction.kind}",
+            f"[bold]Article:[/bold] {extraction.article_id}",
+        ]
+    )
+    console.print(Panel(details, title="Extraction", expand=False))
+    _render_extraction_article(inspection)
+    _render_extraction_payload(inspection)
+    _render_extraction_workflow_events(inspection)
+
+
+def _render_extraction_article(inspection: ExtractionArtefactInspection) -> None:
+    article = inspection.article
+    if article is None:
+        console.print(
+            Panel(
+                "\n".join(
+                    [
+                        f"[bold]Article ID:[/bold] {inspection.extraction.article_id}",
+                        "[bold]Status:[/bold] not available",
+                    ]
+                ),
+                title="Article",
+                expand=False,
+            )
+        )
+        return
+
+    details = "\n".join(
+        [
+            f"[bold]Article ID:[/bold] {article.id}",
+            f"[bold]Title:[/bold] {article.title}",
+            f"[bold]Source:[/bold] {_format_available(article.source)}",
+            f"[bold]URL:[/bold] {_format_available(article.url)}",
+        ]
+    )
+    console.print(Panel(details, title="Article", expand=False))
+
+
+def _render_extraction_payload(inspection: ExtractionArtefactInspection) -> None:
+    if inspection.payload_highlights:
+        table = Table(title="Payload Highlights")
+        table.add_column("Field")
+        table.add_column("Value")
+        for key, value in inspection.payload_highlights.items():
+            table.add_row(key, json.dumps(value, sort_keys=True))
+        console.print(table)
+
+    if inspection.provenance:
+        table = Table(title="Provenance")
+        table.add_column("Field")
+        table.add_column("Value")
+        for key, value in inspection.provenance.items():
+            table.add_row(key, json.dumps(value, sort_keys=True))
+        console.print(table)
+
+    if not inspection.extraction.payload:
+        console.print(Panel("No payload stored.", title="Payload"))
+        return
+
+    table = Table(title="Payload")
+    table.add_column("Key")
+    table.add_column("Value")
+    for key, value in sorted(inspection.extraction.payload.items()):
+        table.add_row(key, json.dumps(value, sort_keys=True))
+    console.print(table)
+
+
+def _render_extraction_workflow_events(
+    inspection: ExtractionArtefactInspection,
+) -> None:
     if not inspection.workflow_events:
         console.print(Panel("No workflow events found.", title="Workflow"))
         return

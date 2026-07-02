@@ -83,6 +83,18 @@ class SQLiteArticleRepository:
             )
             return True
 
+    def exists(self, article: Article) -> bool:
+        with self._connect() as conn:
+            if article.url is not None:
+                existing = conn.execute(
+                    "SELECT id FROM articles WHERE url = ?", (str(article.url),)
+                ).fetchone()
+            else:
+                existing = conn.execute(
+                    "SELECT id FROM articles WHERE id = ?", (str(article.id),)
+                ).fetchone()
+        return existing is not None
+
     def list(
         self, status: EditorialStatus | None = None, limit: int | None = None
     ) -> list[Article]:
@@ -185,6 +197,13 @@ class SQLiteExtractionRepository:
         with self._connect() as conn:
             rows = conn.execute(query, params).fetchall()
         return [self._row_to_extraction(row) for row in rows]
+
+    def get(self, extraction_id: UUID) -> Extraction | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM extractions WHERE id = ?", (str(extraction_id),)
+            ).fetchone()
+        return self._row_to_extraction(row) if row else None
 
     def count(self) -> int:
         with self._connect() as conn:
