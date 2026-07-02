@@ -199,7 +199,7 @@ class ArticleSelectionExplanationService:
             evidence_parts.append(f"reading time {reading_time} minutes")
 
         if included:
-            explanation = "This article was selected by the optimiser."
+            explanation = "This article is included in the stored proposal."
             if evidence_parts:
                 explanation += (
                     " Stored evidence shows " + " and ".join(evidence_parts) + "."
@@ -208,14 +208,14 @@ class ArticleSelectionExplanationService:
                 explanation += " No extraction or evaluation evidence is available."
             return ArticleSelectionOutcome(
                 included=True,
-                status="This article was included in the proposal.",
+                status="This article is included in the stored proposal.",
                 explanation=explanation,
             )
 
         explanation = (
-            "This article was not selected by the optimiser. The stored proposal "
-            "does not record the exact exclusion reason, but the available "
-            "evidence is shown below."
+            "This article is not included in the stored proposal. The stored "
+            "proposal does not record the exact exclusion reason, but the "
+            "available evidence is shown below."
         )
         if evidence_parts:
             explanation += (
@@ -223,7 +223,7 @@ class ArticleSelectionExplanationService:
             )
         return ArticleSelectionOutcome(
             included=False,
-            status="This article was not included in the proposal.",
+            status="This article is not included in the stored proposal.",
             explanation=explanation,
         )
 

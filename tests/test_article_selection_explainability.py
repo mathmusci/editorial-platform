@@ -207,7 +207,7 @@ def test_output_states_included_article_was_included(tmp_path):
     )
 
     assert result.exit_code == 0
-    assert "This article was included in the proposal." in result.stdout
+    assert "This article is included in the stored proposal." in result.stdout
 
 
 def test_output_states_excluded_article_was_not_included(tmp_path):
@@ -227,7 +227,7 @@ def test_output_states_excluded_article_was_not_included(tmp_path):
     )
 
     assert result.exit_code == 0
-    assert "This article was not included in the proposal." in result.stdout
+    assert "This article is not included in the stored proposal." in result.stdout
     assert (
         "The stored proposal does not record the exact exclusion reason"
         in result.stdout

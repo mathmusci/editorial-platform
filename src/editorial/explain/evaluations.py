@@ -120,7 +120,7 @@ class EvaluationExplanationService:
             confidence=evaluation.confidence,
             rationale=evaluation.rationale,
             decision=payload_value(evaluation.payload, "decision"),
-            outcome_summary=self._outcome_summary(inspection),
+            outcome_summary=self._outcome_summary(inspection, provenance),
             evidence=self._evidence(inspection),
             provenance=provenance,
             interpretation=self._interpretation(inspection, provenance),
@@ -132,12 +132,21 @@ class EvaluationExplanationService:
             ),
         )
 
-    def _outcome_summary(self, inspection: EvaluationInspection) -> str:
+    def _outcome_summary(
+        self,
+        inspection: EvaluationInspection,
+        provenance: EvaluationProvenance,
+    ) -> str:
         evaluation = inspection.evaluation
         if evaluation.score is not None and evaluation.confidence is not None:
+            confidence_text = (
+                f"recorded confidence value {evaluation.confidence}"
+                if provenance.evaluator_type == "deterministic"
+                else f"confidence {evaluation.confidence}"
+            )
             return (
                 f"This evaluation assigned a {evaluation.kind} score of "
-                f"{evaluation.score} with confidence {evaluation.confidence}."
+                f"{evaluation.score} with {confidence_text}."
             )
         if evaluation.score is not None:
             return (
@@ -146,7 +155,7 @@ class EvaluationExplanationService:
             )
         if evaluation.confidence is not None:
             return (
-                f"This evaluation recorded confidence {evaluation.confidence} "
+                f"This evaluation recorded confidence value {evaluation.confidence} "
                 f"for {evaluation.kind}."
             )
         return f"This evaluation recorded a {evaluation.kind} assessment."
@@ -242,10 +251,16 @@ class EvaluationExplanationService:
 
         confidence_note = None
         if evaluation.confidence is not None:
-            confidence_note = (
-                f"The stored confidence is {evaluation.confidence}. No additional "
-                "confidence semantics are inferred."
-            )
+            if provenance.evaluator_type == "deterministic":
+                confidence_note = (
+                    f"The recorded confidence value is {evaluation.confidence}; "
+                    "no statistical confidence semantics are inferred."
+                )
+            else:
+                confidence_note = (
+                    f"The recorded confidence is {evaluation.confidence}. No additional "
+                    "confidence semantics are inferred."
+                )
         return EvaluationInterpretation(
             summary=summary,
             confidence_note=confidence_note,
@@ -265,7 +280,12 @@ class EvaluationExplanationService:
         if evaluation.confidence is None:
             limitations.append("Confidence unavailable.")
         if not provenance.fields:
-            limitations.append("No provenance recorded.")
+            if provenance.evaluator_type == "deterministic":
+                limitations.append(
+                    "AI provenance is not applicable for this deterministic evaluator."
+                )
+            else:
+                limitations.append("No provenance recorded.")
         if not inspection.payload_highlights and not evaluation.rationale:
             limitations.append("No evaluation evidence was recorded.")
         if not inspection.extractions:

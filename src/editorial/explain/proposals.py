@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from editorial.explain.common import NextAction
+from editorial.explain.common import NextAction, pluralize
 from editorial.inspection import ProposalArticleInspection, ProposalInspection
 from editorial.inspection.proposals import ProposalInspectionService
 from editorial.models import ConstraintResult
@@ -186,7 +186,7 @@ class ProposalExplanationService:
             explanation = "Included with " + " and ".join(evidence) + "."
         else:
             explanation = (
-                "Included by the optimiser; no evaluation details are available."
+                "Included in the stored proposal; no evaluation details are available."
             )
 
         return ArticleExplanation(
@@ -226,15 +226,17 @@ class ProposalExplanationService:
         missing_reading = len(articles) - len(reading_times)
 
         parts = [
-            f"{len(articles)} articles selected",
-            f"{len(source_counts)} sources represented",
+            f"{pluralize(len(articles), 'article')} selected",
+            f"{pluralize(len(source_counts), 'source')} represented",
         ]
         if total_reading is not None:
             parts.append(f"{total_reading} total reading minutes")
         if average_relevance is not None:
             parts.append(f"average relevance score {average_relevance}")
-        parts.append(f"{missing_evaluations} missing relevance evaluations")
-        parts.append(f"{missing_reading} missing reading-time extractions")
+        parts.append(
+            f"{pluralize(missing_evaluations, 'missing relevance evaluation')}"
+        )
+        parts.append(f"{pluralize(missing_reading, 'missing reading-time extraction')}")
 
         return TradeOffSummary(
             total_reading_minutes=total_reading,
@@ -272,8 +274,9 @@ class ProposalExplanationService:
             penalty_text = "No constraint results were recorded."
 
         return (
-            f"This proposal selected {len(proposal.article_ids)} articles for "
-            f"{publication}. It was created using the {proposal.optimiser} optimiser. "
+            "This proposal selected "
+            f"{pluralize(len(proposal.article_ids), 'article')} for {publication}. "
+            f"It was created using the {proposal.optimiser} optimiser. "
             f"The proposal satisfies {satisfied} of {total} recorded constraints. "
             f"{penalty_text}"
         )

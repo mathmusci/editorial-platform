@@ -10,6 +10,15 @@ class NextAction(BaseModel):
     command: str
 
 
+def pluralize(count: int, singular: str, plural: str | None = None) -> str:
+    word = singular if count == 1 else plural or f"{singular}s"
+    return f"{count} {word}"
+
+
+def workflow_event_label(event_type: str) -> str:
+    return event_type.replace("-", " ").capitalize()
+
+
 def payload_value(payload: dict[str, Any], key: str) -> Any:
     if key in payload:
         return payload[key]

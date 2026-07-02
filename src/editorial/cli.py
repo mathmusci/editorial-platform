@@ -201,6 +201,14 @@ def _format_available(value: object | None) -> str:
     return "not available" if value is None else str(value)
 
 
+def _format_evaluation_confidence(explanation: EvaluationExplanation) -> str:
+    if explanation.confidence is None:
+        return "not available"
+    if explanation.provenance.evaluator_type == "deterministic":
+        return f"{explanation.confidence} (rule-based)"
+    return str(explanation.confidence)
+
+
 def _preview(value: str | None, limit: int = 500) -> str:
     if not value:
         return "not available"
@@ -510,7 +518,7 @@ def _render_evaluation_explanation(explanation: EvaluationExplanation) -> None:
         [
             explanation.outcome_summary,
             f"Score: {_format_available(explanation.score)}",
-            f"Confidence: {_format_available(explanation.confidence)}",
+            f"Confidence: {_format_evaluation_confidence(explanation)}",
             f"Rationale: {_format_available(explanation.rationale)}",
             f"Decision: {_format_available(explanation.decision)}",
         ]
@@ -550,7 +558,12 @@ def _render_evaluation_explanation_provenance(
     explanation: EvaluationExplanation,
 ) -> None:
     if not explanation.provenance.fields:
-        console.print(Panel("No provenance recorded.", title="Provenance"))
+        message = (
+            "AI provenance is not applicable for this deterministic evaluator."
+            if explanation.provenance.evaluator_type == "deterministic"
+            else "No provenance recorded."
+        )
+        console.print(Panel(message, title="Provenance"))
         return
 
     table = Table(title="Provenance")
@@ -696,11 +709,14 @@ def _render_article_selection_evidence(
     table.add_column("Producer")
     table.add_column("Details")
     for evidence in explanation.evidence:
-        details = [
-            f"Score: {_format_available(evidence.score)}",
-            f"Confidence: {_format_available(evidence.confidence)}",
-            f"Rationale: {_format_available(evidence.rationale)}",
-        ]
+        details = []
+        if evidence.evidence_type == "evaluation":
+            if evidence.score is not None:
+                details.append(f"Score: {evidence.score}")
+            if evidence.confidence is not None:
+                details.append(f"Confidence: {evidence.confidence}")
+            if evidence.rationale:
+                details.append(f"Rationale: {evidence.rationale}")
         if evidence.highlights:
             details.append(
                 f"Highlights: {json.dumps(evidence.highlights, sort_keys=True)}"
@@ -709,7 +725,7 @@ def _render_article_selection_evidence(
             evidence.evidence_type,
             evidence.kind,
             evidence.producer,
-            "\n".join(details),
+            "\n".join(details) if details else "No details recorded.",
         )
     console.print(table)
     rationales = [
@@ -932,12 +948,7 @@ def _render_proposal_explanation(explanation: ProposalExplanation) -> None:
     console.print(Panel(identity, title="Proposal Identity", expand=False))
     console.print(
         Panel(
-            "\n".join(
-                [
-                    f"Created using the {explanation.optimiser} optimiser.",
-                    explanation.editorial_summary,
-                ]
-            ),
+            explanation.editorial_summary,
             title="Editorial Summary",
             expand=False,
         )
@@ -1015,11 +1026,12 @@ def _render_explained_articles(explanation: ProposalExplanation) -> None:
                 f"[bold]Reading time:[/bold] {_format_available(article.reading_minutes)}",
                 f"[bold]Relevance score:[/bold] {_format_available(article.relevance_score)}",
                 f"[bold]Relevance rationale:[/bold] {_format_available(article.relevance_rationale)}",
-                "[bold]Why included:[/bold]",
+                f"[bold]Article ID:[/bold] {article.article_id}",
+                "[bold]Recorded evidence:[/bold]",
                 article.explanation,
             ]
         )
-        console.print(Panel(details, title=str(article.article_id), expand=False))
+        console.print(Panel(details, title=article.title, expand=False))
 
 
 def _render_trade_off_summary(explanation: ProposalExplanation) -> None:
