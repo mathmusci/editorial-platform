@@ -24,6 +24,8 @@ from editorial.explain import (
     ArticleSelectionArticleNotFound,
     ArticleSelectionExplanation,
     ArticleSelectionExplanationService,
+    EvaluationExplanation,
+    EvaluationExplanationService,
     OptimisationRequestExplanation,
     OptimisationRequestExplanationService,
     ProposalExplanation,
@@ -162,6 +164,14 @@ def _article_selection_explanation_service(
         extractions=SQLiteExtractionRepository(db),
         evaluations=SQLiteEvaluationRepository(db),
         optimisation_requests=SQLiteOptimisationRequestRepository(db),
+    )
+
+
+def _evaluation_explanation_service(db: Path) -> EvaluationExplanationService:
+    return EvaluationExplanationService(
+        evaluation_inspections=_evaluation_inspection_service(db),
+        proposals=SQLiteIssueProposalRepository(db),
+        publications=SQLitePublicationRepository(db),
     )
 
 
@@ -313,6 +323,165 @@ def explain_article_selection(
         console.print(f"Issue proposal not found: {proposal_id}")
         raise typer.Exit(1)
     _render_article_selection_explanation(explanation)
+
+
+@explain_app.command("evaluation")
+def explain_evaluation(
+    evaluation_id: UUID = typer.Argument(...),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    explanation = _evaluation_explanation_service(db).get(evaluation_id)
+    if explanation is None:
+        console.print(f"Evaluation not found: {evaluation_id}")
+        raise typer.Exit(1)
+    _render_evaluation_explanation(explanation)
+
+
+def _render_evaluation_explanation(explanation: EvaluationExplanation) -> None:
+    identity = "\n".join(
+        [
+            f"[bold]Evaluation:[/bold] {explanation.evaluation_id}",
+            f"[bold]Article:[/bold] {explanation.article_id}",
+            f"[bold]Article title:[/bold] {_format_available(explanation.article_title)}",
+            f"[bold]Article source:[/bold] {_format_available(explanation.article_source)}",
+            f"[bold]Evaluator:[/bold] {explanation.evaluator}",
+            f"[bold]Evaluator version:[/bold] {_format_available(explanation.evaluator_version)}",
+            f"[bold]Kind:[/bold] {explanation.kind}",
+            f"[bold]Created:[/bold] {explanation.created_at.isoformat()}",
+        ]
+    )
+    console.print(Panel(identity, title="Evaluation Identity", expand=False))
+    outcome = "\n".join(
+        [
+            explanation.outcome_summary,
+            f"Score: {_format_available(explanation.score)}",
+            f"Confidence: {_format_available(explanation.confidence)}",
+            f"Rationale: {_format_available(explanation.rationale)}",
+            f"Decision: {_format_available(explanation.decision)}",
+        ]
+    )
+    console.print(Panel(outcome, title="Outcome", expand=False))
+    _render_evaluation_explanation_evidence(explanation)
+    _render_evaluation_explanation_provenance(explanation)
+    _render_evaluation_explanation_interpretation(explanation)
+    _render_evaluation_explanation_limitations(explanation)
+    _render_evaluation_explanation_related(explanation)
+    _render_evaluation_explanation_next_actions(explanation)
+
+
+def _render_evaluation_explanation_evidence(
+    explanation: EvaluationExplanation,
+) -> None:
+    if not explanation.evidence:
+        console.print(Panel("No evidence recorded.", title="Evidence"))
+        return
+
+    table = Table(title="Evidence", show_lines=True)
+    table.add_column("Type")
+    table.add_column("Kind")
+    table.add_column("Source")
+    table.add_column("Highlights")
+    for evidence in explanation.evidence:
+        table.add_row(
+            evidence.evidence_type,
+            evidence.kind,
+            evidence.source,
+            json.dumps(evidence.highlights, sort_keys=True),
+        )
+    console.print(table)
+
+
+def _render_evaluation_explanation_provenance(
+    explanation: EvaluationExplanation,
+) -> None:
+    if not explanation.provenance.fields:
+        console.print(Panel("No provenance recorded.", title="Provenance"))
+        return
+
+    table = Table(title="Provenance")
+    table.add_column("Field")
+    table.add_column("Value")
+    table.add_row("evaluator_type", explanation.provenance.evaluator_type)
+    for key, value in sorted(explanation.provenance.fields.items()):
+        table.add_row(key, json.dumps(value, sort_keys=True))
+    console.print(table)
+
+
+def _render_evaluation_explanation_interpretation(
+    explanation: EvaluationExplanation,
+) -> None:
+    details = [explanation.interpretation.summary]
+    if explanation.interpretation.confidence_note:
+        details.append(explanation.interpretation.confidence_note)
+    console.print(Panel("\n".join(details), title="Interpretation", expand=False))
+
+
+def _render_evaluation_explanation_limitations(
+    explanation: EvaluationExplanation,
+) -> None:
+    console.print(
+        Panel(
+            "\n".join(f"- {limitation}" for limitation in explanation.limitations),
+            title="Limitations",
+            expand=False,
+        )
+    )
+
+
+def _render_evaluation_explanation_related(
+    explanation: EvaluationExplanation,
+) -> None:
+    console.print(
+        Panel(
+            "\n".join(
+                [
+                    f"Article: {explanation.article_id}",
+                    f"Title: {_format_available(explanation.article_title)}",
+                ]
+            ),
+            title="Related Article",
+            expand=False,
+        )
+    )
+    for proposal in explanation.related_proposals:
+        console.print(
+            Panel(
+                "\n".join(
+                    [
+                        f"Proposal: {proposal.proposal_id}",
+                        f"Optimiser: {proposal.optimiser}",
+                        f"Objective: {proposal.objective_value}",
+                    ]
+                ),
+                title="Related Proposal",
+                expand=False,
+            )
+        )
+    for publication in explanation.related_publications:
+        console.print(
+            Panel(
+                "\n".join(
+                    [
+                        f"Publication: {publication.publication_id}",
+                        f"Title: {publication.title}",
+                        f"Proposal: {publication.proposal_id}",
+                    ]
+                ),
+                title="Related Publication",
+                expand=False,
+            )
+        )
+
+
+def _render_evaluation_explanation_next_actions(
+    explanation: EvaluationExplanation,
+) -> None:
+    table = Table(title="Next Actions", show_lines=True)
+    table.add_column("Action")
+    table.add_column("Command")
+    for action in explanation.next_actions:
+        table.add_row(action.label, action.command)
+    console.print(table)
 
 
 def _render_article_selection_explanation(

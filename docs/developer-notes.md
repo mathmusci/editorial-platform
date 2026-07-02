@@ -74,6 +74,14 @@ IssueProposal, shows related extraction and evaluation evidence, and presents
 proposal-level constraint context. For non-selected articles it deliberately
 states that the exact exclusion reason is not recorded.
 
+Evaluation artefacts can be explained directly:
+
+editorial explain evaluation <evaluation-id>
+
+This command reports the recorded outcome, evidence, provenance and limitations
+for an Evaluation. It does not recreate evaluator reasoning, re-run an
+evaluator or reinterpret fields that were not stored.
+
 Conclusion
 
 Keep explainability separate from inspection. Inspection should expose artefacts; explainability should interpret artefacts using stored evidence.
