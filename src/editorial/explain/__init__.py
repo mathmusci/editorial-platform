@@ -1,3 +1,12 @@
+from editorial.explain.article_selection import (
+    ArticleSelectionArticleNotFound,
+    ArticleSelectionConstraintContext,
+    ArticleSelectionEvidence,
+    ArticleSelectionExplanation,
+    ArticleSelectionExplanationService,
+    ArticleSelectionOutcome,
+    ArticleSelectionProposalContext,
+)
 from editorial.explain.optimisation_requests import (
     LinkedProposalExplanation,
     OptimisationBalanceExplanation,
@@ -18,6 +27,13 @@ from editorial.explain.proposals import (
 
 __all__ = [
     "ArticleExplanation",
+    "ArticleSelectionArticleNotFound",
+    "ArticleSelectionConstraintContext",
+    "ArticleSelectionEvidence",
+    "ArticleSelectionExplanation",
+    "ArticleSelectionExplanationService",
+    "ArticleSelectionOutcome",
+    "ArticleSelectionProposalContext",
     "ConstraintExplanation",
     "LinkedProposalExplanation",
     "NextAction",

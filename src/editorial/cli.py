@@ -21,6 +21,9 @@ from editorial.config import load_publication_config
 from editorial.engine import EditorialEngine
 from editorial.evaluators import build_evaluator
 from editorial.explain import (
+    ArticleSelectionArticleNotFound,
+    ArticleSelectionExplanation,
+    ArticleSelectionExplanationService,
     OptimisationRequestExplanation,
     OptimisationRequestExplanationService,
     ProposalExplanation,
@@ -147,6 +150,18 @@ def _optimisation_request_explanation_service(
     return OptimisationRequestExplanationService(
         optimisation_requests=SQLiteOptimisationRequestRepository(db),
         proposals=SQLiteIssueProposalRepository(db),
+    )
+
+
+def _article_selection_explanation_service(
+    db: Path,
+) -> ArticleSelectionExplanationService:
+    return ArticleSelectionExplanationService(
+        proposals=SQLiteIssueProposalRepository(db),
+        articles=SQLiteArticleRepository(db),
+        extractions=SQLiteExtractionRepository(db),
+        evaluations=SQLiteEvaluationRepository(db),
+        optimisation_requests=SQLiteOptimisationRequestRepository(db),
     )
 
 
@@ -279,6 +294,175 @@ def explain_optimisation_request(
         console.print(f"Optimisation request not found: {request_id}")
         raise typer.Exit(1)
     _render_optimisation_request_explanation(explanation)
+
+
+@explain_app.command("article-selection")
+def explain_article_selection(
+    proposal_id: UUID = typer.Argument(...),
+    article_id: UUID = typer.Argument(...),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    try:
+        explanation = _article_selection_explanation_service(db).get(
+            proposal_id, article_id
+        )
+    except ArticleSelectionArticleNotFound:
+        console.print(f"Article not found: {article_id}")
+        raise typer.Exit(1) from None
+    if explanation is None:
+        console.print(f"Issue proposal not found: {proposal_id}")
+        raise typer.Exit(1)
+    _render_article_selection_explanation(explanation)
+
+
+def _render_article_selection_explanation(
+    explanation: ArticleSelectionExplanation,
+) -> None:
+    identity = "\n".join(
+        [
+            f"[bold]Proposal:[/bold] {explanation.proposal_id}",
+            f"[bold]Article:[/bold] {explanation.article_id}",
+            f"[bold]Title:[/bold] {explanation.article_title}",
+            f"[bold]Source:[/bold] {_format_available(explanation.article_source)}",
+            f"[bold]URL:[/bold] {_format_available(explanation.article_url)}",
+            f"[bold]Optimisation request:[/bold] {_format_available(explanation.optimisation_request_id)}",
+            f"[bold]Optimiser:[/bold] {explanation.optimiser}",
+            f"[bold]Proposal objective value:[/bold] {explanation.proposal_objective_value}",
+        ]
+    )
+    console.print(Panel(identity, title="Article Selection Identity", expand=False))
+    console.print(
+        Panel(
+            explanation.outcome.status,
+            title="Selection Outcome",
+            expand=False,
+        )
+    )
+    console.print(
+        Panel(
+            explanation.outcome.explanation,
+            title="Deterministic Explanation",
+            expand=False,
+        )
+    )
+    if not explanation.outcome.included:
+        console.print(
+            Panel(
+                "The stored proposal does not record the exact exclusion reason.",
+                title="Exclusion Caveat",
+                expand=False,
+            )
+        )
+    _render_article_selection_evidence(explanation)
+    _render_article_selection_proposal_context(explanation)
+    _render_article_selection_constraints(explanation)
+    _render_article_selection_next_actions(explanation)
+
+
+def _render_article_selection_evidence(
+    explanation: ArticleSelectionExplanation,
+) -> None:
+    if not explanation.evidence:
+        console.print(
+            Panel(
+                "No extraction or evaluation evidence is available.",
+                title="Article Evidence",
+            )
+        )
+        return
+
+    table = Table(title="Article Evidence", show_lines=True)
+    table.add_column("Type")
+    table.add_column("Kind")
+    table.add_column("Producer")
+    table.add_column("Details")
+    for evidence in explanation.evidence:
+        details = [
+            f"Score: {_format_available(evidence.score)}",
+            f"Confidence: {_format_available(evidence.confidence)}",
+            f"Rationale: {_format_available(evidence.rationale)}",
+        ]
+        if evidence.highlights:
+            details.append(
+                f"Highlights: {json.dumps(evidence.highlights, sort_keys=True)}"
+            )
+        table.add_row(
+            evidence.evidence_type,
+            evidence.kind,
+            evidence.producer,
+            "\n".join(details),
+        )
+    console.print(table)
+    rationales = [
+        evidence.rationale for evidence in explanation.evidence if evidence.rationale
+    ]
+    for rationale in rationales:
+        console.print(Panel(rationale, title="Rationale", expand=False))
+
+
+def _render_article_selection_proposal_context(
+    explanation: ArticleSelectionExplanation,
+) -> None:
+    context = explanation.proposal_context
+    rows = {
+        "Selected article count": context.selected_article_count,
+        "Objective value": context.objective_value,
+        "Satisfied constraints": context.satisfied_constraint_count,
+        "Failed constraints": context.failed_constraint_count,
+        "Largest penalties": (
+            ", ".join(
+                f"{name}: {penalty}" for name, penalty in context.largest_penalties
+            )
+            if context.largest_penalties
+            else "none"
+        ),
+        "Source counts": json.dumps(context.source_counts, sort_keys=True),
+        "Article source represented": _format_available(
+            context.article_source_represented
+        ),
+    }
+    _render_key_value_table("Proposal Context", rows)
+
+
+def _render_article_selection_constraints(
+    explanation: ArticleSelectionExplanation,
+) -> None:
+    if not explanation.constraint_context:
+        console.print(
+            Panel(
+                "No relevant proposal constraints were recorded.",
+                title="Constraint Context",
+            )
+        )
+        return
+
+    table = Table(title="Constraint Context", show_lines=True)
+    table.add_column("Constraint")
+    table.add_column("Details")
+    for constraint in explanation.constraint_context:
+        details = "\n".join(
+            [
+                f"Kind: {constraint.kind}",
+                f"Satisfied: {constraint.satisfied}",
+                f"Value: {_format_available(constraint.value)}",
+                f"Target: {_format_available(constraint.target)}",
+                f"Penalty: {constraint.penalty}",
+                constraint.interpretation,
+            ]
+        )
+        table.add_row(constraint.name, details)
+    console.print(table)
+
+
+def _render_article_selection_next_actions(
+    explanation: ArticleSelectionExplanation,
+) -> None:
+    table = Table(title="Next Actions", show_lines=True)
+    table.add_column("Action")
+    table.add_column("Command")
+    for action in explanation.next_actions:
+        table.add_row(action.label, action.command)
+    console.print(table)
 
 
 def _render_optimisation_request_explanation(
