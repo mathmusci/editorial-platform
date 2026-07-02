@@ -83,6 +83,18 @@ class SQLiteArticleRepository:
             )
             return True
 
+    def exists(self, article: Article) -> bool:
+        with self._connect() as conn:
+            if article.url is not None:
+                existing = conn.execute(
+                    "SELECT id FROM articles WHERE url = ?", (str(article.url),)
+                ).fetchone()
+            else:
+                existing = conn.execute(
+                    "SELECT id FROM articles WHERE id = ?", (str(article.id),)
+                ).fetchone()
+        return existing is not None
+
     def list(
         self, status: EditorialStatus | None = None, limit: int | None = None
     ) -> list[Article]:

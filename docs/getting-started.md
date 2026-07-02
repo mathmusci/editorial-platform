@@ -66,7 +66,7 @@ editorial ingest --config examples/bis/publication.yaml --db bis-getting-started
 ```
 
 Expected outcome: the command prints the publication name plus counts for
-fetched, inserted and skipped duplicate articles.
+fetched, added, duplicate source and already-stored articles.
 
 ### 2. Extract article evidence
 

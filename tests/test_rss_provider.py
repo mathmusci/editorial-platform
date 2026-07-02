@@ -31,18 +31,23 @@ def test_rss_provider_can_be_built_from_config_and_skips_duplicate_urls(tmp_path
     result = EditorialEngine(repo).ingest([provider])
 
     assert result.fetched == 3
-    assert result.inserted == 2
-    assert result.skipped_duplicates == 1
+    assert result.added == 2
+    assert result.duplicates_in_source == 1
+    assert result.already_in_database == 0
     assert repo.count() == 2
 
 
 def test_rss_provider_ingests_from_publication_yaml_fixture(tmp_path):
     config = load_publication_config("tests/fixtures/rss/publication.yaml")
-    providers = [build_provider(provider_config, base_path=config.base_path) for provider_config in config.providers]
+    providers = [
+        build_provider(provider_config, base_path=config.base_path)
+        for provider_config in config.providers
+    ]
     repo = SQLiteArticleRepository(tmp_path / "test.sqlite")
 
     result = EditorialEngine(repo).ingest(providers)
 
     assert result.fetched == 3
-    assert result.inserted == 2
-    assert result.skipped_duplicates == 1
+    assert result.added == 2
+    assert result.duplicates_in_source == 1
+    assert result.already_in_database == 0

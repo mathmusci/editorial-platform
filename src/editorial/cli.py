@@ -219,8 +219,9 @@ def ingest(
     result = EditorialEngine(SQLiteArticleRepository(db)).ingest(providers)
     console.print(f"[bold]Publication:[/bold] {cfg.publication.name}")
     console.print(f"Fetched: {result.fetched}")
-    console.print(f"Inserted: {result.inserted}")
-    console.print(f"Skipped duplicates: {result.skipped_duplicates}")
+    console.print(f"Added: {result.added}")
+    console.print(f"Duplicates in source: {result.duplicates_in_source}")
+    console.print(f"Already in database: {result.already_in_database}")
 
 
 @app.command()
