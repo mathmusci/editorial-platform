@@ -7,6 +7,13 @@ from editorial.explain.article_selection import (
     ArticleSelectionOutcome,
     ArticleSelectionProposalContext,
 )
+from editorial.explain.evaluations import (
+    EvaluationEvidence,
+    EvaluationExplanation,
+    EvaluationExplanationService,
+    EvaluationInterpretation,
+    EvaluationProvenance,
+)
 from editorial.explain.optimisation_requests import (
     LinkedProposalExplanation,
     OptimisationBalanceExplanation,
@@ -35,6 +42,11 @@ __all__ = [
     "ArticleSelectionOutcome",
     "ArticleSelectionProposalContext",
     "ConstraintExplanation",
+    "EvaluationEvidence",
+    "EvaluationExplanation",
+    "EvaluationExplanationService",
+    "EvaluationInterpretation",
+    "EvaluationProvenance",
     "LinkedProposalExplanation",
     "NextAction",
     "OptimisationBalanceExplanation",
