@@ -53,3 +53,31 @@ def test_engine_distinguishes_source_duplicates_from_repository_duplicates(tmp_p
         == second.added + second.duplicates_in_source + second.already_in_database
     )
     assert repo.count() == 2
+
+
+def test_engine_reports_mixed_new_source_duplicate_and_existing_articles(tmp_path):
+    repo = SQLiteArticleRepository(tmp_path / "test.sqlite")
+    existing_provider = StaticProvider(
+        [{"title": "Existing", "url": "https://example.org/existing"}]
+    )
+    mixed_provider = StaticProvider(
+        [
+            {"title": "Existing again", "url": "https://example.org/existing"},
+            {"title": "New", "url": "https://example.org/new"},
+            {"title": "New duplicate", "url": "https://example.org/new"},
+        ]
+    )
+    engine = EditorialEngine(repo)
+    engine.ingest([existing_provider])
+
+    result = engine.ingest([mixed_provider])
+
+    assert result.fetched == 3
+    assert result.added == 1
+    assert result.duplicates_in_source == 1
+    assert result.already_in_database == 1
+    assert (
+        result.fetched
+        == result.added + result.duplicates_in_source + result.already_in_database
+    )
+    assert repo.count() == 2
