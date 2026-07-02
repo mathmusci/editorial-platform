@@ -20,6 +20,7 @@ from editorial.cli_helpers import (
 from editorial.config import load_publication_config
 from editorial.engine import EditorialEngine
 from editorial.evaluators import build_evaluator
+from editorial.explain import ProposalExplanation, ProposalExplanationService
 from editorial.extractors import build_extractor
 from editorial.inspection import (
     ArticleInspection,
@@ -62,6 +63,7 @@ publish_app = typer.Typer(help="Render publications to output formats")
 proposal_app = typer.Typer(help="Inspect issue proposals")
 evaluation_app = typer.Typer(help="Inspect evaluations")
 article_app = typer.Typer(help="Inspect articles")
+explain_app = typer.Typer(help="Explain editorial artefacts")
 app.add_typer(workflow_app, name="workflow")
 app.add_typer(optimisation_request_app, name="optimisation-request")
 app.add_typer(review_app, name="review")
@@ -70,6 +72,7 @@ app.add_typer(publish_app, name="publish")
 app.add_typer(proposal_app, name="proposal")
 app.add_typer(evaluation_app, name="evaluation")
 app.add_typer(article_app, name="article")
+app.add_typer(explain_app, name="explain")
 console = Console()
 
 
@@ -127,6 +130,10 @@ def _review_inspection_service(db: Path) -> ReviewInspectionService:
         publications=SQLitePublicationRepository(db),
         workflow_events=SQLiteWorkflowEventRepository(db),
     )
+
+
+def _proposal_explanation_service(db: Path) -> ProposalExplanationService:
+    return ProposalExplanationService(_proposal_inspection_service(db))
 
 
 def _format_optional(value: object | None) -> str:
@@ -233,6 +240,147 @@ def list_articles(
         table.add_row(
             a.status.value, a.source or "", a.title, str(a.url) if a.url else ""
         )
+    console.print(table)
+
+
+@explain_app.command("proposal")
+def explain_proposal(
+    proposal_id: UUID = typer.Argument(...),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    explanation = _proposal_explanation_service(db).get(proposal_id)
+    if explanation is None:
+        console.print(f"Issue proposal not found: {proposal_id}")
+        raise typer.Exit(1)
+    _render_proposal_explanation(explanation)
+
+
+def _render_proposal_explanation(explanation: ProposalExplanation) -> None:
+    identity = "\n".join(
+        [
+            f"[bold]Proposal:[/bold] {explanation.proposal_id}",
+            f"[bold]Created:[/bold] {explanation.created_at.isoformat()}",
+            f"[bold]Optimisation request:[/bold] {_format_available(explanation.optimisation_request_id)}",
+            f"[bold]Publication:[/bold] {_format_available(explanation.publication_name)}",
+            f"[bold]Optimiser:[/bold] {explanation.optimiser}",
+            f"[bold]Selected articles:[/bold] {explanation.selected_article_count}",
+            f"[bold]Objective value:[/bold] {explanation.objective_value}",
+        ]
+    )
+    console.print(Panel(identity, title="Proposal Identity", expand=False))
+    console.print(
+        Panel(
+            "\n".join(
+                [
+                    f"Created using the {explanation.optimiser} optimiser.",
+                    explanation.editorial_summary,
+                ]
+            ),
+            title="Editorial Summary",
+            expand=False,
+        )
+    )
+    _render_explanation_constraints(explanation)
+    _render_penalty_breakdown(explanation)
+    _render_explained_articles(explanation)
+    _render_trade_off_summary(explanation)
+    _render_next_actions(explanation)
+
+
+def _render_explanation_constraints(explanation: ProposalExplanation) -> None:
+    if not explanation.constraints:
+        console.print(
+            Panel("No constraint results were recorded.", title="Constraints")
+        )
+        return
+
+    console.print("[bold]Constraint Explanation[/bold]")
+    for constraint in explanation.constraints:
+        details = "\n".join(
+            [
+                f"Kind: {constraint.kind}",
+                f"Satisfied: {constraint.satisfied}",
+                f"Value: {_format_available(constraint.value)}",
+                f"Target: {_format_available(constraint.target)}",
+                f"Penalty: {constraint.penalty}",
+                f"Message: {_format_available(constraint.message)}",
+                constraint.explanation,
+            ]
+        )
+        console.print(Panel(details, title=constraint.name, expand=False))
+
+
+def _render_penalty_breakdown(explanation: ProposalExplanation) -> None:
+    breakdown = explanation.penalty_breakdown
+    summary = "\n".join(
+        [
+            f"[bold]Total penalty:[/bold] {breakdown.total_penalty}",
+            f"[bold]Largest penalty:[/bold] {_format_available(breakdown.largest_penalty_name)}",
+            f"[bold]Failed constraints:[/bold] {', '.join(breakdown.failed_constraints) if breakdown.failed_constraints else 'none'}",
+            f"[bold]Zero-penalty constraints:[/bold] {', '.join(breakdown.zero_penalty_constraints) if breakdown.zero_penalty_constraints else 'none'}",
+            f"[bold]Objective note:[/bold] {_format_available(breakdown.objective_note)}",
+        ]
+    )
+    console.print(Panel(summary, title="Penalty Breakdown", expand=False))
+
+    if not breakdown.ordered_constraints:
+        return
+    table = Table(title="Penalties by Constraint")
+    table.add_column("Constraint")
+    table.add_column("Penalty", justify="right")
+    table.add_column("Satisfied")
+    for constraint in breakdown.ordered_constraints:
+        table.add_row(
+            constraint.name,
+            str(constraint.penalty),
+            str(constraint.satisfied),
+        )
+    console.print(table)
+
+
+def _render_explained_articles(explanation: ProposalExplanation) -> None:
+    if not explanation.articles:
+        console.print(Panel("No selected articles found.", title="Selected Articles"))
+        return
+
+    console.print("[bold]Selected Articles[/bold]")
+    for article in explanation.articles:
+        details = "\n".join(
+            [
+                f"[bold]Title:[/bold] {article.title}",
+                f"[bold]Source:[/bold] {_format_available(article.source)}",
+                f"[bold]URL:[/bold] {_format_available(article.url)}",
+                f"[bold]Reading time:[/bold] {_format_available(article.reading_minutes)}",
+                f"[bold]Relevance score:[/bold] {_format_available(article.relevance_score)}",
+                f"[bold]Relevance rationale:[/bold] {_format_available(article.relevance_rationale)}",
+                "[bold]Why included:[/bold]",
+                article.explanation,
+            ]
+        )
+        console.print(Panel(details, title=str(article.article_id), expand=False))
+
+
+def _render_trade_off_summary(explanation: ProposalExplanation) -> None:
+    trade_offs = explanation.trade_off_summary
+    details = "\n".join(
+        [
+            trade_offs.summary,
+            f"Total reading minutes: {_format_available(trade_offs.total_reading_minutes)}",
+            f"Average relevance score: {_format_available(trade_offs.average_relevance_score)}",
+            f"Missing evaluations: {trade_offs.missing_evaluation_count}",
+            f"Missing reading-time data: {trade_offs.missing_reading_time_count}",
+            f"Source counts: {json.dumps(trade_offs.source_counts, sort_keys=True)}",
+        ]
+    )
+    console.print(Panel(details, title="Trade-Off Summary", expand=False))
+
+
+def _render_next_actions(explanation: ProposalExplanation) -> None:
+    table = Table(title="Next Actions", show_lines=True)
+    table.add_column("Action")
+    table.add_column("Command")
+    for action in explanation.next_actions:
+        table.add_row(action.label, action.command)
     console.print(table)
 
 
