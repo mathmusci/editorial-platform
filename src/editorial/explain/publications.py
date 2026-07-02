@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from editorial.explain.common import NextAction
 from editorial.inspection import PublicationInspection
 from editorial.inspection.publications import PublicationInspectionService
 
@@ -54,11 +55,6 @@ class PublicationEvidence(BaseModel):
 
 class PublicationLimitations(BaseModel):
     items: list[str]
-
-
-class NextAction(BaseModel):
-    label: str
-    command: str
 
 
 class PublicationExplanation(BaseModel):

@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from editorial.explain.common import NextAction, simple_payload_highlights
 from editorial.models import (
     Article,
     ConstraintResult,
@@ -60,11 +61,6 @@ class ArticleSelectionProposalContext(BaseModel):
     largest_penalties: list[tuple[str, float]]
     source_counts: dict[str, int]
     article_source_represented: bool | None = None
-
-
-class NextAction(BaseModel):
-    label: str
-    command: str
 
 
 class ArticleSelectionExplanation(BaseModel):
@@ -179,7 +175,7 @@ class ArticleSelectionExplanationService:
             }
         if extraction.kind == "summary" and "summary" in extraction.payload:
             return {"summary": extraction.payload["summary"]}
-        return self._simple_highlights(extraction.payload)
+        return simple_payload_highlights(extraction.payload)
 
     def _evaluation_highlights(self, evaluation: Evaluation) -> dict[str, Any]:
         highlights = {
@@ -188,16 +184,7 @@ class ArticleSelectionExplanationService:
             if key in evaluation.payload
         }
         if not highlights:
-            highlights = self._simple_highlights(evaluation.payload)
-        return highlights
-
-    def _simple_highlights(self, payload: dict[str, Any]) -> dict[str, Any]:
-        highlights: dict[str, Any] = {}
-        for key, value in payload.items():
-            if isinstance(value, str | int | float | bool) or value is None:
-                highlights[key] = value
-            if len(highlights) >= 4:
-                break
+            highlights = simple_payload_highlights(evaluation.payload)
         return highlights
 
     def _outcome(

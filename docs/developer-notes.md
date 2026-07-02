@@ -92,6 +92,12 @@ how the Publication originated and what stored evidence supports its
 composition, without recreating editorial reasoning or inferring intent that was
 not recorded.
 
+The explainability layer now shares a small set of common concepts where reuse is
+useful: next actions and lightweight payload helpers for recorded evidence and
+provenance fields. The individual explanation services remain explicit because
+Proposal, Evaluation, Article Selection, Optimisation Request and Publication
+explanations have different editorial shapes.
+
 Conclusion
 
 Keep explainability separate from inspection. Inspection should expose artefacts; explainability should interpret artefacts using stored evidence.

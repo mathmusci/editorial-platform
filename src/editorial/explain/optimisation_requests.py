@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from editorial.explain.common import NextAction
 from editorial.models import IssueProposal, OptimisationRequest
 from editorial.storage import (
     SQLiteIssueProposalRepository,
@@ -53,11 +54,6 @@ class OptimisationBalanceExplanation(BaseModel):
 class OptimisationOutcomeExplanation(BaseModel):
     summary: str
     proposal_count: int
-
-
-class NextAction(BaseModel):
-    label: str
-    command: str
 
 
 class OptimisationRequestExplanation(BaseModel):

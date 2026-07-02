@@ -198,6 +198,15 @@ def _preview(value: str | None, limit: int = 500) -> str:
     return collapsed[: limit - 3].rstrip() + "..."
 
 
+def _render_next_actions_table(actions: list[object]) -> None:
+    table = Table(title="Next Actions", show_lines=True)
+    table.add_column("Action")
+    table.add_column("Command")
+    for action in actions:
+        table.add_row(action.label, action.command)
+    console.print(table)
+
+
 @app.command()
 def ingest(
     config: Path = typer.Option(..., "--config", "-c"),
@@ -467,12 +476,7 @@ def _render_publication_explanation_related(
 def _render_publication_explanation_next_actions(
     explanation: PublicationExplanation,
 ) -> None:
-    table = Table(title="Next Actions", show_lines=True)
-    table.add_column("Action")
-    table.add_column("Command")
-    for action in explanation.next_actions:
-        table.add_row(action.label, action.command)
-    console.print(table)
+    _render_next_actions_table(explanation.next_actions)
 
 
 def _render_evaluation_explanation(explanation: EvaluationExplanation) -> None:
@@ -614,12 +618,7 @@ def _render_evaluation_explanation_related(
 def _render_evaluation_explanation_next_actions(
     explanation: EvaluationExplanation,
 ) -> None:
-    table = Table(title="Next Actions", show_lines=True)
-    table.add_column("Action")
-    table.add_column("Command")
-    for action in explanation.next_actions:
-        table.add_row(action.label, action.command)
-    console.print(table)
+    _render_next_actions_table(explanation.next_actions)
 
 
 def _render_article_selection_explanation(
@@ -764,12 +763,7 @@ def _render_article_selection_constraints(
 def _render_article_selection_next_actions(
     explanation: ArticleSelectionExplanation,
 ) -> None:
-    table = Table(title="Next Actions", show_lines=True)
-    table.add_column("Action")
-    table.add_column("Command")
-    for action in explanation.next_actions:
-        table.add_row(action.label, action.command)
-    console.print(table)
+    _render_next_actions_table(explanation.next_actions)
 
 
 def _render_optimisation_request_explanation(
@@ -907,12 +901,7 @@ def _render_optimisation_outcome(
 def _render_optimisation_next_actions(
     explanation: OptimisationRequestExplanation,
 ) -> None:
-    table = Table(title="Next Actions", show_lines=True)
-    table.add_column("Action")
-    table.add_column("Command")
-    for action in explanation.next_actions:
-        table.add_row(action.label, action.command)
-    console.print(table)
+    _render_next_actions_table(explanation.next_actions)
 
 
 def _render_proposal_explanation(explanation: ProposalExplanation) -> None:
@@ -1036,12 +1025,7 @@ def _render_trade_off_summary(explanation: ProposalExplanation) -> None:
 
 
 def _render_next_actions(explanation: ProposalExplanation) -> None:
-    table = Table(title="Next Actions", show_lines=True)
-    table.add_column("Action")
-    table.add_column("Command")
-    for action in explanation.next_actions:
-        table.add_row(action.label, action.command)
-    console.print(table)
+    _render_next_actions_table(explanation.next_actions)
 
 
 @article_app.command("list")

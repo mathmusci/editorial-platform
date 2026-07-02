@@ -7,6 +7,7 @@ from editorial.explain.article_selection import (
     ArticleSelectionOutcome,
     ArticleSelectionProposalContext,
 )
+from editorial.explain.common import NextAction
 from editorial.explain.evaluations import (
     EvaluationEvidence,
     EvaluationExplanation,
@@ -35,7 +36,6 @@ from editorial.explain.publications import (
 from editorial.explain.proposals import (
     ArticleExplanation,
     ConstraintExplanation,
-    NextAction,
     PenaltyBreakdown,
     ProposalExplanation,
     ProposalExplanationService,
