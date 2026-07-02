@@ -22,6 +22,16 @@ from editorial.explain.optimisation_requests import (
     OptimisationRequestExplanationService,
     OptimisationSettingExplanation,
 )
+from editorial.explain.publications import (
+    PublicationComposition,
+    PublicationEditorialContext,
+    PublicationEvidence,
+    PublicationExplanation,
+    PublicationExplanationService,
+    PublicationIdentity,
+    PublicationLimitations,
+    PublicationWorkflowSummary,
+)
 from editorial.explain.proposals import (
     ArticleExplanation,
     ConstraintExplanation,
@@ -55,6 +65,14 @@ __all__ = [
     "OptimisationRequestExplanationService",
     "OptimisationSettingExplanation",
     "PenaltyBreakdown",
+    "PublicationComposition",
+    "PublicationEditorialContext",
+    "PublicationEvidence",
+    "PublicationExplanation",
+    "PublicationExplanationService",
+    "PublicationIdentity",
+    "PublicationLimitations",
+    "PublicationWorkflowSummary",
     "ProposalExplanation",
     "ProposalExplanationService",
     "TradeOffSummary",

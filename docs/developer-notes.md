@@ -82,6 +82,16 @@ This command reports the recorded outcome, evidence, provenance and limitations
 for an Evaluation. It does not recreate evaluator reasoning, re-run an
 evaluator or reinterpret fields that were not stored.
 
+Publication artefacts complete the first explainability layer:
+
+editorial explain publication <publication-id>
+
+This command synthesises recorded evidence from optimisation requests,
+IssueProposal artefacts, editorial reviews and Publication records. It explains
+how the Publication originated and what stored evidence supports its
+composition, without recreating editorial reasoning or inferring intent that was
+not recorded.
+
 Conclusion
 
 Keep explainability separate from inspection. Inspection should expose artefacts; explainability should interpret artefacts using stored evidence.

@@ -28,6 +28,8 @@ from editorial.explain import (
     EvaluationExplanationService,
     OptimisationRequestExplanation,
     OptimisationRequestExplanationService,
+    PublicationExplanation,
+    PublicationExplanationService,
     ProposalExplanation,
     ProposalExplanationService,
 )
@@ -173,6 +175,10 @@ def _evaluation_explanation_service(db: Path) -> EvaluationExplanationService:
         proposals=SQLiteIssueProposalRepository(db),
         publications=SQLitePublicationRepository(db),
     )
+
+
+def _publication_explanation_service(db: Path) -> PublicationExplanationService:
+    return PublicationExplanationService(_publication_inspection_service(db))
 
 
 def _format_optional(value: object | None) -> str:
@@ -335,6 +341,138 @@ def explain_evaluation(
         console.print(f"Evaluation not found: {evaluation_id}")
         raise typer.Exit(1)
     _render_evaluation_explanation(explanation)
+
+
+@explain_app.command("publication")
+def explain_publication(
+    publication_id: UUID = typer.Argument(...),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    explanation = _publication_explanation_service(db).get(publication_id)
+    if explanation is None:
+        console.print(f"Publication not found: {publication_id}")
+        raise typer.Exit(1)
+    _render_publication_explanation(explanation)
+
+
+def _render_publication_explanation(explanation: PublicationExplanation) -> None:
+    identity = explanation.identity
+    details = "\n".join(
+        [
+            f"[bold]Publication:[/bold] {identity.publication_id}",
+            f"[bold]Title:[/bold] {identity.title}",
+            f"[bold]Subtitle:[/bold] {_format_available(identity.subtitle)}",
+            f"[bold]Created:[/bold] {identity.created_at.isoformat()}",
+            f"[bold]Issue proposal:[/bold] {identity.proposal_id}",
+            f"[bold]Optimisation request:[/bold] {_format_available(identity.optimisation_request_id)}",
+            f"[bold]Status:[/bold] {_format_available(identity.status)}",
+        ]
+    )
+    console.print(Panel(details, title="Publication Identity", expand=False))
+    console.print(
+        Panel(explanation.editorial_summary, title="Editorial Summary", expand=False)
+    )
+    _render_publication_explanation_workflow(explanation)
+    _render_publication_explanation_composition(explanation)
+    _render_publication_explanation_evidence(explanation)
+    console.print(
+        Panel(explanation.interpretation, title="Interpretation", expand=False)
+    )
+    console.print(
+        Panel(
+            "\n".join(f"- {item}" for item in explanation.limitations.items),
+            title="Limitations",
+            expand=False,
+        )
+    )
+    _render_publication_explanation_related(explanation)
+    _render_publication_explanation_next_actions(explanation)
+
+
+def _render_publication_explanation_workflow(
+    explanation: PublicationExplanation,
+) -> None:
+    workflow = explanation.evidence.workflow
+    if not workflow.events:
+        console.print(Panel("No workflow events recorded.", title="Workflow"))
+        return
+    table = Table(title="Editorial Workflow")
+    table.add_column("Event")
+    for event in workflow.events:
+        table.add_row(event)
+    console.print(table)
+
+
+def _render_publication_explanation_composition(
+    explanation: PublicationExplanation,
+) -> None:
+    composition = explanation.composition
+    rows = {
+        "Section count": composition.section_count,
+        "Section titles": ", ".join(composition.section_titles)
+        if composition.section_titles
+        else "none",
+        "Article count": composition.article_count,
+        "Source counts": json.dumps(composition.source_counts, sort_keys=True),
+        "Total reading minutes": _format_available(composition.total_reading_minutes),
+        "Average relevance score": _format_available(
+            composition.average_relevance_score
+        ),
+        "Missing evaluations": composition.missing_evaluation_count,
+        "Missing reading time": composition.missing_reading_time_count,
+    }
+    _render_key_value_table("Publication Composition", rows)
+
+
+def _render_publication_explanation_evidence(
+    explanation: PublicationExplanation,
+) -> None:
+    context = explanation.evidence.editorial_context
+    rows = {
+        "Summary": explanation.evidence.summary,
+        "Proposal objective value": _format_available(context.proposal_objective_value),
+        "Satisfied constraints": context.satisfied_constraint_count,
+        "Failed constraints": context.failed_constraint_count,
+        "Largest penalties": (
+            ", ".join(
+                f"{name}: {penalty}" for name, penalty in context.largest_penalties
+            )
+            if context.largest_penalties
+            else "none"
+        ),
+        "Review decisions": ", ".join(context.review_decisions)
+        if context.review_decisions
+        else "none",
+        "Review comments": " | ".join(context.review_comments)
+        if context.review_comments
+        else "none",
+        "Metadata": json.dumps(context.metadata, sort_keys=True)
+        if context.metadata
+        else "none",
+    }
+    _render_key_value_table("Editorial Evidence", rows)
+
+
+def _render_publication_explanation_related(
+    explanation: PublicationExplanation,
+) -> None:
+    table = Table(title="Related Artefacts", show_lines=True)
+    table.add_column("Type")
+    table.add_column("Values")
+    for key, values in explanation.related_artefacts.items():
+        table.add_row(key, "\n".join(values))
+    console.print(table)
+
+
+def _render_publication_explanation_next_actions(
+    explanation: PublicationExplanation,
+) -> None:
+    table = Table(title="Next Actions", show_lines=True)
+    table.add_column("Action")
+    table.add_column("Command")
+    for action in explanation.next_actions:
+        table.add_row(action.label, action.command)
+    console.print(table)
 
 
 def _render_evaluation_explanation(explanation: EvaluationExplanation) -> None:
