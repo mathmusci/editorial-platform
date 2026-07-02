@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from editorial.explain.common import NextAction
 from editorial.inspection import ProposalArticleInspection, ProposalInspection
 from editorial.inspection.proposals import ProposalInspectionService
 from editorial.models import ConstraintResult
@@ -48,11 +49,6 @@ class TradeOffSummary(BaseModel):
     missing_evaluation_count: int
     missing_reading_time_count: int
     summary: str
-
-
-class NextAction(BaseModel):
-    label: str
-    command: str
 
 
 class ProposalExplanation(BaseModel):

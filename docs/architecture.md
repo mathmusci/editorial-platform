@@ -137,6 +137,38 @@ sections, metadata, and the proposal they were built from. Creating a Publicatio
 render an output file. Publisher implementations render Publications into concrete formats;
 the first implementation renders Markdown.
 
+## Inspection And Explainability
+
+Inspection and explainability are separate application-layer subsystems built on the stored
+artefacts.
+
+Inspection answers: "What exists?"
+
+Inspection services load artefacts and related records so editors and developers can see
+stored Articles, Evaluations, IssueProposals, Reviews, Publications and WorkflowEvents
+without querying SQLite directly.
+
+Explainability answers: "What can be concluded from the recorded evidence?"
+
+Explainability services interpret stored artefacts in editorial terms. They can summarise
+proposal constraints, optimisation requests, article-selection evidence, evaluation
+provenance and publication composition. They do not re-run extractors, evaluators,
+optimisers or publishers. They do not call an LLM. They do not infer intent or reasoning
+that was not recorded.
+
+Common explainability concepts include:
+
+- Evidence: stored values that support an explanation, such as extraction highlights,
+  evaluation rationales, review decisions, constraint results or publication metadata.
+- Provenance: recorded origin details, such as evaluator, provider, model, prompt version
+  or token usage where those values exist.
+- Limitations: explicit statements about missing rationale, missing provenance, missing
+  evaluations, missing extractions or incomplete workflow records.
+- Next actions: concrete CLI commands that let an editor inspect related artefacts.
+
+This separation keeps inspection factual and explainability interpretive while preserving
+the same audit boundary: both layers only use recorded platform artefacts.
+
 ## Editorial Workflow
 
 The editorial lifecycle describes the human/editorial sequence of work:

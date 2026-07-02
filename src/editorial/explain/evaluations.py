@@ -6,6 +6,12 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from editorial.explain.common import (
+    NextAction,
+    payload_subset,
+    payload_value,
+    simple_payload_highlights,
+)
 from editorial.inspection import EvaluationInspection
 from editorial.inspection.evaluations import EvaluationInspectionService
 from editorial.models import Extraction
@@ -52,11 +58,6 @@ class RelatedPublication(BaseModel):
     publication_id: UUID
     title: str
     proposal_id: UUID
-
-
-class NextAction(BaseModel):
-    label: str
-    command: str
 
 
 class EvaluationExplanation(BaseModel):
@@ -118,7 +119,7 @@ class EvaluationExplanationService:
             score=evaluation.score,
             confidence=evaluation.confidence,
             rationale=evaluation.rationale,
-            decision=self._payload_value(evaluation.payload, "decision"),
+            decision=payload_value(evaluation.payload, "decision"),
             outcome_summary=self._outcome_summary(inspection),
             evidence=self._evidence(inspection),
             provenance=provenance,
@@ -191,7 +192,7 @@ class EvaluationExplanationService:
             "extracted_keywords",
             "decision",
         ):
-            value = self._payload_value(evaluation.payload, key)
+            value = payload_value(evaluation.payload, key)
             if value is not None:
                 highlights[key] = value
         for key, value in inspection.payload_highlights.items():
@@ -200,21 +201,19 @@ class EvaluationExplanationService:
 
     def _extraction_highlights(self, extraction: Extraction) -> dict[str, Any]:
         if extraction.kind == "reading_time":
-            return self._payload_subset(
-                extraction.payload, ("reading_minutes", "word_count")
-            )
+            return payload_subset(extraction.payload, ("reading_minutes", "word_count"))
         if extraction.kind == "summary":
-            return self._payload_subset(extraction.payload, ("summary",))
+            return payload_subset(extraction.payload, ("summary",))
         if extraction.kind in {"keywords", "keyword"}:
-            return self._payload_subset(
+            return payload_subset(
                 extraction.payload, ("keywords", "extracted_keywords")
             )
-        return self._simple_highlights(extraction.payload)
+        return simple_payload_highlights(extraction.payload, skip_keys=("metadata",))
 
     def _provenance(self, inspection: EvaluationInspection) -> EvaluationProvenance:
         fields = dict(inspection.ai_provenance)
         for key in PROVENANCE_FIELDS:
-            value = self._payload_value(inspection.evaluation.payload, key)
+            value = payload_value(inspection.evaluation.payload, key)
             if value is not None:
                 fields[key] = value
         generated_by = fields.get("generated_by")
@@ -259,7 +258,7 @@ class EvaluationExplanationService:
     ) -> list[str]:
         evaluation = inspection.evaluation
         limitations: list[str] = []
-        if evaluation.rationale is None and not self._payload_value(
+        if evaluation.rationale is None and not payload_value(
             evaluation.payload, "reasoning"
         ):
             limitations.append("No rationale or reasoning was recorded.")
@@ -347,27 +346,3 @@ class EvaluationExplanationService:
                 )
             )
         return actions
-
-    def _payload_subset(
-        self, payload: dict[str, Any], keys: tuple[str, ...]
-    ) -> dict[str, Any]:
-        return {key: payload[key] for key in keys if key in payload}
-
-    def _simple_highlights(self, payload: dict[str, Any]) -> dict[str, Any]:
-        highlights: dict[str, Any] = {}
-        for key, value in payload.items():
-            if key == "metadata":
-                continue
-            if isinstance(value, str | int | float | bool) or value is None:
-                highlights[key] = value
-            if len(highlights) >= 4:
-                break
-        return highlights
-
-    def _payload_value(self, payload: dict[str, Any], key: str) -> Any:
-        if key in payload:
-            return payload[key]
-        metadata = payload.get("metadata")
-        if isinstance(metadata, dict) and key in metadata:
-            return metadata[key]
-        return None
