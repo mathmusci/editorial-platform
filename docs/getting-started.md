@@ -186,6 +186,13 @@ Show the optimisation request printed by `editorial optimise`:
 editorial optimisation-request show <request-id> --db bis-getting-started.sqlite
 ```
 
+Explain what that optimisation request asked the optimiser to balance and what
+linked proposal it produced:
+
+```bash
+editorial explain optimisation-request <request-id> --db bis-getting-started.sqlite
+```
+
 List and inspect Evaluation artefacts:
 
 ```bash

@@ -20,7 +20,12 @@ from editorial.cli_helpers import (
 from editorial.config import load_publication_config
 from editorial.engine import EditorialEngine
 from editorial.evaluators import build_evaluator
-from editorial.explain import ProposalExplanation, ProposalExplanationService
+from editorial.explain import (
+    OptimisationRequestExplanation,
+    OptimisationRequestExplanationService,
+    ProposalExplanation,
+    ProposalExplanationService,
+)
 from editorial.extractors import build_extractor
 from editorial.inspection import (
     ArticleInspection,
@@ -134,6 +139,15 @@ def _review_inspection_service(db: Path) -> ReviewInspectionService:
 
 def _proposal_explanation_service(db: Path) -> ProposalExplanationService:
     return ProposalExplanationService(_proposal_inspection_service(db))
+
+
+def _optimisation_request_explanation_service(
+    db: Path,
+) -> OptimisationRequestExplanationService:
+    return OptimisationRequestExplanationService(
+        optimisation_requests=SQLiteOptimisationRequestRepository(db),
+        proposals=SQLiteIssueProposalRepository(db),
+    )
 
 
 def _format_optional(value: object | None) -> str:
@@ -253,6 +267,161 @@ def explain_proposal(
         console.print(f"Issue proposal not found: {proposal_id}")
         raise typer.Exit(1)
     _render_proposal_explanation(explanation)
+
+
+@explain_app.command("optimisation-request")
+def explain_optimisation_request(
+    request_id: UUID = typer.Argument(...),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    explanation = _optimisation_request_explanation_service(db).get(request_id)
+    if explanation is None:
+        console.print(f"Optimisation request not found: {request_id}")
+        raise typer.Exit(1)
+    _render_optimisation_request_explanation(explanation)
+
+
+def _render_optimisation_request_explanation(
+    explanation: OptimisationRequestExplanation,
+) -> None:
+    identity = "\n".join(
+        [
+            f"[bold]Optimisation request:[/bold] {explanation.request_id}",
+            f"[bold]Created:[/bold] {explanation.created_at.isoformat()}",
+            f"[bold]Publication:[/bold] {_format_available(explanation.publication)}",
+            f"[bold]Strategy:[/bold] {explanation.strategy}",
+            f"[bold]Created by:[/bold] {_format_available(explanation.created_by)}",
+        ]
+    )
+    console.print(Panel(identity, title="Optimisation Request", expand=False))
+    console.print(
+        Panel(explanation.editorial_summary, title="Editorial Summary", expand=False)
+    )
+    _render_optimisation_settings(explanation)
+    _render_optimisation_json_inputs(explanation)
+    _render_linked_proposals(explanation)
+    _render_optimisation_balance(explanation)
+    _render_optimisation_outcome(explanation)
+    _render_optimisation_next_actions(explanation)
+
+
+def _render_optimisation_settings(
+    explanation: OptimisationRequestExplanation,
+) -> None:
+    if not explanation.settings:
+        console.print(Panel("No settings recorded.", title="Settings"))
+        return
+
+    table = Table(title="Settings", show_lines=True)
+    table.add_column("Setting")
+    table.add_column("Details")
+    for setting in explanation.settings:
+        table.add_row(
+            setting.name,
+            "\n".join(
+                [
+                    f"Value: {json.dumps(setting.value, sort_keys=True)}",
+                    setting.explanation,
+                ]
+            ),
+        )
+    console.print(table)
+    custom_settings = [
+        setting.name
+        for setting in explanation.settings
+        if setting.explanation
+        == "Custom setting recorded for this optimisation request."
+    ]
+    if custom_settings:
+        console.print(
+            Panel(
+                (
+                    "Custom setting recorded for this optimisation request.\n"
+                    f"Settings: {', '.join(custom_settings)}"
+                ),
+                title="Custom Settings",
+                expand=False,
+            )
+        )
+
+
+def _render_optimisation_json_inputs(
+    explanation: OptimisationRequestExplanation,
+) -> None:
+    for title, values in [
+        ("Constraints", explanation.constraints),
+        ("Goals", explanation.goals),
+        ("Preferences", explanation.preferences),
+    ]:
+        if values:
+            _render_key_value_table(title, values)
+        else:
+            console.print(Panel(f"No {title.lower()} recorded.", title=title))
+
+
+def _render_linked_proposals(
+    explanation: OptimisationRequestExplanation,
+) -> None:
+    if not explanation.linked_proposals:
+        console.print(
+            Panel(
+                "No IssueProposal linked to this optimisation request was found.",
+                title="Linked Proposals",
+            )
+        )
+        return
+
+    table = Table(title="Linked Proposals", show_lines=True)
+    table.add_column("Proposal ID", no_wrap=True)
+    table.add_column("Details")
+    for proposal in explanation.linked_proposals:
+        details = "\n".join(
+            [
+                f"Created: {proposal.created_at.isoformat()}",
+                f"Optimiser: {proposal.optimiser}",
+                f"Selected articles: {proposal.selected_article_count}",
+                f"Objective value: {proposal.objective_value}",
+                f"Satisfied constraints: {proposal.satisfied_constraint_count}",
+                f"Failed constraints: {proposal.failed_constraint_count}",
+                f"Total penalty: {proposal.total_penalty}",
+                f"Largest penalty: {_format_available(proposal.largest_penalty_name)}",
+            ]
+        )
+        table.add_row(str(proposal.proposal_id), details)
+    console.print(table)
+
+    for proposal in explanation.linked_proposals:
+        if not proposal.ordered_penalties:
+            continue
+        penalty_table = Table(title=f"Penalties for {proposal.proposal_id}")
+        penalty_table.add_column("Constraint")
+        penalty_table.add_column("Penalty", justify="right")
+        for name, penalty in proposal.ordered_penalties:
+            penalty_table.add_row(name, str(penalty))
+        console.print(penalty_table)
+
+
+def _render_optimisation_balance(
+    explanation: OptimisationRequestExplanation,
+) -> None:
+    console.print(Panel(explanation.balance.summary, title="What Was Asked To Balance"))
+
+
+def _render_optimisation_outcome(
+    explanation: OptimisationRequestExplanation,
+) -> None:
+    console.print(Panel(explanation.outcome.summary, title="What Happened"))
+
+
+def _render_optimisation_next_actions(
+    explanation: OptimisationRequestExplanation,
+) -> None:
+    table = Table(title="Next Actions", show_lines=True)
+    table.add_column("Action")
+    table.add_column("Command")
+    for action in explanation.next_actions:
+        table.add_row(action.label, action.command)
+    console.print(table)
 
 
 def _render_proposal_explanation(explanation: ProposalExplanation) -> None:
