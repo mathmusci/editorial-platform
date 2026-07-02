@@ -174,6 +174,13 @@ editorial article list --db bis-getting-started.sqlite
 editorial article show <article-id> --db bis-getting-started.sqlite
 ```
 
+List and inspect Extraction artefacts:
+
+```bash
+editorial extraction list --db bis-getting-started.sqlite
+editorial extraction show <extraction-id> --db bis-getting-started.sqlite
+```
+
 List optimisation requests:
 
 ```bash

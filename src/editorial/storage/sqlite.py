@@ -198,6 +198,13 @@ class SQLiteExtractionRepository:
             rows = conn.execute(query, params).fetchall()
         return [self._row_to_extraction(row) for row in rows]
 
+    def get(self, extraction_id: UUID) -> Extraction | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM extractions WHERE id = ?", (str(extraction_id),)
+            ).fetchone()
+        return self._row_to_extraction(row) if row else None
+
     def count(self) -> int:
         with self._connect() as conn:
             row = conn.execute("SELECT COUNT(*) AS n FROM extractions").fetchone()

@@ -10,6 +10,11 @@ from editorial.inspection.evaluations import (
     EvaluationInspectionService,
     EvaluationInspectionSummary,
 )
+from editorial.inspection.extractions import (
+    ExtractionArtefactInspection,
+    ExtractionInspectionService,
+    ExtractionInspectionSummary,
+)
 from editorial.inspection.proposals import (
     ProposalArticleInspection,
     ProposalInspection,
@@ -38,7 +43,10 @@ __all__ = [
     "EvaluationInspection",
     "EvaluationInspectionService",
     "EvaluationInspectionSummary",
+    "ExtractionArtefactInspection",
     "ExtractionInspection",
+    "ExtractionInspectionService",
+    "ExtractionInspectionSummary",
     "ProposalArticleInspection",
     "ProposalInspection",
     "ProposalInspectionService",
