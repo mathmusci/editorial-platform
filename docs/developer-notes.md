@@ -40,6 +40,41 @@ No significant architectural problems were identified. The improvements discover
 
 Observations
 
+2026-07-02 — Ingest duplicate reporting
+
+Context
+
+The BIS walkthrough showed that repeated ingestion is correctly idempotent, but
+the original ingest result model reported all skipped records as one duplicate
+count.
+
+Observation
+
+That single count conflated two cases: duplicate items encountered within the
+current provider output, and articles that were already present in the
+repository before the ingest run.
+
+The ingest result model now reports:
+
+* fetched
+* added
+* duplicates in source
+* already in database
+
+The invariant is:
+
+fetched = added + duplicates in source + already in database
+
+Conclusion
+
+Separating source-level duplicates from repository-level duplicates makes CLI
+reporting more accurate and gives future instrumentation a clearer accounting
+model.
+
+Priority: None
+
+⸻
+
 2026-07-02 — Proposal explainability
 
 Context
