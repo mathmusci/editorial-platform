@@ -40,6 +40,30 @@ No significant architectural problems were identified. The improvements discover
 
 Observations
 
+2026-07-02 — Proposal explainability
+
+Context
+
+The v1.0 inspection cycle made Article, Evaluation, IssueProposal, Publication and Review artefacts directly inspectable from the CLI.
+
+Observation
+
+Inspection answers what artefacts exist and what data they contain. Proposal explainability adds a separate deterministic layer that interprets stored IssueProposal artefacts in editorial terms.
+
+The first explainability command is:
+
+editorial explain proposal <proposal-id>
+
+It reuses proposal inspection data, explains recorded constraints and penalties, summarises selected articles and visible trade-offs, and suggests next editorial commands. It does not call an LLM and does not change optimiser behaviour.
+
+Conclusion
+
+Keep explainability separate from inspection. Inspection should expose artefacts; explainability should interpret artefacts using stored evidence.
+
+Priority: None
+
+⸻
+
 2026-06-30 — BIS corpus quality
 
 Context

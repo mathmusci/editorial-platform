@@ -200,6 +200,12 @@ editorial proposal list --db bis-getting-started.sqlite
 editorial proposal show <proposal-id> --db bis-getting-started.sqlite
 ```
 
+Explain why an IssueProposal looks the way it does:
+
+```bash
+editorial explain proposal <proposal-id> --db bis-getting-started.sqlite
+```
+
 Inspect workflow events, including proposal creation, review submission,
 publication creation and rendering:
 
