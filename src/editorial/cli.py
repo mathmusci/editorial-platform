@@ -347,7 +347,7 @@ def _render_evaluation_explanation(explanation: EvaluationExplanation) -> None:
             f"[bold]Evaluator:[/bold] {explanation.evaluator}",
             f"[bold]Evaluator version:[/bold] {_format_available(explanation.evaluator_version)}",
             f"[bold]Kind:[/bold] {explanation.kind}",
-            f"[bold]Created:[/bold] {explanation.created_at}",
+            f"[bold]Created:[/bold] {explanation.created_at.isoformat()}",
         ]
     )
     console.print(Panel(identity, title="Evaluation Identity", expand=False))

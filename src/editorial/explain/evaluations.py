@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
@@ -66,7 +67,7 @@ class EvaluationExplanation(BaseModel):
     evaluator: str
     evaluator_version: str | None = None
     kind: str
-    created_at: str
+    created_at: datetime
     score: float | None = None
     confidence: float | None = None
     rationale: str | None = None
@@ -113,7 +114,7 @@ class EvaluationExplanationService:
             evaluator=evaluation.evaluator,
             evaluator_version=evaluation.evaluator_version,
             kind=evaluation.kind,
-            created_at=evaluation.created_at.isoformat(),
+            created_at=evaluation.created_at,
             score=evaluation.score,
             confidence=evaluation.confidence,
             rationale=evaluation.rationale,

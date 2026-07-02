@@ -142,6 +142,7 @@ def test_service_builds_deterministic_evaluator_explanation(tmp_path):
     assert explanation is not None
     assert explanation.evaluation_id == evaluation.id
     assert explanation.article_id == article.id
+    assert explanation.created_at == evaluation.created_at
     assert explanation.article_title == "Industrial statistics"
     assert explanation.provenance.evaluator_type == "deterministic"
     assert "rule_relevance evaluator" in explanation.interpretation.summary
