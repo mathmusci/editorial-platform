@@ -18,6 +18,8 @@ class LLMProviderFactoryConfig(BaseModel):
     base_url: str | None = None
     organization: str | None = None
     project: str | None = None
+    temperature: float | None = None
+    max_tokens: int | None = None
     metadata: dict[str, object] = Field(default_factory=dict)
 
 
@@ -42,6 +44,8 @@ def build_llm_provider(config: LLMProviderFactoryConfig) -> LLMProvider:
             base_url=config.base_url,
             organization=config.organization,
             project=config.project,
+            temperature=config.temperature,
+            max_tokens=config.max_tokens,
             metadata=config.metadata,
         )
     )

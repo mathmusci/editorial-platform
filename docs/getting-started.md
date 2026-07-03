@@ -32,8 +32,9 @@ pip install -e ".[dev]"
 ```
 
 The BIS example reads configured RSS feeds, so the full ingestion run requires
-network access. The default BIS workflow uses deterministic extractors,
-evaluators and optimisers; no external AI service is required.
+network access. The default BIS workflow uses deterministic extraction and
+evaluation paths, plus a fake LLM summary provider for offline validation; no
+external AI service is required.
 
 ## Verify the installation
 
@@ -78,6 +79,45 @@ editorial extract --config examples/bis/publication.yaml --db bis-getting-starte
 
 Expected outcome: the command prints article and extractor counts, then reports
 how many Extractions were stored.
+
+The example configuration includes both reading-time extraction and an
+offline-safe LLM summary extractor:
+
+```yaml
+extractors:
+  - type: reading_time
+    name: Reading time
+    words_per_minute: 200
+  - type: llm_summary
+    name: LLM summary
+    provider:
+      type: fake
+      response_text: "Configured validation summary."
+      model: fake-summary-model
+```
+
+To use a real OpenAI-compatible provider for summaries, install the optional
+dependency, set the configured environment variable, and switch the summary
+provider block:
+
+```bash
+pip install -e ".[openai]"
+export OPENAI_API_KEY=...
+```
+
+```yaml
+extractors:
+  - type: llm_summary
+    name: LLM summary
+    provider:
+      type: openai
+      model: gpt-4.1-mini
+      api_key_env: OPENAI_API_KEY
+      temperature: 0
+      max_tokens: 180
+```
+
+API keys are read from the named environment variable, not from YAML.
 
 ### 3. Evaluate relevance
 
