@@ -14,6 +14,8 @@ class OpenAIProviderConfig(BaseModel):
     base_url: str | None = None
     organization: str | None = None
     project: str | None = None
+    temperature: float | None = None
+    max_tokens: int | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -30,13 +32,18 @@ class OpenAIProvider:
         self.client = client or self._build_client(config)
 
     def generate(self, prompt: Prompt) -> LLMResponse:
-        response = self.client.responses.create(
-            model=self.model,
-            input=[
+        request: dict[str, Any] = {
+            "model": self.model,
+            "input": [
                 {"role": message.role, "content": message.content}
                 for message in prompt.messages
             ],
-        )
+        }
+        if self.config.temperature is not None:
+            request["temperature"] = self.config.temperature
+        if self.config.max_tokens is not None:
+            request["max_output_tokens"] = self.config.max_tokens
+        response = self.client.responses.create(**request)
         metadata = dict(self.config.metadata)
         response_id = getattr(response, "id", None)
         if response_id is not None:

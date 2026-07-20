@@ -39,6 +39,12 @@ extractors:
   - type: reading_time
     name: Reading time
     words_per_minute: 200
+  - type: llm_summary
+    name: LLM summary
+    provider:
+      type: fake
+      response_text: "Configured validation summary."
+      model: fake-summary-model
 evaluators:
   - type: rule_relevance
     name: BIS relevance

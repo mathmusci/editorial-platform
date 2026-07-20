@@ -83,6 +83,30 @@ def test_openai_provider_generates_with_injected_client():
     }
 
 
+def test_openai_provider_maps_generation_options_to_request():
+    response = SimpleNamespace(output_text="OpenAI answer", model="test-model")
+    client = RecordingClient(response)
+    provider = OpenAIProvider(
+        OpenAIProviderConfig(
+            model="test-model",
+            temperature=0,
+            max_tokens=180,
+        ),
+        client=client,
+    )
+
+    provider.generate(Prompt(messages=[LLMMessage(role="user", content="Hello")]))
+
+    assert client.responses.calls == [
+        {
+            "model": "test-model",
+            "input": [{"role": "user", "content": "Hello"}],
+            "temperature": 0,
+            "max_output_tokens": 180,
+        }
+    ]
+
+
 def test_openai_provider_requires_explicit_api_key_without_client():
     with pytest.raises(ValueError, match="explicit api_key or client"):
         OpenAIProvider(OpenAIProviderConfig(model="test-model"))
@@ -193,6 +217,8 @@ def test_llm_provider_factory_does_not_store_resolved_key(monkeypatch):
         "base_url": None,
         "organization": None,
         "project": None,
+        "temperature": None,
+        "max_tokens": None,
         "metadata": {},
     }
     assert provider.config.api_key == "secret-key"
