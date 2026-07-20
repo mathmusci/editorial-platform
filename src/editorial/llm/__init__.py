@@ -1,5 +1,6 @@
 from editorial.llm.factory import LLMProviderFactoryConfig, build_llm_provider
 from editorial.llm.messages import LLMMessage
+from editorial.llm.ollama import OllamaProvider, OllamaProviderConfig
 from editorial.llm.openai import OpenAIProvider, OpenAIProviderConfig
 from editorial.llm.prompts import Prompt
 from editorial.llm.provider import LLMProvider
@@ -12,6 +13,8 @@ __all__ = [
     "LLMProvider",
     "LLMProviderFactoryConfig",
     "LLMResponse",
+    "OllamaProvider",
+    "OllamaProviderConfig",
     "OpenAIProvider",
     "OpenAIProviderConfig",
     "Prompt",

@@ -5,13 +5,14 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from editorial.llm.ollama import OllamaProvider, OllamaProviderConfig
 from editorial.llm.openai import OpenAIProvider, OpenAIProviderConfig
 from editorial.llm.provider import LLMProvider
 from editorial.llm.testing import FakeLLMProvider
 
 
 class LLMProviderFactoryConfig(BaseModel):
-    provider: Literal["fake", "openai"]
+    provider: Literal["fake", "openai", "ollama"]
     response_text: str = "Fake response"
     model: str | None = None
     api_key_env: str = "OPENAI_API_KEY"
@@ -29,6 +30,18 @@ def build_llm_provider(config: LLMProviderFactoryConfig) -> LLMProvider:
             response_text=config.response_text,
             model=config.model or "fake-llm",
             metadata=config.metadata,
+        )
+    if config.provider == "ollama":
+        if config.model is None:
+            raise ValueError("Ollama LLM provider requires an explicit model")
+        return OllamaProvider(
+            OllamaProviderConfig(
+                model=config.model,
+                base_url=config.base_url or "http://localhost:11434",
+                temperature=config.temperature,
+                max_tokens=config.max_tokens,
+                metadata=config.metadata,
+            )
         )
     if config.model is None:
         raise ValueError("OpenAI LLM provider requires an explicit model")
