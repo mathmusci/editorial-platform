@@ -5,7 +5,7 @@ import pytest
 
 from editorial.config.models import ProcessorConfig
 from editorial.extractors import LLMSummaryExtractor, build_extractor
-from editorial.llm import OpenAIProvider
+from editorial.llm import OllamaProvider, OpenAIProvider
 from editorial.llm import FakeLLMProvider
 from editorial.models import Article
 from editorial.prompts import SUMMARY_PROMPT_VERSION, build_summary_prompt
@@ -203,3 +203,27 @@ def test_build_llm_summary_extractor_requires_openai_api_key(monkeypatch):
 
     with pytest.raises(ValueError, match="EDITORIAL_OPENAI_KEY"):
         build_extractor(config)
+
+
+def test_build_llm_summary_extractor_from_provider_config_builds_ollama_provider():
+    config = ProcessorConfig(
+        type="llm_summary",
+        settings={
+            "provider": {
+                "type": "ollama",
+                "model": "llama3.2",
+                "base_url": "http://ollama.test:11434",
+                "temperature": 0,
+                "max_tokens": 180,
+            }
+        },
+    )
+
+    extractor = build_extractor(config)
+
+    assert isinstance(extractor, LLMSummaryExtractor)
+    assert isinstance(extractor.provider, OllamaProvider)
+    assert extractor.provider.config.model == "llama3.2"
+    assert extractor.provider.config.base_url == "http://ollama.test:11434"
+    assert extractor.provider.config.temperature == 0
+    assert extractor.provider.config.max_tokens == 180

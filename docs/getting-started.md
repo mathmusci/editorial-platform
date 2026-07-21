@@ -81,7 +81,7 @@ Expected outcome: the command prints article and extractor counts, then reports
 how many Extractions were stored.
 
 The example configuration includes both reading-time extraction and an
-offline-safe LLM summary extractor:
+offline-safe fake LLM summary provider:
 
 ```yaml
 extractors:
@@ -96,9 +96,11 @@ extractors:
       model: fake-summary-model
 ```
 
-To use a real OpenAI-compatible provider for summaries, install the optional
-dependency, set the configured environment variable, and switch the summary
-provider block:
+The fake provider is deterministic and is the best choice for local validation,
+tests and demos that should not call an external service.
+
+To use OpenAI for summaries, install the optional dependency, set the configured
+environment variable, and switch the summary provider block:
 
 ```bash
 pip install -e ".[openai]"
@@ -118,6 +120,41 @@ extractors:
 ```
 
 API keys are read from the named environment variable, not from YAML.
+
+To use Ollama locally, install Ollama separately, start the server and pull a
+model:
+
+```bash
+ollama serve
+ollama pull llama3.2
+```
+
+Then configure the summary provider with `type: ollama`. Ollama uses its native
+local HTTP API and does not require an API key:
+
+```yaml
+extractors:
+  - type: llm_summary
+    name: Local summary
+    provider:
+      type: ollama
+      model: llama3.2
+```
+
+The default Ollama URL is `http://localhost:11434`. You can override it and pass
+generation options when needed:
+
+```yaml
+extractors:
+  - type: llm_summary
+    name: Local summary
+    provider:
+      type: ollama
+      model: qwen3:8b
+      base_url: http://localhost:11434
+      temperature: 0
+      max_tokens: 200
+```
 
 ### 3. Evaluate relevance
 
