@@ -9,12 +9,22 @@ from editorial.llm import LLMProviderFactoryConfig, build_llm_provider
 
 def build_extractor(config: ProcessorConfig) -> Extractor:
     if config.type == "reading_time":
-        return ReadingTimeExtractor(
-            words_per_minute=config.settings.get("words_per_minute", 200)
+        return _with_display_name(
+            ReadingTimeExtractor(
+                words_per_minute=config.settings.get("words_per_minute", 200)
+            ),
+            config.name,
         )
     if config.type == "llm_summary":
-        return LLMSummaryExtractor(_build_llm_summary_provider(config))
+        return _with_display_name(
+            LLMSummaryExtractor(_build_llm_summary_provider(config)), config.name
+        )
     raise ValueError(f"Unsupported extractor type: {config.type!r}")
+
+
+def _with_display_name(extractor: Extractor, display_name: str | None) -> Extractor:
+    setattr(extractor, "display_name", display_name or extractor.name)
+    return extractor
 
 
 def _build_llm_summary_provider(config: ProcessorConfig):

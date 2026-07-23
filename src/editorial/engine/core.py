@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Callable, Iterable, Literal
+from uuid import UUID
 from editorial.interfaces import Evaluator, Extractor, Optimiser, Provider
 from editorial.models import Article, OptimisationRequest, WorkflowEvent
 from editorial.storage import (
@@ -33,6 +34,27 @@ class ExtractionRunResult:
     articles: int
     extractors: int
     stored: int
+    skipped: int = 0
+    failed: int = 0
+
+    @property
+    def operations(self) -> int:
+        return self.articles * self.extractors
+
+
+@dataclass(frozen=True)
+class ExtractionProgress:
+    completed: int
+    total: int
+    stored: int
+    skipped: int
+    failed: int
+    article_id: UUID
+    article_title: str
+    extractor_name: str
+    provider: str | None
+    model: str | None
+    outcome: Literal["started", "stored", "skipped", "failed"]
 
 
 @dataclass(frozen=True)
@@ -94,20 +116,84 @@ class EditorialEngine:
     def _article_identity(self, article: Article) -> str:
         return str(article.url) if article.url is not None else str(article.id)
 
-    def extract(self, extractors: Iterable[Extractor]) -> ExtractionRunResult:
+    def extract(
+        self,
+        extractors: Iterable[Extractor],
+        progress: Callable[[ExtractionProgress], None] | None = None,
+    ) -> ExtractionRunResult:
         if self.extraction_repository is None:
             raise ValueError("Extraction repository is required to run extractors")
 
         extractor_list = list(extractors)
         articles = self.article_repository.list()
-        stored = 0
+        total = len(articles) * len(extractor_list)
+        completed = stored = skipped = failed = 0
         for article in articles:
             for extractor in extractor_list:
-                extraction = extractor.extract(article)
-                self.extraction_repository.insert(extraction)
+                metadata = _extractor_progress_metadata(extractor)
+                if progress is not None:
+                    progress(
+                        ExtractionProgress(
+                            completed=completed,
+                            total=total,
+                            stored=stored,
+                            skipped=skipped,
+                            failed=failed,
+                            article_id=article.id,
+                            article_title=article.title,
+                            extractor_name=metadata.extractor_name,
+                            provider=metadata.provider,
+                            model=metadata.model,
+                            outcome="started",
+                        )
+                    )
+                try:
+                    extraction = extractor.extract(article)
+                    self.extraction_repository.insert(extraction)
+                except Exception:
+                    completed += 1
+                    failed += 1
+                    if progress is not None:
+                        progress(
+                            ExtractionProgress(
+                                completed=completed,
+                                total=total,
+                                stored=stored,
+                                skipped=skipped,
+                                failed=failed,
+                                article_id=article.id,
+                                article_title=article.title,
+                                extractor_name=metadata.extractor_name,
+                                provider=metadata.provider,
+                                model=metadata.model,
+                                outcome="failed",
+                            )
+                        )
+                    raise
+                completed += 1
                 stored += 1
+                if progress is not None:
+                    progress(
+                        ExtractionProgress(
+                            completed=completed,
+                            total=total,
+                            stored=stored,
+                            skipped=skipped,
+                            failed=failed,
+                            article_id=article.id,
+                            article_title=article.title,
+                            extractor_name=metadata.extractor_name,
+                            provider=metadata.provider,
+                            model=metadata.model,
+                            outcome="stored",
+                        )
+                    )
         return ExtractionRunResult(
-            articles=len(articles), extractors=len(extractor_list), stored=stored
+            articles=len(articles),
+            extractors=len(extractor_list),
+            stored=stored,
+            skipped=skipped,
+            failed=failed,
         )
 
     def evaluate(self, evaluators: Iterable[Evaluator]) -> EvaluationRunResult:
@@ -190,3 +276,23 @@ class EditorialEngine:
             constraint_results=len(proposal.constraint_results),
             request_id=str(request.id),
         )
+
+
+@dataclass(frozen=True)
+class _ExtractorProgressMetadata:
+    extractor_name: str
+    provider: str | None
+    model: str | None
+
+
+def _extractor_progress_metadata(extractor: Extractor) -> _ExtractorProgressMetadata:
+    provider = getattr(extractor, "provider", None)
+    provider_name = getattr(provider, "name", None)
+    model = getattr(provider, "model", None)
+    return _ExtractorProgressMetadata(
+        extractor_name=str(
+            getattr(extractor, "display_name", getattr(extractor, "name", "unknown"))
+        ),
+        provider=str(provider_name) if provider_name is not None else None,
+        model=str(model) if model is not None else None,
+    )

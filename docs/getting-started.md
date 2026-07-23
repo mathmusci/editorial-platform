@@ -78,7 +78,32 @@ editorial extract --config examples/bis/publication.yaml --db bis-getting-starte
 ```
 
 Expected outcome: the command prints article and extractor counts, then reports
-how many Extractions were stored.
+how many Extractions were stored. In an interactive terminal, extraction also
+shows live progress for each article-extractor operation. For example, 20
+articles and 2 enabled extractors means 40 operations. The progress display
+shows the current article, extractor, provider and model when available,
+completed operations, stored/skipped/failed counts, elapsed time and estimated
+remaining time.
+
+Progress is automatic for interactive terminals and disabled for redirected
+output and CI-style non-interactive runs. To force either mode, use:
+
+```bash
+editorial extract \
+  --config examples/bis/publication.yaml \
+  --db bis-getting-started.sqlite \
+  --progress
+```
+
+```bash
+editorial extract \
+  --config examples/bis/publication.yaml \
+  --db bis-getting-started.sqlite \
+  --no-progress
+```
+
+When progress is disabled, output remains concise and line-oriented for scripts
+and logs.
 
 The example configuration includes both reading-time extraction and an
 offline-safe fake LLM summary provider:
