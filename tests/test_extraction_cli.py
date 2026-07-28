@@ -1,3 +1,5 @@
+import re
+
 from typer.testing import CliRunner
 
 import editorial.cli as cli
@@ -7,6 +9,11 @@ from editorial.storage import SQLiteArticleRepository
 from editorial.storage import SQLiteExtractionRepository
 
 BIS_FIXTURE_CONFIG = "tests/fixtures/bis/publication.yaml"
+ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
+
+def _unstyled(text: str) -> str:
+    return ANSI_ESCAPE_RE.sub("", text)
 
 
 def test_cli_extract_uses_configured_reading_time_extractor(tmp_path):
@@ -296,7 +303,7 @@ def test_cli_extract_rejects_non_positive_limit(tmp_path):
     )
 
     assert result.exit_code != 0
-    assert "--limit must be a positive integer" in result.output
+    assert "--limit must be a positive integer" in _unstyled(result.output)
 
 
 def test_cli_extract_rejects_missing_only_with_force(tmp_path):
@@ -314,4 +321,6 @@ def test_cli_extract_rejects_missing_only_with_force(tmp_path):
     )
 
     assert result.exit_code != 0
-    assert "--missing-only and --force cannot be used together" in result.output
+    assert "--missing-only and --force cannot be used together" in _unstyled(
+        result.output
+    )
