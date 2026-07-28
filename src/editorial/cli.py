@@ -1,13 +1,26 @@
 from __future__ import annotations
 
+import os
+import time
 from pathlib import Path
 from typing import Any
 from uuid import UUID
 
 import typer
-from rich.console import Console
+from rich.console import Console, Group
+from rich.live import Live
 from rich.panel import Panel
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 from rich.table import Table
+from rich.text import Text
 from editorial.cli_helpers import (
     parse_key_values,
     parse_payload,
@@ -18,7 +31,7 @@ from editorial.cli_helpers import (
     run_optimisation_request,
 )
 from editorial.config import load_publication_config
-from editorial.engine import EditorialEngine
+from editorial.engine import EditorialEngine, ExtractionProgress
 from editorial.evaluators import build_evaluator
 from editorial.explain import (
     ArticleSelectionArticleNotFound,
@@ -297,16 +310,233 @@ def ingest(
 def extract(
     config: Path = typer.Option(..., "--config", "-c"),
     db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+    limit: int | None = typer.Option(
+        None,
+        "--limit",
+        help="Extract at most this many articles from the deterministic article order.",
+    ),
+    offset: int = typer.Option(
+        0,
+        "--offset",
+        help="Skip this many articles from the deterministic article order first.",
+    ),
+    article_ids: list[UUID] | None = typer.Option(
+        None,
+        "--article-id",
+        help="Restrict extraction to an article ID. May be provided multiple times.",
+    ),
+    missing_only: bool = typer.Option(
+        False,
+        "--missing-only",
+        help="Skip article-extractor operations that already have an extraction.",
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Re-run extraction even when an extraction already exists.",
+    ),
+    progress: bool | None = typer.Option(
+        None,
+        "--progress/--no-progress",
+        help="Show dynamic extraction progress when enabled.",
+    ),
 ) -> None:
+    _validate_extract_options(limit, offset, missing_only, force)
     cfg = load_publication_config(config)
     extractors = [build_extractor(e) for e in cfg.extractors if e.enabled]
-    result = EditorialEngine(
+    engine = EditorialEngine(
         SQLiteArticleRepository(db), SQLiteExtractionRepository(db)
-    ).extract(extractors)
-    console.print(f"[bold]Publication:[/bold] {cfg.publication.name}")
-    console.print(f"Articles: {result.articles}")
-    console.print(f"Extractors: {result.extractors}")
-    console.print(f"Stored extractions: {result.stored}")
+    )
+    show_progress = _should_show_extract_progress(progress)
+    renderer = _RichExtractionProgressRenderer(console) if show_progress else None
+    observer = _ExtractionProgressObserver(renderer)
+    started_at = time.monotonic()
+    try:
+        if renderer is None:
+            result = engine.extract(
+                extractors,
+                progress=observer,
+                limit=limit,
+                offset=offset,
+                article_ids=article_ids,
+                missing_only=missing_only,
+                force=force,
+            )
+        else:
+            with renderer:
+                result = engine.extract(
+                    extractors,
+                    progress=observer,
+                    limit=limit,
+                    offset=offset,
+                    article_ids=article_ids,
+                    missing_only=missing_only,
+                    force=force,
+                )
+            console.print()
+    except Exception as exc:
+        elapsed = time.monotonic() - started_at
+        if renderer is not None:
+            console.print()
+        console.print(f"[red]Extraction failed:[/red] {exc}")
+        _render_extract_result(cfg.publication.name, None, observer, elapsed)
+        _render_failed_extractions(observer)
+        raise typer.Exit(code=1) from exc
+
+    elapsed = time.monotonic() - started_at
+    _render_extract_result(cfg.publication.name, result, observer, elapsed)
+
+
+def _should_show_extract_progress(progress: bool | None) -> bool:
+    if progress is not None:
+        return progress
+    return console.is_terminal and os.environ.get("CI") is None
+
+
+def _validate_extract_options(
+    limit: int | None, offset: int, missing_only: bool, force: bool
+) -> None:
+    if limit is not None and limit <= 0:
+        raise typer.BadParameter("--limit must be a positive integer")
+    if offset < 0:
+        raise typer.BadParameter("--offset must be zero or greater")
+    if missing_only and force:
+        raise typer.BadParameter("--missing-only and --force cannot be used together")
+
+
+class _ExtractionProgressObserver:
+    def __init__(self, renderer: "_RichExtractionProgressRenderer | None" = None):
+        self.renderer = renderer
+        self.total = 0
+        self.completed = 0
+        self.stored = 0
+        self.skipped = 0
+        self.failed = 0
+        self.failed_operations: list[ExtractionProgress] = []
+
+    def __call__(self, event: ExtractionProgress) -> None:
+        self.total = event.total
+        self.completed = event.completed
+        self.stored = event.stored
+        self.skipped = event.skipped
+        self.failed = event.failed
+        if event.outcome == "failed":
+            self.failed_operations.append(event)
+        if self.renderer is not None:
+            self.renderer.update(event)
+
+
+class _RichExtractionProgressRenderer:
+    def __init__(self, progress_console: Console):
+        self.progress = Progress(
+            TextColumn("[bold]{task.description}"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+            TimeRemainingColumn(),
+            console=progress_console,
+        )
+        self.task_id: int | None = None
+        self.live: Live | None = None
+        self.last_event: ExtractionProgress | None = None
+
+    def __enter__(self) -> "_RichExtractionProgressRenderer":
+        self.task_id = self.progress.add_task("Extracting evidence", total=0)
+        self.live = Live(
+            self._render(),
+            console=self.progress.console,
+            refresh_per_second=4,
+            transient=False,
+        )
+        self.live.__enter__()
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
+        if self.live is not None:
+            self.live.__exit__(exc_type, exc, traceback)
+
+    def update(self, event: ExtractionProgress) -> None:
+        if self.task_id is None:
+            return
+        self.last_event = event
+        self.progress.update(
+            self.task_id,
+            total=event.total,
+            completed=event.completed,
+            description="Extracting evidence",
+        )
+        if self.live is not None:
+            self.live.update(self._render(), refresh=True)
+
+    def _render(self) -> Group:
+        return Group(self.progress, _extract_progress_details(self.last_event))
+
+
+def _extract_progress_details(event: ExtractionProgress | None) -> Text:
+    details = Text()
+    if event is None:
+        _append_extract_detail(details, "Article", "waiting")
+        _append_extract_detail(details, "Extractor", "waiting")
+        _append_extract_detail(details, "Stored", "0")
+        _append_extract_detail(details, "Skipped", "0")
+        _append_extract_detail(details, "Failed", "0")
+        return details
+
+    _append_extract_detail(details, "Article", event.article_title)
+    _append_extract_detail(details, "Extractor", event.extractor_name)
+    if event.provider is not None:
+        _append_extract_detail(details, "Provider", event.provider)
+    if event.model is not None:
+        _append_extract_detail(details, "Model", event.model)
+    _append_extract_detail(details, "Stored", str(event.stored))
+    _append_extract_detail(details, "Skipped", str(event.skipped))
+    _append_extract_detail(details, "Failed", str(event.failed))
+    return details
+
+
+def _append_extract_detail(details: Text, label: str, value: str) -> None:
+    if details:
+        details.append("\n")
+    details.append(f"{label}: ", style="bold")
+    details.append(value)
+
+
+def _render_extract_result(
+    publication_name: str,
+    result: object,
+    observer: _ExtractionProgressObserver,
+    elapsed: float,
+) -> None:
+    articles = getattr(result, "articles", 0)
+    extractors = getattr(result, "extractors", 0)
+    operations = getattr(result, "operations", observer.total)
+    stored = getattr(result, "stored", observer.stored)
+    skipped = getattr(result, "skipped", observer.skipped)
+    failed = getattr(result, "failed", observer.failed)
+    console.print(f"[bold]Publication:[/bold] {publication_name}")
+    console.print(f"Articles: {articles}")
+    console.print(f"Extractors: {extractors}")
+    console.print(f"Operations: {operations}")
+    console.print(f"Stored extractions: {stored}")
+    console.print(f"Skipped: {skipped}")
+    console.print(f"Failed: {failed}")
+    console.print(f"Elapsed: {_format_duration(elapsed)}")
+
+
+def _render_failed_extractions(observer: _ExtractionProgressObserver) -> None:
+    if not observer.failed_operations:
+        return
+    console.print("[bold red]Failed extraction operations:[/bold red]")
+    for event in observer.failed_operations:
+        console.print(f"- {event.article_title} / {event.extractor_name}")
+
+
+def _format_duration(seconds: float) -> str:
+    total_seconds = max(0, int(seconds))
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
 
 @app.command()

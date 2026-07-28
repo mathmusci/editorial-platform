@@ -78,7 +78,77 @@ editorial extract --config examples/bis/publication.yaml --db bis-getting-starte
 ```
 
 Expected outcome: the command prints article and extractor counts, then reports
-how many Extractions were stored.
+how many Extractions were stored. In an interactive terminal, extraction also
+shows live progress for each article-extractor operation. For example, 20
+articles and 2 enabled extractors means 40 operations. The progress display
+shows the current article, extractor, provider and model when available,
+completed operations, stored/failed counts, elapsed time and estimated
+remaining time.
+
+Progress is automatic for interactive terminals and disabled for redirected
+output and CI-style non-interactive runs. To force either mode, use:
+
+```bash
+editorial extract \
+  --config examples/bis/publication.yaml \
+  --db bis-getting-started.sqlite \
+  --progress
+```
+
+```bash
+editorial extract \
+  --config examples/bis/publication.yaml \
+  --db bis-getting-started.sqlite \
+  --no-progress
+```
+
+When progress is disabled, output remains concise and line-oriented for scripts
+and logs.
+
+For faster local development runs, restrict extraction to a deterministic slice
+of articles. Articles are ordered by `published_at` descending, then
+`created_at` descending, then `id` ascending before `--offset` and `--limit` are
+applied:
+
+```bash
+editorial extract \
+  --config examples/bis/publication.yaml \
+  --db bis-getting-started.sqlite \
+  --limit 10 \
+  --no-progress
+```
+
+```bash
+editorial extract \
+  --config examples/bis/publication.yaml \
+  --db bis-getting-started.sqlite \
+  --offset 20 \
+  --limit 10
+```
+
+To extract one known article, pass its UUID. Repeat `--article-id` to select
+more than one article:
+
+```bash
+editorial extract \
+  --config examples/bis/publication.yaml \
+  --db bis-getting-started.sqlite \
+  --article-id <article-id>
+```
+
+To resume an interrupted run, use `--missing-only`. Existing article-extractor
+operations are skipped and counted in the final summary:
+
+```bash
+editorial extract \
+  --config examples/bis/publication.yaml \
+  --db bis-getting-started.sqlite \
+  --missing-only \
+  --progress
+```
+
+Use `--force` to explicitly re-run and replace existing extractions. `--force`
+and `--missing-only` cannot be used together.
 
 The example configuration includes both reading-time extraction and an
 offline-safe fake LLM summary provider:
@@ -159,6 +229,15 @@ extractors:
 ### 3. Evaluate relevance
 
 Purpose: evaluate the Articles using the configured BIS relevance evaluator.
+Evaluators are the step that turns Articles and Extractions into editorial
+judgements such as relevance scores, confidence and rationale. The optimiser
+uses Evaluation records when selecting articles for an IssueProposal.
+
+This distinction matters when comparing LLM summary models: changing the
+`llm_summary` extractor changes the stored summary evidence, but it will not
+change suggested articles unless the configured evaluator uses that evidence in
+its scoring. The BIS example uses `rule_relevance`, which scores the Article
+title, original summary and content with deterministic keyword rules.
 
 ```bash
 editorial evaluate --config examples/bis/publication.yaml --db bis-getting-started.sqlite
@@ -170,6 +249,8 @@ how many Evaluations were stored.
 ### 4. Optimise an issue proposal
 
 Purpose: create an optimisation request and generate an IssueProposal.
+Optimisation is downstream of evaluation: it ranks and selects from Article
+records using the stored Extractions and, especially, the stored Evaluations.
 
 ```bash
 editorial optimise --config examples/bis/publication.yaml --db bis-getting-started.sqlite
