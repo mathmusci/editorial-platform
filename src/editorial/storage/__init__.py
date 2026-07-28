@@ -1,4 +1,5 @@
 from editorial.storage.sqlite import (
+    ArticleInsertOutcome,
     SQLiteArticleRepository,
     SQLiteEvaluationRepository,
     SQLiteExtractionRepository,
@@ -10,6 +11,7 @@ from editorial.storage.sqlite import (
 )
 
 __all__ = [
+    "ArticleInsertOutcome",
     "SQLiteArticleRepository",
     "SQLiteEvaluationRepository",
     "SQLiteExtractionRepository",

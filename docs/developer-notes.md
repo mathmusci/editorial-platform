@@ -65,6 +65,11 @@ The invariant is:
 
 fetched = added + duplicates in source + already in database
 
+The added and already-in-database counts are derived from the repository's
+atomic insert outcome. Ingestion does not perform a separate existence check
+before writing, so its report remains consistent with what the database
+actually accepted.
+
 Conclusion
 
 Separating source-level duplicates from repository-level duplicates makes CLI

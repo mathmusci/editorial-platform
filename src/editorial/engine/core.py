@@ -5,6 +5,7 @@ from uuid import UUID
 from editorial.interfaces import Evaluator, Extractor, Optimiser, Provider
 from editorial.models import Article, OptimisationRequest, WorkflowEvent
 from editorial.storage import (
+    ArticleInsertOutcome,
     SQLiteArticleRepository,
     SQLiteEvaluationRepository,
     SQLiteExtractionRepository,
@@ -101,10 +102,10 @@ class EditorialEngine:
                     continue
                 seen_identities.add(identity)
 
-                if self.article_repository.exists(article):
+                outcome = self.article_repository.insert(article)
+                if outcome is ArticleInsertOutcome.ALREADY_EXISTS:
                     already_in_database += 1
                 else:
-                    self.article_repository.upsert(article)
                     added += 1
         return IngestResult(
             fetched=fetched,
