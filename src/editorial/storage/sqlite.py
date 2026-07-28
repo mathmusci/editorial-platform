@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -34,6 +35,11 @@ def load_json(value: str) -> Any:
     return json.loads(value)
 
 
+class ArticleInsertOutcome(StrEnum):
+    INSERTED = "inserted"
+    ALREADY_EXISTS = "already_exists"
+
+
 class SQLiteArticleRepository:
     def __init__(self, path: str | Path):
         self.path = Path(path)
@@ -56,16 +62,10 @@ class SQLiteArticleRepository:
                 "CREATE INDEX IF NOT EXISTS idx_articles_source ON articles(source)"
             )
 
-    def upsert(self, article: Article) -> bool:
+    def insert(self, article: Article) -> ArticleInsertOutcome:
         with self._connect() as conn:
-            if article.url is not None:
-                existing = conn.execute(
-                    "SELECT id FROM articles WHERE url = ?", (str(article.url),)
-                ).fetchone()
-                if existing:
-                    return False
-            conn.execute(
-                """INSERT INTO articles (id, title, url, source, published_at, authors_json, summary, content, status, metadata_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            cursor = conn.execute(
+                """INSERT INTO articles (id, title, url, source, published_at, authors_json, summary, content, status, metadata_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING""",
                 (
                     str(article.id),
                     article.title,
@@ -81,7 +81,12 @@ class SQLiteArticleRepository:
                     article.updated_at.isoformat(),
                 ),
             )
-            return True
+        if cursor.rowcount == 1:
+            return ArticleInsertOutcome.INSERTED
+        return ArticleInsertOutcome.ALREADY_EXISTS
+
+    def upsert(self, article: Article) -> bool:
+        return self.insert(article) is ArticleInsertOutcome.INSERTED
 
     def exists(self, article: Article) -> bool:
         with self._connect() as conn:

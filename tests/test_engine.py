@@ -1,6 +1,14 @@
 from editorial.engine import EditorialEngine
 from editorial.providers.static import StaticProvider
-from editorial.storage import SQLiteArticleRepository
+from editorial.storage import ArticleInsertOutcome, SQLiteArticleRepository
+
+
+class OutcomeArticleRepository:
+    def __init__(self, outcomes: list[ArticleInsertOutcome]):
+        self.outcomes = outcomes
+
+    def insert(self, article):
+        return self.outcomes.pop(0)
 
 
 def test_engine_ingests_from_provider(tmp_path):
@@ -19,6 +27,25 @@ def test_engine_ingests_from_provider(tmp_path):
     assert result.inserted == 2
     assert result.skipped_duplicates == 0
     assert repo.count() == 2
+
+
+def test_engine_reports_repository_insert_outcomes():
+    repo = OutcomeArticleRepository(
+        [ArticleInsertOutcome.INSERTED, ArticleInsertOutcome.ALREADY_EXISTS]
+    )
+    provider = StaticProvider(
+        [
+            {"title": "Inserted", "url": "https://example.org/inserted"},
+            {"title": "Existing", "url": "https://example.org/existing"},
+        ]
+    )
+
+    result = EditorialEngine(repo).ingest([provider])
+
+    assert result.fetched == 2
+    assert result.added == 1
+    assert result.already_in_database == 1
+    assert result.duplicates_in_source == 0
 
 
 def test_engine_distinguishes_source_duplicates_from_repository_duplicates(tmp_path):

@@ -68,6 +68,9 @@ editorial ingest --config examples/bis/publication.yaml --db bis-getting-started
 
 Expected outcome: the command prints the publication name plus counts for
 fetched, added, duplicate source and already-stored articles.
+The added and already-stored counts come from the repository's atomic insert
+outcome, so they describe what the database accepted rather than the result of
+a separate pre-insert existence check.
 
 ### 2. Extract article evidence
 
