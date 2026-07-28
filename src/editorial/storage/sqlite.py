@@ -96,17 +96,25 @@ class SQLiteArticleRepository:
         return existing is not None
 
     def list(
-        self, status: EditorialStatus | None = None, limit: int | None = None
+        self,
+        status: EditorialStatus | None = None,
+        limit: int | None = None,
+        offset: int = 0,
     ) -> list[Article]:
         query = "SELECT * FROM articles"
         params: list[object] = []
         if status is not None:
             query += " WHERE status = ?"
             params.append(status.value)
-        query += " ORDER BY published_at DESC, created_at DESC"
+        query += " ORDER BY published_at DESC, created_at DESC, id ASC"
         if limit is not None:
             query += " LIMIT ?"
             params.append(limit)
+        if offset:
+            if limit is None:
+                query += " LIMIT -1"
+            query += " OFFSET ?"
+            params.append(offset)
         with self._connect() as conn:
             rows = conn.execute(query, params).fetchall()
         return [self._row_to_article(row) for row in rows]
@@ -209,6 +217,14 @@ class SQLiteExtractionRepository:
         with self._connect() as conn:
             row = conn.execute("SELECT COUNT(*) AS n FROM extractions").fetchone()
         return int(row["n"])
+
+    def exists_for_operation(self, article_id: UUID, extractor: str) -> bool:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM extractions WHERE article_id = ? AND extractor = ? LIMIT 1",
+                (str(article_id), extractor),
+            ).fetchone()
+        return row is not None
 
     def _row_to_extraction(self, row: sqlite3.Row) -> Extraction:
         return Extraction.model_validate(

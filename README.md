@@ -80,7 +80,7 @@ The first AI-powered extractor is `LLMSummaryExtractor`. It uses the provider-ne
 
 ## Evaluators
 
-Configured evaluators run over stored Articles and their associated Extractions, then write separate Evaluation records. The platform supports both deterministic and AI-powered evaluators. Sprint 4 includes a deterministic rule-based relevance evaluator:
+Configured evaluators run over stored Articles and their associated Extractions, then write separate Evaluation records. Evaluators are the judgement layer: they turn evidence into scores, confidence and rationale that downstream optimisers can use for article selection. Changing an extractor, such as an LLM summary model, changes stored evidence; it only changes selected articles when an evaluator uses that evidence in its scoring. The platform supports both deterministic and AI-powered evaluators. Sprint 4 includes a deterministic rule-based relevance evaluator:
 
 ```yaml
 evaluators:
@@ -96,7 +96,7 @@ Evaluation storage is idempotent by article, evaluator, and kind, so rerunning `
 
 ## Optimisers
 
-Configured optimisers run over stored Articles, Extractions, and Evaluations, then write append-only IssueProposal records. Sprint 5 includes a deterministic greedy optimiser:
+Configured optimisers run over stored Articles, Extractions, and Evaluations, then write append-only IssueProposal records. In normal workflows, Evaluations carry the editorial judgement that most directly drives optimiser selection. Sprint 5 includes a deterministic greedy optimiser:
 
 ```yaml
 optimisation:

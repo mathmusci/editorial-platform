@@ -120,12 +120,29 @@ class EditorialEngine:
         self,
         extractors: Iterable[Extractor],
         progress: Callable[[ExtractionProgress], None] | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+        article_ids: Iterable[UUID] | None = None,
+        missing_only: bool = False,
+        force: bool = False,
     ) -> ExtractionRunResult:
         if self.extraction_repository is None:
             raise ValueError("Extraction repository is required to run extractors")
+        if limit is not None and limit <= 0:
+            raise ValueError("Extraction limit must be a positive integer")
+        if offset < 0:
+            raise ValueError("Extraction offset must be zero or greater")
+        if missing_only and force:
+            raise ValueError("Extraction cannot use missing_only and force together")
 
         extractor_list = list(extractors)
-        articles = self.article_repository.list()
+        articles = _select_articles(
+            self.article_repository.list(), article_ids=article_ids
+        )
+        if offset:
+            articles = articles[offset:]
+        if limit is not None:
+            articles = articles[:limit]
         total = len(articles) * len(extractor_list)
         completed = stored = skipped = failed = 0
         for article in articles:
@@ -147,6 +164,28 @@ class EditorialEngine:
                             outcome="started",
                         )
                     )
+                if missing_only and self.extraction_repository.exists_for_operation(
+                    article.id, metadata.extractor_key
+                ):
+                    completed += 1
+                    skipped += 1
+                    if progress is not None:
+                        progress(
+                            ExtractionProgress(
+                                completed=completed,
+                                total=total,
+                                stored=stored,
+                                skipped=skipped,
+                                failed=failed,
+                                article_id=article.id,
+                                article_title=article.title,
+                                extractor_name=metadata.extractor_name,
+                                provider=metadata.provider,
+                                model=metadata.model,
+                                outcome="skipped",
+                            )
+                        )
+                    continue
                 try:
                     extraction = extractor.extract(article)
                     self.extraction_repository.insert(extraction)
@@ -280,6 +319,7 @@ class EditorialEngine:
 
 @dataclass(frozen=True)
 class _ExtractorProgressMetadata:
+    extractor_key: str
     extractor_name: str
     provider: str | None
     model: str | None
@@ -289,10 +329,24 @@ def _extractor_progress_metadata(extractor: Extractor) -> _ExtractorProgressMeta
     provider = getattr(extractor, "provider", None)
     provider_name = getattr(provider, "name", None)
     model = getattr(provider, "model", None)
+    extractor_key = str(getattr(extractor, "name", "unknown"))
     return _ExtractorProgressMetadata(
-        extractor_name=str(
-            getattr(extractor, "display_name", getattr(extractor, "name", "unknown"))
-        ),
+        extractor_key=extractor_key,
+        extractor_name=str(getattr(extractor, "display_name", extractor_key)),
         provider=str(provider_name) if provider_name is not None else None,
         model=str(model) if model is not None else None,
     )
+
+
+def _select_articles(
+    articles: list[Article], article_ids: Iterable[UUID] | None
+) -> list[Article]:
+    if article_ids is None:
+        return articles
+    requested = set(article_ids)
+    selected = [article for article in articles if article.id in requested]
+    missing = requested - {article.id for article in selected}
+    if missing:
+        missing_text = ", ".join(str(article_id) for article_id in sorted(missing))
+        raise ValueError(f"Article not found for extraction: {missing_text}")
+    return selected

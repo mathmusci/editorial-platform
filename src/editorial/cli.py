@@ -310,12 +310,38 @@ def ingest(
 def extract(
     config: Path = typer.Option(..., "--config", "-c"),
     db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+    limit: int | None = typer.Option(
+        None,
+        "--limit",
+        help="Extract at most this many articles from the deterministic article order.",
+    ),
+    offset: int = typer.Option(
+        0,
+        "--offset",
+        help="Skip this many articles from the deterministic article order first.",
+    ),
+    article_ids: list[UUID] | None = typer.Option(
+        None,
+        "--article-id",
+        help="Restrict extraction to an article ID. May be provided multiple times.",
+    ),
+    missing_only: bool = typer.Option(
+        False,
+        "--missing-only",
+        help="Skip article-extractor operations that already have an extraction.",
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Re-run extraction even when an extraction already exists.",
+    ),
     progress: bool | None = typer.Option(
         None,
         "--progress/--no-progress",
         help="Show dynamic extraction progress when enabled.",
     ),
 ) -> None:
+    _validate_extract_options(limit, offset, missing_only, force)
     cfg = load_publication_config(config)
     extractors = [build_extractor(e) for e in cfg.extractors if e.enabled]
     engine = EditorialEngine(
@@ -327,10 +353,26 @@ def extract(
     started_at = time.monotonic()
     try:
         if renderer is None:
-            result = engine.extract(extractors, progress=observer)
+            result = engine.extract(
+                extractors,
+                progress=observer,
+                limit=limit,
+                offset=offset,
+                article_ids=article_ids,
+                missing_only=missing_only,
+                force=force,
+            )
         else:
             with renderer:
-                result = engine.extract(extractors, progress=observer)
+                result = engine.extract(
+                    extractors,
+                    progress=observer,
+                    limit=limit,
+                    offset=offset,
+                    article_ids=article_ids,
+                    missing_only=missing_only,
+                    force=force,
+                )
             console.print()
     except Exception as exc:
         elapsed = time.monotonic() - started_at
@@ -349,6 +391,17 @@ def _should_show_extract_progress(progress: bool | None) -> bool:
     if progress is not None:
         return progress
     return console.is_terminal and os.environ.get("CI") is None
+
+
+def _validate_extract_options(
+    limit: int | None, offset: int, missing_only: bool, force: bool
+) -> None:
+    if limit is not None and limit <= 0:
+        raise typer.BadParameter("--limit must be a positive integer")
+    if offset < 0:
+        raise typer.BadParameter("--offset must be zero or greater")
+    if missing_only and force:
+        raise typer.BadParameter("--missing-only and --force cannot be used together")
 
 
 class _ExtractionProgressObserver:

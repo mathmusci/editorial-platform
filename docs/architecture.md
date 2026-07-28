@@ -237,6 +237,11 @@ Output artefacts: Evaluation records.
 Example: a relevance evaluator scores whether an Article is suitable for the BIS newsletter
 and records the rationale, score, confidence, and provenance.
 
+Evaluation is the judgement layer between evidence and selection. Extractors may create
+useful facts, summaries or measurements, but those Extractions do not automatically affect
+article selection. They influence optimisation only when an Evaluator reads them and records
+Evaluation scores or rationale that an Optimiser consumes.
+
 ### OptimisationRequest
 
 Purpose: capture editorial intent before running an optimiser.
@@ -260,6 +265,10 @@ Output artefacts: IssueProposal records.
 
 Example: a greedy optimiser selects a set of BIS Articles that meet relevance and reading
 time constraints. Optimisation proposes; it does not approve or publish.
+
+Optimisers should treat Evaluations as the primary expression of editorial judgement.
+Extractions remain available as supporting evidence, but they should not be confused with
+judgements unless an Evaluator has converted them into Evaluation records.
 
 ### Review
 
