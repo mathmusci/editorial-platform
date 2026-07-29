@@ -8,6 +8,7 @@ from editorial.prompts import SUMMARY_PROMPT_VERSION, build_summary_prompt
 class LLMSummaryExtractor:
     name = "llm_summary"
     version = "0.1.0"
+    kind = "summary"
 
     def __init__(self, provider: LLMProvider):
         self.provider = provider
@@ -19,7 +20,7 @@ class LLMSummaryExtractor:
             article_id=article.id,
             extractor=self.name,
             extractor_version=self.version,
-            kind="summary",
+            kind=self.kind,
             payload={
                 "summary": response.content,
                 "metadata": {

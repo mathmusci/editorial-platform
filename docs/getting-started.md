@@ -338,9 +338,30 @@ editorial article show <article-id> --db bis-getting-started.sqlite
 List and inspect Extraction artefacts:
 
 ```bash
+editorial extraction coverage \
+  --config examples/bis/publication.yaml \
+  --db bis-getting-started.sqlite
 editorial extraction list --db bis-getting-started.sqlite
 editorial extraction show <extraction-id> --db bis-getting-started.sqlite
 ```
+
+The coverage command compares every selected article with the enabled
+extractors in the configuration. It reports overall and per-extractor present
+and missing counts, then shows each article's extraction IDs, payload
+highlights and provenance. To diagnose missing reading-time evidence without
+listing complete articles, run:
+
+```bash
+editorial extraction coverage \
+  --config examples/bis/publication.yaml \
+  --db bis-getting-started.sqlite \
+  --extractor reading_time \
+  --missing-only
+```
+
+Coverage uses the same deterministic article ordering as extraction. Use
+`--limit`, `--offset` or repeatable `--article-id` options to inspect a smaller
+subset.
 
 List optimisation requests:
 

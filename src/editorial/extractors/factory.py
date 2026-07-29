@@ -1,10 +1,33 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from editorial.config.models import ProcessorConfig
 from editorial.extractors.llm_summary import LLMSummaryExtractor
 from editorial.interfaces import Extractor
 from editorial.extractors.reading_time import ReadingTimeExtractor
 from editorial.llm import LLMProviderFactoryConfig, build_llm_provider
+
+
+@dataclass(frozen=True)
+class ExtractorDescriptor:
+    key: str
+    display_name: str
+    kind: str
+
+
+def describe_extractor(config: ProcessorConfig) -> ExtractorDescriptor:
+    if config.type == "reading_time":
+        extractor_type = ReadingTimeExtractor
+    elif config.type == "llm_summary":
+        extractor_type = LLMSummaryExtractor
+    else:
+        raise ValueError(f"Unsupported extractor type: {config.type!r}")
+    return ExtractorDescriptor(
+        key=extractor_type.name,
+        display_name=config.name or extractor_type.name,
+        kind=extractor_type.kind,
+    )
 
 
 def build_extractor(config: ProcessorConfig) -> Extractor:

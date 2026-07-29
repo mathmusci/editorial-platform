@@ -46,13 +46,15 @@ from editorial.explain import (
     ProposalExplanation,
     ProposalExplanationService,
 )
-from editorial.extractors import build_extractor
+from editorial.extractors import build_extractor, describe_extractor
 from editorial.inspection import (
     ArticleInspection,
     ArticleInspectionService,
     EvaluationInspection,
     EvaluationInspectionService,
     ExtractionArtefactInspection,
+    ExtractionCoverageOperation,
+    ExtractionCoverageReport,
     ExtractionInspectionService,
     ProposalInspection,
     ProposalInspectionService,
@@ -1751,6 +1753,142 @@ def extraction_list(
         )
         table.add_row(str(extraction.extraction_id), details)
     console.print(table)
+
+
+@extraction_app.command("coverage")
+def extraction_coverage(
+    config: Path = typer.Option(..., "--config", "-c"),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+    limit: int | None = typer.Option(
+        None,
+        "--limit",
+        help="Inspect at most this many articles from the deterministic order.",
+    ),
+    offset: int = typer.Option(
+        0,
+        "--offset",
+        help="Skip this many articles from the deterministic order first.",
+    ),
+    article_ids: list[UUID] | None = typer.Option(
+        None,
+        "--article-id",
+        help="Restrict coverage to an article ID. May be provided multiple times.",
+    ),
+    extractor_keys: list[str] | None = typer.Option(
+        None,
+        "--extractor",
+        help="Restrict coverage to an extractor key such as reading_time.",
+    ),
+    missing_only: bool = typer.Option(
+        False,
+        "--missing-only",
+        help="Show article details only when an expected extraction is missing.",
+    ),
+) -> None:
+    cfg = load_publication_config(config)
+    descriptors = [describe_extractor(item) for item in cfg.extractors if item.enabled]
+    try:
+        report = _extraction_inspection_service(db).coverage(
+            descriptors,
+            limit=limit,
+            offset=offset,
+            article_ids=article_ids,
+            extractor_keys=extractor_keys,
+            missing_only=missing_only,
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    _render_extraction_coverage(report, missing_only=missing_only)
+
+
+def _render_extraction_coverage(
+    report: ExtractionCoverageReport, *, missing_only: bool
+) -> None:
+    summary = Table(title="Extraction Coverage")
+    summary.add_column("Metric")
+    summary.add_column("Count", justify="right")
+    summary.add_row("Articles selected", str(report.articles_selected))
+    summary.add_row("Configured extractors", str(report.configured_extractors))
+    summary.add_row("Expected operations", str(report.expected_operations))
+    summary.add_row("Present", str(report.present))
+    summary.add_row("Missing", str(report.missing))
+    summary.add_row("Complete articles", str(report.complete_articles))
+    summary.add_row("Articles with missing", str(report.articles_with_missing))
+    console.print(summary)
+
+    by_extractor = Table(title="Coverage by Extractor")
+    by_extractor.add_column("Extractor")
+    by_extractor.add_column("Kind")
+    by_extractor.add_column("Present", justify="right")
+    by_extractor.add_column("Missing", justify="right")
+    by_extractor.add_column("Coverage", justify="right")
+    for item in report.by_extractor:
+        total = item.present + item.missing
+        percentage = item.present / total * 100 if total else 0
+        by_extractor.add_row(
+            f"{item.display_name} ({item.extractor})",
+            item.expected_kind,
+            str(item.present),
+            str(item.missing),
+            f"{percentage:.1f}%",
+        )
+    console.print(by_extractor)
+
+    if not report.articles:
+        message = (
+            "No articles with missing extractions."
+            if missing_only and report.articles_selected
+            else "No articles selected."
+        )
+        console.print(Panel(message, title="Article Coverage"))
+        return
+
+    articles = Table(title="Article Coverage", show_lines=True)
+    articles.add_column("Article", overflow="fold", ratio=2)
+    articles.add_column("Extraction status", overflow="fold", ratio=3)
+    for item in report.articles:
+        article_details = "\n".join(
+            [
+                item.article_title,
+                f"ID: {item.article_id}",
+                f"Source: {_format_available(item.article_source)}",
+                f"URL: {_format_available(item.article_url)}",
+            ]
+        )
+        operations = "\n\n".join(
+            _format_extraction_coverage_operation(operation)
+            for operation in item.operations
+        )
+        articles.add_row(article_details, operations)
+    console.print(articles)
+
+
+def _format_extraction_coverage_operation(
+    operation: ExtractionCoverageOperation,
+) -> str:
+    lines = [
+        f"{operation.display_name} "
+        f"({operation.extractor}, {operation.expected_kind}): {operation.status}"
+    ]
+    if operation.status == "missing":
+        return "\n".join(lines)
+    created_at = (
+        operation.created_at.isoformat()
+        if operation.created_at is not None
+        else "not available"
+    )
+    lines.extend(
+        [
+            f"Extraction: {operation.extraction_id}",
+            f"Version: {_format_available(operation.extractor_version)}",
+            f"Created: {created_at}",
+        ]
+    )
+    if operation.payload_highlights:
+        lines.append(_format_details("Payload", operation.payload_highlights))
+    if operation.provenance:
+        lines.append(_format_details("Provenance", operation.provenance))
+    return "\n".join(lines)
 
 
 @extraction_app.command("show")
