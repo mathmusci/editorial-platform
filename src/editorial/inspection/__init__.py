@@ -11,9 +11,13 @@ from editorial.inspection.evaluations import (
     EvaluationInspectionSummary,
 )
 from editorial.inspection.extractions import (
+    ArticleExtractionCoverage,
     ExtractionArtefactInspection,
+    ExtractionCoverageOperation,
+    ExtractionCoverageReport,
     ExtractionInspectionService,
     ExtractionInspectionSummary,
+    ExtractorCoverageSummary,
 )
 from editorial.inspection.proposals import (
     ProposalArticleInspection,
@@ -39,14 +43,18 @@ __all__ = [
     "ArticleInspection",
     "ArticleInspectionService",
     "ArticleInspectionSummary",
+    "ArticleExtractionCoverage",
     "EvaluationArticleInspection",
     "EvaluationInspection",
     "EvaluationInspectionService",
     "EvaluationInspectionSummary",
     "ExtractionArtefactInspection",
+    "ExtractionCoverageOperation",
+    "ExtractionCoverageReport",
     "ExtractionInspection",
     "ExtractionInspectionService",
     "ExtractionInspectionSummary",
+    "ExtractorCoverageSummary",
     "ProposalArticleInspection",
     "ProposalInspection",
     "ProposalInspectionService",

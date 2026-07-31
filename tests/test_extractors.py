@@ -1,4 +1,8 @@
-from editorial.extractors import ReadingTimeExtractor, build_extractor
+from editorial.extractors import (
+    ReadingTimeExtractor,
+    build_extractor,
+    describe_extractor,
+)
 from editorial.config.models import ProcessorConfig
 from editorial.models import Article
 
@@ -32,3 +36,22 @@ def test_build_reading_time_extractor_from_config():
 
     assert isinstance(extractor, ReadingTimeExtractor)
     assert extractor.words_per_minute == 100
+
+
+def test_describe_llm_extractor_does_not_construct_provider():
+    config = ProcessorConfig(
+        type="llm_summary",
+        name="Local summary",
+        settings={
+            "provider": {
+                "type": "ollama",
+                "model": "qwen3.5:9b",
+            }
+        },
+    )
+
+    descriptor = describe_extractor(config)
+
+    assert descriptor.key == "llm_summary"
+    assert descriptor.display_name == "Local summary"
+    assert descriptor.kind == "summary"

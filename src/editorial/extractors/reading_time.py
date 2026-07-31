@@ -9,6 +9,7 @@ from editorial.models import Article, Extraction
 class ReadingTimeExtractor:
     name = "reading_time"
     version = "0.1.0"
+    kind = "reading_time"
 
     def __init__(self, words_per_minute: int = 200):
         if words_per_minute <= 0:
@@ -27,7 +28,7 @@ class ReadingTimeExtractor:
             article_id=article.id,
             extractor=self.name,
             extractor_version=self.version,
-            kind="reading_time",
+            kind=self.kind,
             payload={
                 "word_count": word_count,
                 "reading_minutes": reading_minutes,

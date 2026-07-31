@@ -1,0 +1,11 @@
+publication:
+  name: Extraction coverage fixture
+extractors:
+  - type: reading_time
+    name: Reading time
+  - type: llm_summary
+    name: LLM summary
+    provider:
+      type: fake
+      response_text: "Fixture summary."
+      model: fake-summary-model
