@@ -107,8 +107,10 @@ def test_cli_explain_optimisation_request_works(tmp_path):
     )
 
     assert result.exit_code == 0
-    assert "Optimisation Request" in result.stdout
-    assert "Editorial Summary" in result.stdout
+    assert "Optimisation Request Identity" in result.stdout
+    assert "Summary" in result.stdout
+    assert "What Happened" in result.stdout
+    assert "Constraints and Trade-offs" in result.stdout
 
 
 def test_cli_output_includes_request_id_publication_and_strategy(tmp_path):
@@ -181,7 +183,7 @@ def test_cli_output_links_proposals_by_optimisation_request_metadata(tmp_path):
 
     assert result.exit_code == 0
     assert str(proposal.id) in result.stdout
-    assert "Linked Proposals" in result.stdout
+    assert "Related Artefacts" in result.stdout
 
 
 def test_cli_output_includes_selected_article_count_and_objective_value(tmp_path):

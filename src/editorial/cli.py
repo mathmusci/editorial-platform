@@ -291,6 +291,19 @@ def _render_next_actions_table(actions: list[object]) -> None:
     console.print(table)
 
 
+def _render_explanation_summary(summary: str) -> None:
+    console.print(Panel(summary, title="Summary", expand=False))
+
+
+def _render_explanation_limitations(limitations: list[str]) -> None:
+    details = (
+        "\n".join(f"- {limitation}" for limitation in limitations)
+        if limitations
+        else "No limitations recorded."
+    )
+    console.print(Panel(details, title="Limitations", expand=False))
+
+
 @app.command()
 def ingest(
     config: Path = typer.Option(..., "--config", "-c"),
@@ -680,22 +693,14 @@ def _render_publication_explanation(explanation: PublicationExplanation) -> None
         ]
     )
     console.print(Panel(details, title="Publication Identity", expand=False))
-    console.print(
-        Panel(explanation.editorial_summary, title="Editorial Summary", expand=False)
-    )
+    _render_explanation_summary(explanation.editorial_summary)
     _render_publication_explanation_workflow(explanation)
+    console.print(
+        Panel(explanation.interpretation, title="Why It Happened", expand=False)
+    )
     _render_publication_explanation_composition(explanation)
     _render_publication_explanation_evidence(explanation)
-    console.print(
-        Panel(explanation.interpretation, title="Interpretation", expand=False)
-    )
-    console.print(
-        Panel(
-            "\n".join(f"- {item}" for item in explanation.limitations.items),
-            title="Limitations",
-            expand=False,
-        )
-    )
+    _render_explanation_limitations(explanation.limitations.items)
     _render_publication_explanation_related(explanation)
     _render_publication_explanation_next_actions(explanation)
 
@@ -707,7 +712,7 @@ def _render_publication_explanation_workflow(
     if not workflow.events:
         console.print(Panel("No workflow events recorded.", title="Workflow"))
         return
-    table = Table(title="Editorial Workflow")
+    table = Table(title="What Happened")
     table.add_column("Event")
     for event in workflow.events:
         table.add_row(event)
@@ -768,7 +773,7 @@ def _render_publication_explanation_evidence(
         )
         or None,
     }
-    _render_key_value_table("Editorial Evidence", rows)
+    _render_key_value_table("Evidence", rows)
 
 
 def _render_publication_explanation_related(
@@ -802,19 +807,19 @@ def _render_evaluation_explanation(explanation: EvaluationExplanation) -> None:
         ]
     )
     console.print(Panel(identity, title="Evaluation Identity", expand=False))
+    _render_explanation_summary(explanation.outcome_summary)
     outcome = "\n".join(
         [
-            explanation.outcome_summary,
             f"Score: {_format_available(explanation.score)}",
             f"Confidence: {_format_evaluation_confidence(explanation)}",
             f"Rationale: {_format_available(explanation.rationale)}",
             f"Decision: {_format_available(explanation.decision)}",
         ]
     )
-    console.print(Panel(outcome, title="Outcome", expand=False))
+    console.print(Panel(outcome, title="What Happened", expand=False))
+    _render_evaluation_explanation_interpretation(explanation)
     _render_evaluation_explanation_evidence(explanation)
     _render_evaluation_explanation_provenance(explanation)
-    _render_evaluation_explanation_interpretation(explanation)
     _render_evaluation_explanation_limitations(explanation)
     _render_evaluation_explanation_related(explanation)
     _render_evaluation_explanation_next_actions(explanation)
@@ -869,64 +874,50 @@ def _render_evaluation_explanation_interpretation(
     details = [explanation.interpretation.summary]
     if explanation.interpretation.confidence_note:
         details.append(explanation.interpretation.confidence_note)
-    console.print(Panel("\n".join(details), title="Interpretation", expand=False))
+    console.print(Panel("\n".join(details), title="Why It Happened", expand=False))
 
 
 def _render_evaluation_explanation_limitations(
     explanation: EvaluationExplanation,
 ) -> None:
-    console.print(
-        Panel(
-            "\n".join(f"- {limitation}" for limitation in explanation.limitations),
-            title="Limitations",
-            expand=False,
-        )
-    )
+    _render_explanation_limitations(explanation.limitations)
 
 
 def _render_evaluation_explanation_related(
     explanation: EvaluationExplanation,
 ) -> None:
-    console.print(
-        Panel(
-            "\n".join(
-                [
-                    f"Article: {explanation.article_id}",
-                    f"Title: {_format_available(explanation.article_title)}",
-                ]
-            ),
-            title="Related Article",
-            expand=False,
-        )
+    table = Table(title="Related Artefacts", show_lines=True)
+    table.add_column("Type")
+    table.add_column("ID", no_wrap=True)
+    table.add_column("Details")
+    table.add_row(
+        "Article",
+        str(explanation.article_id),
+        f"Title: {_format_available(explanation.article_title)}",
     )
     for proposal in explanation.related_proposals:
-        console.print(
-            Panel(
-                "\n".join(
-                    [
-                        f"Proposal: {proposal.proposal_id}",
-                        f"Optimiser: {proposal.optimiser}",
-                        f"Objective: {proposal.objective_value}",
-                    ]
-                ),
-                title="Related Proposal",
-                expand=False,
-            )
+        table.add_row(
+            "Proposal",
+            str(proposal.proposal_id),
+            "\n".join(
+                [
+                    f"Optimiser: {proposal.optimiser}",
+                    f"Objective: {proposal.objective_value}",
+                ]
+            ),
         )
     for publication in explanation.related_publications:
-        console.print(
-            Panel(
-                "\n".join(
-                    [
-                        f"Publication: {publication.publication_id}",
-                        f"Title: {publication.title}",
-                        f"Proposal: {publication.proposal_id}",
-                    ]
-                ),
-                title="Related Publication",
-                expand=False,
-            )
+        table.add_row(
+            "Publication",
+            str(publication.publication_id),
+            "\n".join(
+                [
+                    f"Title: {publication.title}",
+                    f"Proposal: {publication.proposal_id}",
+                ]
+            ),
         )
+    console.print(table)
 
 
 def _render_evaluation_explanation_next_actions(
@@ -951,31 +942,21 @@ def _render_article_selection_explanation(
         ]
     )
     console.print(Panel(identity, title="Article Selection Identity", expand=False))
-    console.print(
-        Panel(
-            explanation.outcome.status,
-            title="Selection Outcome",
-            expand=False,
-        )
-    )
+    _render_explanation_summary(explanation.outcome.status)
     console.print(
         Panel(
             explanation.outcome.explanation,
-            title="Deterministic Explanation",
+            title="What Happened",
             expand=False,
         )
     )
-    if not explanation.outcome.included:
-        console.print(
-            Panel(
-                "The stored proposal does not record the exact exclusion reason.",
-                title="Exclusion Caveat",
-                expand=False,
-            )
-        )
     _render_article_selection_evidence(explanation)
     _render_article_selection_proposal_context(explanation)
     _render_article_selection_constraints(explanation)
+    if not explanation.outcome.included:
+        _render_explanation_limitations(
+            ["The stored proposal does not record the exact exclusion reason."]
+        )
     _render_article_selection_next_actions(explanation)
 
 
@@ -986,12 +967,12 @@ def _render_article_selection_evidence(
         console.print(
             Panel(
                 "No extraction or evaluation evidence is available.",
-                title="Article Evidence",
+                title="Evidence",
             )
         )
         return
 
-    table = Table(title="Article Evidence", show_lines=True)
+    table = Table(title="Evidence", show_lines=True)
     table.add_column("Type")
     table.add_column("Kind")
     table.add_column("Producer")
@@ -1052,12 +1033,12 @@ def _render_article_selection_constraints(
         console.print(
             Panel(
                 "No relevant proposal constraints were recorded.",
-                title="Constraint Context",
+                title="Constraints and Trade-offs",
             )
         )
         return
 
-    table = Table(title="Constraint Context", show_lines=True)
+    table = Table(title="Constraints and Trade-offs", show_lines=True)
     table.add_column("Constraint")
     table.add_column("Details")
     for constraint in explanation.constraint_context:
@@ -1093,15 +1074,13 @@ def _render_optimisation_request_explanation(
             f"[bold]Created by:[/bold] {_format_available(explanation.created_by)}",
         ]
     )
-    console.print(Panel(identity, title="Optimisation Request", expand=False))
-    console.print(
-        Panel(explanation.editorial_summary, title="Editorial Summary", expand=False)
-    )
+    console.print(Panel(identity, title="Optimisation Request Identity", expand=False))
+    _render_explanation_summary(explanation.editorial_summary)
+    _render_optimisation_outcome(explanation)
+    _render_optimisation_balance(explanation)
     _render_optimisation_settings(explanation)
     _render_optimisation_json_inputs(explanation)
     _render_linked_proposals(explanation)
-    _render_optimisation_balance(explanation)
-    _render_optimisation_outcome(explanation)
     _render_optimisation_next_actions(explanation)
 
 
@@ -1166,12 +1145,12 @@ def _render_linked_proposals(
         console.print(
             Panel(
                 "No IssueProposal linked to this optimisation request was found.",
-                title="Linked Proposals",
+                title="Related Artefacts",
             )
         )
         return
 
-    table = Table(title="Linked Proposals", show_lines=True)
+    table = Table(title="Related Artefacts", show_lines=True)
     table.add_column("Proposal ID", no_wrap=True)
     table.add_column("Details")
     for proposal in explanation.linked_proposals:
@@ -1204,7 +1183,9 @@ def _render_linked_proposals(
 def _render_optimisation_balance(
     explanation: OptimisationRequestExplanation,
 ) -> None:
-    console.print(Panel(explanation.balance.summary, title="What Was Asked To Balance"))
+    console.print(
+        Panel(explanation.balance.summary, title="Constraints and Trade-offs")
+    )
 
 
 def _render_optimisation_outcome(
@@ -1232,13 +1213,7 @@ def _render_proposal_explanation(explanation: ProposalExplanation) -> None:
         ]
     )
     console.print(Panel(identity, title="Proposal Identity", expand=False))
-    console.print(
-        Panel(
-            explanation.editorial_summary,
-            title="Editorial Summary",
-            expand=False,
-        )
-    )
+    _render_explanation_summary(explanation.editorial_summary)
     _render_explanation_constraints(explanation)
     _render_penalty_breakdown(explanation)
     _render_explained_articles(explanation)
@@ -1249,11 +1224,11 @@ def _render_proposal_explanation(explanation: ProposalExplanation) -> None:
 def _render_explanation_constraints(explanation: ProposalExplanation) -> None:
     if not explanation.constraints:
         console.print(
-            Panel("No constraint results were recorded.", title="Constraints")
+            Panel("No constraint results were recorded.", title="Why It Happened")
         )
         return
 
-    console.print("[bold]Constraint Explanation[/bold]")
+    console.print("[bold]Why It Happened[/bold]")
     for constraint in explanation.constraints:
         details = "\n".join(
             [
@@ -1299,10 +1274,10 @@ def _render_penalty_breakdown(explanation: ProposalExplanation) -> None:
 
 def _render_explained_articles(explanation: ProposalExplanation) -> None:
     if not explanation.articles:
-        console.print(Panel("No selected articles found.", title="Selected Articles"))
+        console.print(Panel("No selected articles found.", title="Evidence"))
         return
 
-    console.print("[bold]Selected Articles[/bold]")
+    console.print("[bold]Evidence[/bold]")
     for article in explanation.articles:
         details = "\n".join(
             [
@@ -1332,7 +1307,7 @@ def _render_trade_off_summary(explanation: ProposalExplanation) -> None:
             _format_details("Sources represented", trade_offs.source_counts),
         ]
     )
-    console.print(Panel(details, title="Trade-Off Summary", expand=False))
+    console.print(Panel(details, title="Constraints and Trade-offs", expand=False))
 
 
 def _render_next_actions(explanation: ProposalExplanation) -> None:
