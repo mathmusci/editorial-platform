@@ -175,8 +175,10 @@ def test_cli_explain_evaluation_works(tmp_path):
 
     assert result.exit_code == 0
     assert "Evaluation Identity" in result.stdout
-    assert "Outcome" in result.stdout
-    assert "Interpretation" in result.stdout
+    assert "Summary" in result.stdout
+    assert "What Happened" in result.stdout
+    assert "Why It Happened" in result.stdout
+    assert "Related Artefacts" in result.stdout
 
 
 def test_cli_output_includes_related_article(tmp_path):

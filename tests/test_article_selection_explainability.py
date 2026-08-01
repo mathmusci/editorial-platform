@@ -187,7 +187,10 @@ def test_cli_article_selection_explain_works(tmp_path):
 
     assert result.exit_code == 0
     assert "Article Selection Identity" in result.stdout
-    assert "Selection Outcome" in result.stdout
+    assert "Summary" in result.stdout
+    assert "What Happened" in result.stdout
+    assert "Evidence" in result.stdout
+    assert "Constraints and Trade-offs" in result.stdout
 
 
 def test_output_states_included_article_was_included(tmp_path):
@@ -364,7 +367,7 @@ def test_output_includes_constraint_context_where_recorded(tmp_path):
     )
 
     assert result.exit_code == 0
-    assert "Constraint Context" in result.stdout
+    assert "Constraints and Trade-offs" in result.stdout
     assert "max_articles" in result.stdout
     assert "reading_time_target_minutes" in result.stdout
     assert "source_diversity_max_per_source" in result.stdout

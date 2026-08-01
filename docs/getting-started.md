@@ -402,6 +402,23 @@ Explain why an IssueProposal looks the way it does:
 editorial explain proposal <proposal-id> --db bis-getting-started.sqlite
 ```
 
+All `editorial explain` commands use the same editorial section vocabulary
+where the recorded information is available: Summary, What Happened, Why It
+Happened, Evidence, Constraints and Trade-offs, Limitations, Related Artefacts
+and Next Actions. The wording is deterministic and based only on stored
+artefacts; it does not recreate missing reasoning or infer editorial intent.
+
+The same explanation format is available for a particular article selection,
+evaluation or publication:
+
+```bash
+editorial explain article-selection \
+  <proposal-id> <article-id> \
+  --db bis-getting-started.sqlite
+editorial explain evaluation <evaluation-id> --db bis-getting-started.sqlite
+editorial explain publication <publication-id> --db bis-getting-started.sqlite
+```
+
 Inspect workflow events, including proposal creation, review submission,
 publication creation and rendering:
 

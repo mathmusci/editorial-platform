@@ -149,7 +149,7 @@ def test_cli_explain_proposal_works(tmp_path):
 
     assert result.exit_code == 0
     assert "Proposal Identity" in result.stdout
-    assert "Editorial Summary" in result.stdout
+    assert "Summary" in result.stdout
 
 
 def test_cli_explain_includes_proposal_and_request_ids(tmp_path):
@@ -188,7 +188,8 @@ def test_cli_explain_includes_constraint_explanations(tmp_path):
     )
 
     assert result.exit_code == 0
-    assert "Constraint Explanation" in result.stdout
+    assert "Why It Happened" in result.stdout
+    assert "Constraints and Trade-offs" in result.stdout
     assert "max_articles was satisfied" in result.stdout
     assert "relevance_target_score was not satisfied" in result.stdout
 

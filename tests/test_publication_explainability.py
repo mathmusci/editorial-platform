@@ -223,7 +223,8 @@ def test_cli_explain_publication_works(tmp_path):
 
     assert result.exit_code == 0
     assert "Publication Identity" in result.stdout
-    assert "Editorial Summary" in result.stdout
+    assert "Summary" in result.stdout
+    assert "What Happened" in result.stdout
 
 
 def test_publication_identity_shown(tmp_path):
@@ -268,7 +269,7 @@ def test_workflow_chronology_shown(tmp_path):
     )
 
     assert result.exit_code == 0
-    assert "Editorial Workflow" in result.stdout
+    assert "What Happened" in result.stdout
     assert "Proposal created" in result.stdout
     assert "Publication created" in result.stdout
     assert "Publication published" in result.stdout
@@ -328,7 +329,7 @@ def test_editorial_evidence_shown(tmp_path):
     )
 
     assert result.exit_code == 0
-    assert "Editorial Evidence" in result.stdout
+    assert "Evidence" in result.stdout
     assert "Proposal objective value" in result.stdout
     assert "72.5" in result.stdout
     assert "Satisfied constraints" in result.stdout
