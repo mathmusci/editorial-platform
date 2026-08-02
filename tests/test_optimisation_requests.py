@@ -220,3 +220,31 @@ def test_cli_optimisation_request_accepts_parent_ids(tmp_path):
     assert result.exit_code == 0
     assert request.parent_request_id == parent_request_id
     assert request.parent_proposal_id == parent_proposal_id
+
+
+def test_cli_optimisation_request_show_displays_metadata_and_provenance(tmp_path):
+    db_path = tmp_path / "test.sqlite"
+    request = OptimisationRequest(
+        strategy="greedy",
+        metadata={
+            "generated_by": "llm",
+            "provider": "ollama",
+            "model": "qwen3.5:9b",
+            "prompt_version": "optimisation-request-v1",
+            "source": "editorial intent",
+        },
+    )
+    SQLiteOptimisationRequestRepository(db_path).insert(request)
+
+    result = CliRunner().invoke(
+        app,
+        ["optimisation-request", "show", str(request.id), "--db", str(db_path)],
+    )
+
+    assert result.exit_code == 0
+    assert "Provenance" in result.stdout
+    assert "ollama" in result.stdout
+    assert "qwen3.5:9b" in result.stdout
+    assert "Metadata" in result.stdout
+    assert "Source" in result.stdout
+    assert "editorial intent" in result.stdout

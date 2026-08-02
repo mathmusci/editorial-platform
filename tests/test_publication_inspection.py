@@ -86,9 +86,10 @@ def _store_publication(
                 heading="Selected articles",
                 article_ids=[article.id],
                 summary="This section contains one article.",
+                metadata={"audience": "policy professionals"},
             )
         ],
-        metadata={"article_count": 1},
+        metadata={"article_count": 1, "edition": "weekly"},
     )
     SQLitePublicationRepository(db_path).insert(publication)
 
@@ -227,6 +228,34 @@ def test_cli_publication_show_displays_sections_and_included_articles(tmp_path):
     assert result.exit_code == 0
     assert "Section 1: Selected articles" in result.stdout
     assert "Industrial statistics" in result.stdout
+
+
+def test_cli_publication_show_displays_section_metadata(tmp_path):
+    db_path = tmp_path / "test.sqlite"
+    publication, _article, _proposal, _request = _store_publication(db_path)
+
+    result = CliRunner().invoke(
+        app, ["publication", "show", str(publication.id), "--db", str(db_path)]
+    )
+
+    assert result.exit_code == 0
+    assert "Section Metadata" in result.stdout
+    assert "Audience" in result.stdout
+    assert "policy professionals" in result.stdout
+
+
+def test_cli_publication_show_displays_only_additional_publication_metadata(tmp_path):
+    db_path = tmp_path / "test.sqlite"
+    publication, _article, _proposal, _request = _store_publication(db_path)
+
+    result = CliRunner().invoke(
+        app, ["publication", "show", str(publication.id), "--db", str(db_path)]
+    )
+
+    assert result.exit_code == 0
+    assert "Edition" in result.stdout
+    assert "weekly" in result.stdout
+    assert "Article count" not in result.stdout
 
 
 def test_cli_publication_show_displays_article_source_and_url(tmp_path):

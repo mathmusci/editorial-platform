@@ -1,4 +1,9 @@
-from editorial.cli import _format_details, _format_structured_value
+from editorial.cli import (
+    _format_details,
+    _format_structured_value,
+    _split_provenance,
+    _split_rendered_payload,
+)
 
 
 def test_format_structured_value_renders_mapping_without_json_quotes():
@@ -29,3 +34,35 @@ def test_format_details_renders_nested_values_readably():
     assert "Publication metrics:" in rendered
     assert "Article count: 1" in rendered
     assert "Evaluation count: 1106" in rendered
+
+
+def test_split_provenance_keeps_additional_metadata_separate():
+    provenance, additional = _split_provenance(
+        {
+            "provider": "ollama",
+            "model": "qwen3.5:9b",
+            "editorial_note": "Local test run",
+        }
+    )
+
+    assert provenance == {"provider": "ollama", "model": "qwen3.5:9b"}
+    assert additional == {"editorial_note": "Local test run"}
+
+
+def test_split_rendered_payload_removes_only_already_presented_fields():
+    payload, metadata = _split_rendered_payload(
+        {
+            "summary": "A summary.",
+            "quality": "reviewed",
+            "metadata": {
+                "provider": "ollama",
+                "model": "qwen3.5:9b",
+                "editorial_note": "Local test run",
+            },
+        },
+        {"summary": "A summary."},
+        {"provider": "ollama", "model": "qwen3.5:9b"},
+    )
+
+    assert payload == {"quality": "reviewed"}
+    assert metadata == {"editorial_note": "Local test run"}
