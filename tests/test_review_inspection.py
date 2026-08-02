@@ -37,6 +37,7 @@ def _store_issue_proposal_review(
     with_proposal: bool = True,
     with_publication: bool = False,
     with_workflow: bool = False,
+    review_metadata: dict | None = None,
 ) -> tuple[
     Review, IssueProposal | None, OptimisationRequest | None, Publication | None
 ]:
@@ -67,7 +68,7 @@ def _store_issue_proposal_review(
         comments="Ready to publish",
         findings={"reading_time": 12},
         recommendations={"publish": True},
-        metadata={"source": "manual"},
+        metadata=({"source": "manual"} if review_metadata is None else review_metadata),
     )
     SQLiteReviewRepository(db_path).insert(review)
 
@@ -153,6 +154,30 @@ def test_cli_review_show_displays_reviewer_decision_and_comments(tmp_path):
     assert "Andy" in result.stdout
     assert "approve" in result.stdout
     assert "Ready to publish" in result.stdout
+
+
+def test_cli_review_show_separates_provenance_from_additional_metadata(tmp_path):
+    db_path = tmp_path / "test.sqlite"
+    review, _proposal, _request, _publication = _store_issue_proposal_review(
+        db_path,
+        review_metadata={
+            "generated_by": "llm",
+            "provider": "ollama",
+            "model": "qwen3.5:9b",
+            "prompt_version": "review-v1",
+            "source": "editorial review assistant",
+        },
+    )
+
+    result = CliRunner().invoke(
+        app, ["review", "show", str(review.id), "--db", str(db_path)]
+    )
+
+    assert result.exit_code == 0
+    assert "Provenance" in result.stdout
+    assert "qwen3.5:9b" in result.stdout
+    assert "Metadata" in result.stdout
+    assert "editorial review assistant" in result.stdout
 
 
 def test_cli_review_show_displays_reviewed_issue_proposal_context(tmp_path):

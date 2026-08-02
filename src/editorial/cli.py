@@ -226,9 +226,9 @@ def _format_scalar(value: object | None) -> str:
 
 def _format_label(value: object) -> str:
     text = str(value)
-    if "_" not in text:
-        return text
-    return text.replace("_", " ").capitalize()
+    if "_" in text:
+        return text.replace("_", " ").capitalize()
+    return text.capitalize() if text.islower() else text
 
 
 def _format_structured_value(value: object | None, *, indent: int = 0) -> str:
@@ -263,6 +263,59 @@ def _without_metadata_keys(
     duplicated_keys: set[str],
 ) -> dict[str, Any]:
     return {key: value for key, value in metadata.items() if key not in duplicated_keys}
+
+
+PROVENANCE_METADATA_FIELDS = {
+    "generated_by",
+    "provider",
+    "model",
+    "prompt_version",
+    "token_usage",
+    "latency",
+    "cost",
+}
+
+
+def _split_provenance(
+    metadata: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    provenance = {
+        key: value
+        for key, value in metadata.items()
+        if key in PROVENANCE_METADATA_FIELDS
+    }
+    additional = {
+        key: value
+        for key, value in metadata.items()
+        if key not in PROVENANCE_METADATA_FIELDS
+    }
+    return provenance, additional
+
+
+def _split_rendered_payload(
+    payload: dict[str, Any],
+    highlights: dict[str, Any],
+    provenance: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    rendered_keys = set(highlights) | set(provenance)
+    remaining_payload = {
+        key: value
+        for key, value in payload.items()
+        if key != "metadata" and key not in rendered_keys
+    }
+    nested_metadata = payload.get("metadata")
+    remaining_metadata = (
+        {
+            key: value
+            for key, value in nested_metadata.items()
+            if key not in rendered_keys
+        }
+        if isinstance(nested_metadata, dict)
+        else {}
+    )
+    if nested_metadata is not None and not isinstance(nested_metadata, dict):
+        remaining_payload["metadata"] = nested_metadata
+    return remaining_payload, remaining_metadata
 
 
 def _format_evaluation_confidence(explanation: EvaluationExplanation) -> str:
@@ -1382,16 +1435,7 @@ def _render_article_inspection(inspection: ArticleInspection) -> None:
 
 
 def _render_article_metadata(inspection: ArticleInspection) -> None:
-    if not inspection.article.metadata:
-        console.print(Panel("No metadata stored.", title="Metadata"))
-        return
-
-    table = Table(title="Metadata")
-    table.add_column("Key")
-    table.add_column("Value")
-    for key, value in sorted(inspection.article.metadata.items()):
-        table.add_row(_format_label(key), _format_structured_value(value))
-    console.print(table)
+    _render_metadata_sections(inspection.article.metadata)
 
 
 def _render_article_extractions(inspection: ArticleInspection) -> None:
@@ -1661,7 +1705,7 @@ def _render_evaluation_payload(inspection: EvaluationInspection) -> None:
         console.print(table)
 
     if inspection.ai_provenance:
-        table = Table(title="AI Provenance")
+        table = Table(title="Provenance")
         table.add_column("Field")
         table.add_column("Value")
         for key, value in inspection.ai_provenance.items():
@@ -1672,12 +1716,15 @@ def _render_evaluation_payload(inspection: EvaluationInspection) -> None:
         console.print(Panel("No payload stored.", title="Payload"))
         return
 
-    table = Table(title="Payload")
-    table.add_column("Key")
-    table.add_column("Value")
-    for key, value in sorted(inspection.evaluation.payload.items()):
-        table.add_row(_format_label(key), _format_structured_value(value))
-    console.print(table)
+    payload, metadata = _split_rendered_payload(
+        inspection.evaluation.payload,
+        inspection.payload_highlights,
+        inspection.ai_provenance,
+    )
+    if payload:
+        _render_key_value_table("Payload", payload)
+    if metadata:
+        _render_metadata_sections(metadata, show_empty=False)
 
 
 def _render_evaluation_workflow_events(inspection: EvaluationInspection) -> None:
@@ -1925,11 +1972,15 @@ def _render_extraction_article(inspection: ExtractionArtefactInspection) -> None
 
 
 def _render_extraction_payload(inspection: ExtractionArtefactInspection) -> None:
-    if inspection.payload_highlights:
+    payload_highlights = _without_metadata_keys(
+        inspection.payload_highlights,
+        set(inspection.provenance),
+    )
+    if payload_highlights:
         table = Table(title="Payload Highlights")
         table.add_column("Field")
         table.add_column("Value")
-        for key, value in inspection.payload_highlights.items():
+        for key, value in payload_highlights.items():
             table.add_row(_format_label(key), _format_structured_value(value))
         console.print(table)
 
@@ -1945,12 +1996,15 @@ def _render_extraction_payload(inspection: ExtractionArtefactInspection) -> None
         console.print(Panel("No payload stored.", title="Payload"))
         return
 
-    table = Table(title="Payload")
-    table.add_column("Key")
-    table.add_column("Value")
-    for key, value in sorted(inspection.extraction.payload.items()):
-        table.add_row(_format_label(key), _format_structured_value(value))
-    console.print(table)
+    payload, metadata = _split_rendered_payload(
+        inspection.extraction.payload,
+        payload_highlights,
+        inspection.provenance,
+    )
+    if payload:
+        _render_key_value_table("Payload", payload)
+    if metadata:
+        _render_metadata_sections(metadata, show_empty=False)
 
 
 def _render_extraction_workflow_events(
@@ -2010,7 +2064,7 @@ def _render_proposal_inspection(inspection: ProposalInspection) -> None:
     _render_workflow_events(inspection)
     _render_reviews(inspection)
     _render_publications(inspection)
-    _render_metadata(inspection)
+    _render_proposal_metadata(inspection)
 
 
 def _render_selected_articles(inspection: ProposalInspection) -> None:
@@ -2127,10 +2181,10 @@ def _render_publications(inspection: ProposalInspection) -> None:
     console.print(table)
 
 
-def _render_metadata(inspection: ProposalInspection) -> None:
-    metadata = _without_metadata_keys(
+def _render_proposal_metadata(inspection: ProposalInspection) -> None:
+    _render_metadata_sections(
         inspection.metadata,
-        {
+        omitted_keys={
             "article_ids",
             "articles",
             "optimisation_request_id",
@@ -2138,15 +2192,6 @@ def _render_metadata(inspection: ProposalInspection) -> None:
             "selected_articles",
         },
     )
-    if not metadata:
-        return
-
-    table = Table(title="Metadata")
-    table.add_column("Key")
-    table.add_column("Value")
-    for key, value in sorted(metadata.items()):
-        table.add_row(_format_label(key), _format_structured_value(value))
-    console.print(table)
 
 
 @workflow_app.command("record")
@@ -2379,10 +2424,10 @@ def _render_review_metadata(inspection: ReviewInspection) -> None:
         _render_key_value_table("Findings", review.findings)
     if review.recommendations:
         _render_key_value_table("Recommendations", review.recommendations)
-    if inspection.metadata:
-        _render_key_value_table("Metadata", inspection.metadata)
-    if not review.findings and not review.recommendations and not inspection.metadata:
-        console.print(Panel("No metadata stored.", title="Review Metadata"))
+    _render_metadata_sections(
+        inspection.metadata,
+        show_empty=not review.findings and not review.recommendations,
+    )
 
 
 def _render_key_value_table(title: str, values: dict[str, object]) -> None:
@@ -2390,8 +2435,26 @@ def _render_key_value_table(title: str, values: dict[str, object]) -> None:
     table.add_column("Key")
     table.add_column("Value")
     for key, value in sorted(values.items()):
-        table.add_row(str(key), _format_structured_value(value))
+        table.add_row(_format_label(key), _format_structured_value(value))
     console.print(table)
+
+
+def _render_metadata_sections(
+    metadata: dict[str, Any],
+    *,
+    omitted_keys: set[str] | None = None,
+    show_empty: bool = True,
+    metadata_title: str = "Metadata",
+    provenance_title: str = "Provenance",
+) -> None:
+    filtered = _without_metadata_keys(metadata, omitted_keys or set())
+    provenance, additional = _split_provenance(filtered)
+    if provenance:
+        _render_key_value_table(provenance_title, provenance)
+    if additional:
+        _render_key_value_table(metadata_title, additional)
+    if not provenance and not additional and show_empty:
+        console.print(Panel("No metadata stored.", title=metadata_title))
 
 
 @publication_app.command("create")
@@ -2501,6 +2564,13 @@ def _render_publication_sections(inspection: PublicationInspection) -> None:
             console.print(Panel(section.section.summary, title=heading, expand=False))
         else:
             console.print(Panel("", title=heading, expand=False))
+        if section.section.metadata:
+            _render_metadata_sections(
+                section.section.metadata,
+                show_empty=False,
+                metadata_title="Section Metadata",
+                provenance_title="Section Provenance",
+            )
 
         for item in section.articles:
             article = item.article
@@ -2600,25 +2670,15 @@ def _render_workflow_table(title: str, events: list[WorkflowEvent]) -> None:
 
 
 def _render_publication_metadata(inspection: PublicationInspection) -> None:
-    metadata = _without_metadata_keys(
+    _render_metadata_sections(
         inspection.metadata,
-        {
+        omitted_keys={
             "article_count",
             "objective_value",
             "optimiser",
             "proposal_id",
         },
     )
-    if not metadata:
-        console.print(Panel("No metadata stored.", title="Metadata"))
-        return
-
-    table = Table(title="Metadata")
-    table.add_column("Key")
-    table.add_column("Value")
-    for key, value in sorted(metadata.items()):
-        table.add_row(_format_label(key), _format_structured_value(value))
-    console.print(table)
 
 
 @publish_app.command("markdown")
@@ -2702,6 +2762,7 @@ def optimisation_request_show(
     _render_key_value_table("Constraints", request.constraints)
     _render_key_value_table("Goals", request.goals)
     _render_key_value_table("Preferences", request.preferences)
+    _render_metadata_sections(request.metadata)
 
 
 @optimisation_request_app.command("run")

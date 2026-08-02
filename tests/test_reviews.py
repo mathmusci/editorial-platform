@@ -229,9 +229,9 @@ def test_cli_review_create_list_show_and_workflow_history(tmp_path):
     assert review_id in list_result.stdout
     assert show.exit_code == 0
     assert "Decision: needs_changes" in show.stdout
-    assert "reading_time" in show.stdout
+    assert "Reading time" in show.stdout
     assert "24" in show.stdout
-    assert "target_minutes" in show.stdout
+    assert "Target minutes" in show.stdout
     assert "20" in show.stdout
     assert history.exit_code == 0
     assert "review-submitted" in history.stdout

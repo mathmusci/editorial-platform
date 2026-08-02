@@ -187,6 +187,20 @@ def test_cli_article_show_displays_summary_and_content_preview(tmp_path):
     assert len(result.stdout) < len(article.content or "") + 5000
 
 
+def test_cli_article_show_displays_metadata_with_readable_labels(tmp_path):
+    db_path = tmp_path / "test.sqlite"
+    article = _store_article(db_path)
+
+    result = CliRunner().invoke(
+        app, ["article", "show", str(article.id), "--db", str(db_path)]
+    )
+
+    assert result.exit_code == 0
+    assert "Metadata" in result.stdout
+    assert "Section hint" in result.stdout
+    assert "Industry" in result.stdout
+
+
 def test_cli_article_show_displays_related_extractions(tmp_path):
     db_path = tmp_path / "test.sqlite"
     article = _store_article(db_path)

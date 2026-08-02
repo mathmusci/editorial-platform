@@ -419,6 +419,13 @@ editorial explain evaluation <evaluation-id> --db bis-getting-started.sqlite
 editorial explain publication <publication-id> --db bis-getting-started.sqlite
 ```
 
+Inspection commands render stored metadata as labelled fields rather than raw
+JSON. Provider, model, prompt version and related generation fields appear in a
+separate Provenance section. Metadata already shown as part of an artefact's
+identity or structure is not repeated, while additional metadata remains
+visible. `publication show` also includes metadata stored on individual
+publication sections.
+
 Inspect workflow events, including proposal creation, review submission,
 publication creation and rendering:
 
