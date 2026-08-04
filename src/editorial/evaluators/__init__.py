@@ -1,5 +1,11 @@
 from editorial.evaluators.factory import build_evaluator
 from editorial.evaluators.llm_relevance import LLMRelevanceEvaluator
+from editorial.evaluators.llm_summary_quality import LLMSummaryQualityEvaluator
 from editorial.evaluators.rule_relevance import RuleBasedRelevanceEvaluator
 
-__all__ = ["LLMRelevanceEvaluator", "RuleBasedRelevanceEvaluator", "build_evaluator"]
+__all__ = [
+    "LLMRelevanceEvaluator",
+    "LLMSummaryQualityEvaluator",
+    "RuleBasedRelevanceEvaluator",
+    "build_evaluator",
+]

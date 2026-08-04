@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from editorial.config.models import ProcessorConfig
 from editorial.evaluators.llm_relevance import LLMRelevanceEvaluator
+from editorial.evaluators.llm_summary_quality import LLMSummaryQualityEvaluator
 from editorial.evaluators.rule_relevance import RuleBasedRelevanceEvaluator
 from editorial.interfaces import Evaluator
-from editorial.llm import LLMProviderFactoryConfig, build_llm_provider
+from editorial.llm import LLMProvider, LLMProviderFactoryConfig, build_llm_provider
 
 
 def build_evaluator(config: ProcessorConfig) -> Evaluator:
@@ -18,22 +19,22 @@ def build_evaluator(config: ProcessorConfig) -> Evaluator:
             config.name,
         )
     if config.type == "llm_relevance":
-        provider = build_llm_provider(
-            LLMProviderFactoryConfig(
-                provider=config.settings.get("provider", "fake"),
-                response_text=config.settings.get("response_text", "Fake response"),
-                model=config.settings.get("model"),
-                api_key_env=config.settings.get("api_key_env", "OPENAI_API_KEY"),
-                base_url=config.settings.get("base_url"),
-                organization=config.settings.get("organization"),
-                project=config.settings.get("project"),
-                metadata=config.settings.get("metadata", {}),
-            )
-        )
+        provider = _build_llm_evaluator_provider(config)
         return _with_display_name(
             LLMRelevanceEvaluator(
                 provider=provider,
                 criterion=config.settings.get("criterion", "editorial_relevance"),
+            ),
+            config.name,
+        )
+    if config.type == "llm_summary_quality":
+        return _with_display_name(
+            LLMSummaryQualityEvaluator(
+                provider=_build_llm_evaluator_provider(config),
+                criterion=config.settings.get("criterion", "summary_quality"),
+                summary_extractor=config.settings.get(
+                    "summary_extractor", "llm_summary"
+                ),
             ),
             config.name,
         )
@@ -43,3 +44,32 @@ def build_evaluator(config: ProcessorConfig) -> Evaluator:
 def _with_display_name(evaluator: Evaluator, display_name: str | None) -> Evaluator:
     setattr(evaluator, "display_name", display_name or evaluator.name)
     return evaluator
+
+
+def _build_llm_evaluator_provider(config: ProcessorConfig) -> LLMProvider:
+    provider_config = config.settings.get("provider")
+    if isinstance(provider_config, dict):
+        settings = provider_config
+        provider_type = settings.get("type")
+        if provider_type is None:
+            raise ValueError(f"{config.type} provider config requires provider.type")
+    elif provider_config is None or isinstance(provider_config, str):
+        settings = config.settings
+        provider_type = provider_config or "fake"
+    else:
+        raise ValueError(f"{config.type} provider config must be a mapping or string")
+
+    return build_llm_provider(
+        LLMProviderFactoryConfig(
+            provider=provider_type,
+            response_text=settings.get("response_text", "Fake response"),
+            model=settings.get("model"),
+            api_key_env=settings.get("api_key_env", "OPENAI_API_KEY"),
+            base_url=settings.get("base_url"),
+            organization=settings.get("organization"),
+            project=settings.get("project"),
+            temperature=settings.get("temperature"),
+            max_tokens=settings.get("max_tokens"),
+            metadata=settings.get("metadata", {}),
+        )
+    )

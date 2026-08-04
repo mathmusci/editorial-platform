@@ -8,14 +8,20 @@ from editorial.prompts.relevance import (
 )
 from editorial.prompts.review import REVIEW_PROMPT_VERSION, build_review_prompt
 from editorial.prompts.summary import SUMMARY_PROMPT_VERSION, build_summary_prompt
+from editorial.prompts.summary_quality import (
+    SUMMARY_QUALITY_PROMPT_VERSION,
+    build_summary_quality_prompt,
+)
 
 __all__ = [
     "OPTIMISATION_REQUEST_PROMPT_VERSION",
     "RELEVANCE_PROMPT_VERSION",
     "REVIEW_PROMPT_VERSION",
     "SUMMARY_PROMPT_VERSION",
+    "SUMMARY_QUALITY_PROMPT_VERSION",
     "build_optimisation_request_prompt",
     "build_relevance_prompt",
     "build_review_prompt",
     "build_summary_prompt",
+    "build_summary_quality_prompt",
 ]

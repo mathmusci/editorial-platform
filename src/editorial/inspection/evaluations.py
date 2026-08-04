@@ -19,6 +19,10 @@ COMMON_PAYLOAD_FIELDS = (
     "reasoning",
     "confidence",
     "evidence",
+    "dimensions",
+    "issues",
+    "summary_extraction_id",
+    "summary_extractor",
 )
 AI_PROVENANCE_FIELDS = (
     "generated_by",
