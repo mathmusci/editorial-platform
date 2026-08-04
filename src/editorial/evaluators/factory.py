@@ -9,10 +9,13 @@ from editorial.llm import LLMProviderFactoryConfig, build_llm_provider
 
 def build_evaluator(config: ProcessorConfig) -> Evaluator:
     if config.type == "rule_relevance":
-        return RuleBasedRelevanceEvaluator(
-            include=config.settings.get("include", []),
-            exclude=config.settings.get("exclude", []),
-            weights=config.settings.get("weights", {}),
+        return _with_display_name(
+            RuleBasedRelevanceEvaluator(
+                include=config.settings.get("include", []),
+                exclude=config.settings.get("exclude", []),
+                weights=config.settings.get("weights", {}),
+            ),
+            config.name,
         )
     if config.type == "llm_relevance":
         provider = build_llm_provider(
@@ -27,8 +30,16 @@ def build_evaluator(config: ProcessorConfig) -> Evaluator:
                 metadata=config.settings.get("metadata", {}),
             )
         )
-        return LLMRelevanceEvaluator(
-            provider=provider,
-            criterion=config.settings.get("criterion", "editorial_relevance"),
+        return _with_display_name(
+            LLMRelevanceEvaluator(
+                provider=provider,
+                criterion=config.settings.get("criterion", "editorial_relevance"),
+            ),
+            config.name,
         )
     raise ValueError(f"Unsupported evaluator type: {config.type!r}")
+
+
+def _with_display_name(evaluator: Evaluator, display_name: str | None) -> Evaluator:
+    setattr(evaluator, "display_name", display_name or evaluator.name)
+    return evaluator

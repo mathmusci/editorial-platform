@@ -1,5 +1,6 @@
 from editorial.engine.core import (
     EditorialEngine,
+    EvaluationProgress,
     EvaluationRunResult,
     ExtractionProgress,
     ExtractionRunResult,
@@ -9,6 +10,7 @@ from editorial.engine.core import (
 
 __all__ = [
     "EditorialEngine",
+    "EvaluationProgress",
     "EvaluationRunResult",
     "ExtractionProgress",
     "ExtractionRunResult",

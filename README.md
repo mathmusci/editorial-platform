@@ -90,7 +90,7 @@ evaluators:
     weights: {title: 5, summary: 2, content: 1}
 ```
 
-Evaluation storage is idempotent by article, evaluator, and kind, so rerunning `editorial evaluate` updates existing relevance Evaluations instead of duplicating them.
+Evaluation storage is idempotent by article, evaluator, and kind, so rerunning `editorial evaluate` updates existing relevance Evaluations instead of duplicating them. Use `--limit`, `--offset`, or repeatable `--article-id` options to select Articles, and `--missing-only` to resume without re-running existing article-evaluator operations.
 
 `LLMRelevanceEvaluator` is the first AI-powered evaluator. It uses the provider-neutral LLM abstraction, expects a JSON relevance assessment from the provider, and stores AI provenance in the Evaluation payload. Tests use the deterministic fake LLM provider and do not call external APIs.
 
