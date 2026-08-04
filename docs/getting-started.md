@@ -247,7 +247,35 @@ editorial evaluate --config examples/bis/publication.yaml --db bis-getting-start
 ```
 
 Expected outcome: the command prints article and evaluator counts, then reports
-how many Evaluations were stored.
+operation, stored, skipped and failed totals.
+
+Evaluation uses the same deterministic Article ordering as extraction:
+`published_at DESC`, then `created_at DESC`, then Article ID ascending. Use
+`--limit` and `--offset` for small or paged runs, or repeat `--article-id` to
+evaluate known Articles:
+
+```bash
+editorial evaluate \
+  --config examples/bis/publication.yaml \
+  --db bis-getting-started.sqlite \
+  --limit 10 \
+  --progress
+```
+
+To resume an interrupted run, add `--missing-only`. Existing
+article-evaluator operations are skipped and included in the reported totals:
+
+```bash
+editorial evaluate \
+  --config examples/bis/publication.yaml \
+  --db bis-getting-started.sqlite \
+  --missing-only \
+  --progress
+```
+
+Use `--force` to explicitly re-run and replace existing evaluations. Normal
+runs continue to refresh evaluations for backward compatibility. `--force` and
+`--missing-only` cannot be used together. Evaluation remains sequential.
 
 ### 4. Optimise an issue proposal
 

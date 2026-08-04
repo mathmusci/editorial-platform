@@ -63,6 +63,27 @@ class EvaluationRunResult:
     articles: int
     evaluators: int
     stored: int
+    skipped: int = 0
+    failed: int = 0
+
+    @property
+    def operations(self) -> int:
+        return self.articles * self.evaluators
+
+
+@dataclass(frozen=True)
+class EvaluationProgress:
+    completed: int
+    total: int
+    stored: int
+    skipped: int
+    failed: int
+    article_id: UUID
+    article_title: str
+    evaluator_name: str
+    provider: str | None
+    model: str | None
+    outcome: Literal["started", "stored", "skipped", "failed"]
 
 
 @dataclass(frozen=True)
@@ -236,23 +257,128 @@ class EditorialEngine:
             failed=failed,
         )
 
-    def evaluate(self, evaluators: Iterable[Evaluator]) -> EvaluationRunResult:
+    def evaluate(
+        self,
+        evaluators: Iterable[Evaluator],
+        progress: Callable[[EvaluationProgress], None] | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+        article_ids: Iterable[UUID] | None = None,
+        missing_only: bool = False,
+        force: bool = False,
+    ) -> EvaluationRunResult:
         if self.extraction_repository is None:
             raise ValueError("Extraction repository is required to run evaluators")
         if self.evaluation_repository is None:
             raise ValueError("Evaluation repository is required to run evaluators")
+        if limit is not None and limit <= 0:
+            raise ValueError("Evaluation limit must be a positive integer")
+        if offset < 0:
+            raise ValueError("Evaluation offset must be zero or greater")
+        if missing_only and force:
+            raise ValueError("Evaluation cannot use missing_only and force together")
 
         evaluator_list = list(evaluators)
-        articles = self.article_repository.list()
-        stored = 0
+        articles = _select_articles(
+            self.article_repository.list(),
+            article_ids=article_ids,
+            operation="evaluation",
+        )
+        if offset:
+            articles = articles[offset:]
+        if limit is not None:
+            articles = articles[:limit]
+        total = len(articles) * len(evaluator_list)
+        completed = stored = skipped = failed = 0
         for article in articles:
             extractions = self.extraction_repository.list(article_id=article.id)
             for evaluator in evaluator_list:
-                evaluation = evaluator.evaluate(article, extractions)
-                self.evaluation_repository.insert(evaluation)
+                metadata = _evaluator_progress_metadata(evaluator)
+                if progress is not None:
+                    progress(
+                        EvaluationProgress(
+                            completed=completed,
+                            total=total,
+                            stored=stored,
+                            skipped=skipped,
+                            failed=failed,
+                            article_id=article.id,
+                            article_title=article.title,
+                            evaluator_name=metadata.evaluator_name,
+                            provider=metadata.provider,
+                            model=metadata.model,
+                            outcome="started",
+                        )
+                    )
+                if missing_only and self.evaluation_repository.exists_for_operation(
+                    article.id, metadata.evaluator_key
+                ):
+                    completed += 1
+                    skipped += 1
+                    if progress is not None:
+                        progress(
+                            EvaluationProgress(
+                                completed=completed,
+                                total=total,
+                                stored=stored,
+                                skipped=skipped,
+                                failed=failed,
+                                article_id=article.id,
+                                article_title=article.title,
+                                evaluator_name=metadata.evaluator_name,
+                                provider=metadata.provider,
+                                model=metadata.model,
+                                outcome="skipped",
+                            )
+                        )
+                    continue
+                try:
+                    evaluation = evaluator.evaluate(article, extractions)
+                    self.evaluation_repository.insert(evaluation)
+                except Exception:
+                    completed += 1
+                    failed += 1
+                    if progress is not None:
+                        progress(
+                            EvaluationProgress(
+                                completed=completed,
+                                total=total,
+                                stored=stored,
+                                skipped=skipped,
+                                failed=failed,
+                                article_id=article.id,
+                                article_title=article.title,
+                                evaluator_name=metadata.evaluator_name,
+                                provider=metadata.provider,
+                                model=metadata.model,
+                                outcome="failed",
+                            )
+                        )
+                    raise
+                completed += 1
                 stored += 1
+                if progress is not None:
+                    progress(
+                        EvaluationProgress(
+                            completed=completed,
+                            total=total,
+                            stored=stored,
+                            skipped=skipped,
+                            failed=failed,
+                            article_id=article.id,
+                            article_title=article.title,
+                            evaluator_name=metadata.evaluator_name,
+                            provider=metadata.provider,
+                            model=metadata.model,
+                            outcome="stored",
+                        )
+                    )
         return EvaluationRunResult(
-            articles=len(articles), evaluators=len(evaluator_list), stored=stored
+            articles=len(articles),
+            evaluators=len(evaluator_list),
+            stored=stored,
+            skipped=skipped,
+            failed=failed,
         )
 
     def optimise(self, optimiser: Optimiser) -> OptimisationRunResult:
@@ -339,8 +465,31 @@ def _extractor_progress_metadata(extractor: Extractor) -> _ExtractorProgressMeta
     )
 
 
+@dataclass(frozen=True)
+class _EvaluatorProgressMetadata:
+    evaluator_key: str
+    evaluator_name: str
+    provider: str | None
+    model: str | None
+
+
+def _evaluator_progress_metadata(evaluator: Evaluator) -> _EvaluatorProgressMetadata:
+    provider = getattr(evaluator, "provider", None)
+    provider_name = getattr(provider, "name", None)
+    model = getattr(provider, "model", None)
+    evaluator_key = str(getattr(evaluator, "name", "unknown"))
+    return _EvaluatorProgressMetadata(
+        evaluator_key=evaluator_key,
+        evaluator_name=str(getattr(evaluator, "display_name", evaluator_key)),
+        provider=str(provider_name) if provider_name is not None else None,
+        model=str(model) if model is not None else None,
+    )
+
+
 def _select_articles(
-    articles: list[Article], article_ids: Iterable[UUID] | None
+    articles: list[Article],
+    article_ids: Iterable[UUID] | None,
+    operation: str = "extraction",
 ) -> list[Article]:
     if article_ids is None:
         return articles
@@ -349,5 +498,5 @@ def _select_articles(
     missing = requested - {article.id for article in selected}
     if missing:
         missing_text = ", ".join(str(article_id) for article_id in sorted(missing))
-        raise ValueError(f"Article not found for extraction: {missing_text}")
+        raise ValueError(f"Article not found for {operation}: {missing_text}")
     return selected

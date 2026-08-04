@@ -322,6 +322,14 @@ class SQLiteEvaluationRepository:
             row = conn.execute("SELECT COUNT(*) AS n FROM evaluations").fetchone()
         return int(row["n"])
 
+    def exists_for_operation(self, article_id: UUID, evaluator: str) -> bool:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM evaluations WHERE article_id = ? AND evaluator = ? LIMIT 1",
+                (str(article_id), evaluator),
+            ).fetchone()
+        return row is not None
+
     def _row_to_evaluation(self, row: sqlite3.Row) -> Evaluation:
         return Evaluation.model_validate(
             {
