@@ -158,6 +158,13 @@ class EditorialEngine:
             raise ValueError("Extraction cannot use missing_only and force together")
 
         extractor_list = list(extractors)
+        _validate_unique_processor_keys(
+            [
+                _extractor_progress_metadata(extractor).extractor_key
+                for extractor in extractor_list
+            ],
+            "extractor",
+        )
         articles = _select_articles(
             self.article_repository.list(), article_ids=article_ids
         )
@@ -279,6 +286,13 @@ class EditorialEngine:
             raise ValueError("Evaluation cannot use missing_only and force together")
 
         evaluator_list = list(evaluators)
+        _validate_unique_processor_keys(
+            [
+                _evaluator_progress_metadata(evaluator).evaluator_key
+                for evaluator in evaluator_list
+            ],
+            "evaluator",
+        )
         articles = _select_articles(
             self.article_repository.list(),
             article_ids=article_ids,
@@ -484,6 +498,16 @@ def _evaluator_progress_metadata(evaluator: Evaluator) -> _EvaluatorProgressMeta
         provider=str(provider_name) if provider_name is not None else None,
         model=str(model) if model is not None else None,
     )
+
+
+def _validate_unique_processor_keys(keys: list[str], processor: str) -> None:
+    duplicates = sorted({key for key in keys if keys.count(key) > 1})
+    if duplicates:
+        duplicate_text = ", ".join(repr(key) for key in duplicates)
+        raise ValueError(
+            f"Configured {processor} keys must be unique; duplicate keys: "
+            f"{duplicate_text}. Set an explicit key for each configured {processor}."
+        )
 
 
 def _select_articles(

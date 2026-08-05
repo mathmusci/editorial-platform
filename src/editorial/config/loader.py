@@ -4,16 +4,25 @@ from typing import Any
 import yaml
 from editorial.config.models import PublicationConfig
 
+
 def _normalise_processor(entry: dict[str, Any]) -> dict[str, Any]:
-    known = {"type", "name", "enabled", "settings"}
+    known = {"type", "key", "name", "enabled", "settings"}
     settings = dict(entry.get("settings") or {})
     for key, value in entry.items():
         if key not in known:
             settings[key] = value
-    return {"type": entry["type"], "name": entry.get("name"), "enabled": entry.get("enabled", True), "settings": settings}
+    return {
+        "type": entry["type"],
+        "key": entry.get("key"),
+        "name": entry.get("name"),
+        "enabled": entry.get("enabled", True),
+        "settings": settings,
+    }
+
 
 def _normalise_processors(data: dict[str, Any], key: str) -> None:
     data[key] = [_normalise_processor(item) for item in data.get(key, [])]
+
 
 def load_publication_config(path: str | Path) -> PublicationConfig:
     config_path = Path(path)

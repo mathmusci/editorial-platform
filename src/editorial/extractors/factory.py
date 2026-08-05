@@ -24,29 +24,38 @@ def describe_extractor(config: ProcessorConfig) -> ExtractorDescriptor:
     else:
         raise ValueError(f"Unsupported extractor type: {config.type!r}")
     return ExtractorDescriptor(
-        key=extractor_type.name,
-        display_name=config.name or extractor_type.name,
+        key=config.key or extractor_type.name,
+        display_name=config.name or config.key or extractor_type.name,
         kind=extractor_type.kind,
     )
 
 
 def build_extractor(config: ProcessorConfig) -> Extractor:
     if config.type == "reading_time":
-        return _with_display_name(
+        return _with_configured_identity(
             ReadingTimeExtractor(
                 words_per_minute=config.settings.get("words_per_minute", 200)
             ),
+            config.key,
             config.name,
         )
     if config.type == "llm_summary":
-        return _with_display_name(
-            LLMSummaryExtractor(_build_llm_summary_provider(config)), config.name
+        return _with_configured_identity(
+            LLMSummaryExtractor(_build_llm_summary_provider(config)),
+            config.key,
+            config.name,
         )
     raise ValueError(f"Unsupported extractor type: {config.type!r}")
 
 
-def _with_display_name(extractor: Extractor, display_name: str | None) -> Extractor:
-    setattr(extractor, "display_name", display_name or extractor.name)
+def _with_configured_identity(
+    extractor: Extractor,
+    key: str | None,
+    display_name: str | None,
+) -> Extractor:
+    identity = key or extractor.name
+    setattr(extractor, "name", identity)
+    setattr(extractor, "display_name", display_name or identity)
     return extractor
 
 

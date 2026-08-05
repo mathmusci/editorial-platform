@@ -96,6 +96,8 @@ Evaluation storage is idempotent by article, evaluator, and kind, so rerunning `
 
 `LLMSummaryQualityEvaluator` assesses an existing summary Extraction for faithfulness, coverage, clarity and concision. It records an overall score, detailed dimensions, evidence, issues, the source Extraction and provider provenance. This judgement is separate from relevance and does not currently affect optimiser selection. It supports fake, OpenAI and Ollama providers through the same LLM abstraction.
 
+Configured extractors and evaluators accept an optional stable `key`. This lets multiple instances of the same type store independent artefacts and resume independently with `--missing-only`, while `name` remains a human-readable display label. Existing configurations retain their type-based identity when no key is supplied, and duplicate keys are rejected before processing.
+
 ## Optimisers
 
 Configured optimisers run over stored Articles, Extractions, and Evaluations, then write append-only IssueProposal records. In normal workflows, Evaluations carry the editorial judgement that most directly drives optimiser selection. Sprint 5 includes a deterministic greedy optimiser:
