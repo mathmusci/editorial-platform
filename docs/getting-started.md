@@ -277,6 +277,54 @@ Use `--force` to explicitly re-run and replace existing evaluations. Normal
 runs continue to refresh evaluations for backward compatibility. `--force` and
 `--missing-only` cannot be used together. Evaluation remains sequential.
 
+Relevance evaluation asks whether an article belongs in the publication.
+Summary-quality evaluation asks whether a generated summary is trustworthy and
+useful. Configure `llm_summary_quality` to assess an existing summary Extraction
+for faithfulness, coverage, clarity and concision:
+
+```yaml
+evaluators:
+  - type: llm_summary_quality
+    name: Summary quality
+    summary_extractor: llm_summary
+    provider:
+      type: fake
+      model: fake-summary-quality-model
+      response_text: >-
+        {"faithfulness": 90, "coverage": 80, "clarity": 85,
+        "concision": 75, "confidence": 0.9,
+        "rationale": "The summary is accurate and clear.",
+        "evidence": ["The central claim is supported by the article."],
+        "issues": ["One supporting detail is omitted."]}
+```
+
+The fake provider is useful for deterministic workflow validation. For local
+model evaluation, use Ollama through the same provider-neutral evaluator:
+
+```yaml
+evaluators:
+  - type: llm_summary_quality
+    name: Local summary quality
+    summary_extractor: llm_summary
+    provider:
+      type: ollama
+      model: qwen3.5:9b
+      temperature: 0
+      max_tokens: 300
+```
+
+The evaluator stores an overall score, the four dimension scores, confidence,
+rationale, evidence, issues and LLM provenance. It also records the ID and
+extractor name of the summary it assessed. If that configured summary
+Extraction is absent or malformed, evaluation fails clearly and does not store
+an Evaluation for that operation. The evaluator works with `--limit`,
+`--article-id` and `--missing-only` like every other evaluator.
+
+Summary-quality scores are inspectable but do not currently affect optimiser
+selection. The optimiser continues to select articles from relevance
+Evaluations; summary quality is a separate judgement about downstream summary
+evidence.
+
 ### 4. Optimise an issue proposal
 
 Purpose: create an optimisation request and generate an IssueProposal.
