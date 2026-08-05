@@ -10,25 +10,27 @@ from editorial.llm import LLMProvider, LLMProviderFactoryConfig, build_llm_provi
 
 def build_evaluator(config: ProcessorConfig) -> Evaluator:
     if config.type == "rule_relevance":
-        return _with_display_name(
+        return _with_configured_identity(
             RuleBasedRelevanceEvaluator(
                 include=config.settings.get("include", []),
                 exclude=config.settings.get("exclude", []),
                 weights=config.settings.get("weights", {}),
             ),
+            config.key,
             config.name,
         )
     if config.type == "llm_relevance":
         provider = _build_llm_evaluator_provider(config)
-        return _with_display_name(
+        return _with_configured_identity(
             LLMRelevanceEvaluator(
                 provider=provider,
                 criterion=config.settings.get("criterion", "editorial_relevance"),
             ),
+            config.key,
             config.name,
         )
     if config.type == "llm_summary_quality":
-        return _with_display_name(
+        return _with_configured_identity(
             LLMSummaryQualityEvaluator(
                 provider=_build_llm_evaluator_provider(config),
                 criterion=config.settings.get("criterion", "summary_quality"),
@@ -36,13 +38,20 @@ def build_evaluator(config: ProcessorConfig) -> Evaluator:
                     "summary_extractor", "llm_summary"
                 ),
             ),
+            config.key,
             config.name,
         )
     raise ValueError(f"Unsupported evaluator type: {config.type!r}")
 
 
-def _with_display_name(evaluator: Evaluator, display_name: str | None) -> Evaluator:
-    setattr(evaluator, "display_name", display_name or evaluator.name)
+def _with_configured_identity(
+    evaluator: Evaluator,
+    key: str | None,
+    display_name: str | None,
+) -> Evaluator:
+    identity = key or evaluator.name
+    setattr(evaluator, "name", identity)
+    setattr(evaluator, "display_name", display_name or identity)
     return evaluator
 
 

@@ -325,6 +325,63 @@ selection. The optimiser continues to select articles from relevance
 Evaluations; summary quality is a separate judgement about downstream summary
 evidence.
 
+To run multiple instances of the same extractor or evaluator in one database,
+give each one a stable `key`. The key is the machine-readable identity stored on
+its artefacts and used by `--missing-only`; `name` remains the human-readable
+label shown in progress and inspection output. Keys must contain only letters,
+numbers, underscores and hyphens, and must start with a letter or number.
+
+For example, two summary models and their quality evaluations can coexist in a
+single workflow:
+
+```yaml
+extractors:
+  - type: llm_summary
+    key: summary_qwen
+    name: Qwen summary
+    provider:
+      type: ollama
+      model: qwen3.5:9b
+      temperature: 0
+      max_tokens: 200
+
+  - type: llm_summary
+    key: summary_llama
+    name: Llama summary
+    provider:
+      type: ollama
+      model: llama3.2
+      temperature: 0
+      max_tokens: 200
+
+evaluators:
+  - type: llm_summary_quality
+    key: quality_qwen
+    name: Qwen summary quality
+    summary_extractor: summary_qwen
+    provider:
+      type: ollama
+      model: qwen3.5:9b
+      temperature: 0
+      max_tokens: 300
+
+  - type: llm_summary_quality
+    key: quality_llama
+    name: Llama summary quality
+    summary_extractor: summary_llama
+    provider:
+      type: ollama
+      model: qwen3.5:9b
+      temperature: 0
+      max_tokens: 300
+```
+
+Using one fixed evaluator model, as above, makes the model comparison easier to
+interpret. When `key` is omitted, the existing type identity such as
+`llm_summary` or `llm_summary_quality` is retained for backward compatibility.
+Configuring the same type more than once without distinct keys fails before any
+articles are processed.
+
 ### 4. Optimise an issue proposal
 
 Purpose: create an optimisation request and generate an IssueProposal.

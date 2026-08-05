@@ -401,7 +401,7 @@ Provider -> Article -> Extractor -> Extraction -> Evaluator -> Evaluation -> Opt
 ```
 
 All outputs are stored separately. Extraction and Evaluation storage is idempotent for a
-given processor and article. IssueProposal storage is append-only so repeated optimisation
+given processor key and article. IssueProposal storage is append-only so repeated optimisation
 runs can be compared and audited. OptimisationRequest, Review, Publication, and
 WorkflowEvent storage are also append-only, providing explicit inputs, editorial judgement,
 presentation-independent issue structure, and generic event history for editorial

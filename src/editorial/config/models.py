@@ -11,6 +11,11 @@ class PublicationIdentity(BaseModel):
 
 class ProcessorConfig(BaseModel):
     type: str
+    key: str | None = Field(
+        default=None,
+        min_length=1,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$",
+    )
     name: str | None = None
     enabled: bool = True
     settings: dict[str, Any] = Field(default_factory=dict)
