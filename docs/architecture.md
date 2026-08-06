@@ -146,7 +146,9 @@ Inspection answers: "What exists?"
 
 Inspection services load artefacts and related records so editors and developers can see
 stored Articles, Evaluations, IssueProposals, Reviews, Publications and WorkflowEvents
-without querying SQLite directly.
+without querying SQLite directly. Comparison services remain within the same factual
+boundary; for example, summary-quality comparison aggregates stored Evaluation scores and
+reports missing coverage without rerunning an evaluator.
 
 Explainability answers: "What can be concluded from the recorded evidence?"
 

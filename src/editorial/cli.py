@@ -62,6 +62,9 @@ from editorial.inspection import (
     PublicationInspectionService,
     ReviewInspection,
     ReviewInspectionService,
+    SummaryQualityComparisonReport,
+    SummaryQualityComparisonResult,
+    SummaryQualityComparisonService,
 )
 from editorial.models import (
     EditorialStatus,
@@ -126,6 +129,16 @@ def _evaluation_inspection_service(db: Path) -> EvaluationInspectionService:
         articles=SQLiteArticleRepository(db),
         extractions=SQLiteExtractionRepository(db),
         workflow_events=SQLiteWorkflowEventRepository(db),
+    )
+
+
+def _summary_quality_comparison_service(
+    db: Path,
+) -> SummaryQualityComparisonService:
+    return SummaryQualityComparisonService(
+        evaluations=SQLiteEvaluationRepository(db),
+        articles=SQLiteArticleRepository(db),
+        extractions=SQLiteExtractionRepository(db),
     )
 
 
@@ -1801,6 +1814,169 @@ def evaluation_list(
             details,
         )
     console.print(table)
+
+
+@evaluation_app.command("compare")
+def evaluation_compare(
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+    evaluator_keys: list[str] | None = typer.Option(
+        None,
+        "--evaluator",
+        help=(
+            "Compare a summary-quality evaluator key. May be provided multiple "
+            "times; defaults to all stored summary-quality evaluators."
+        ),
+    ),
+    limit: int | None = typer.Option(
+        None,
+        "--limit",
+        help="Compare at most this many articles from the deterministic order.",
+    ),
+    offset: int = typer.Option(
+        0,
+        "--offset",
+        help="Skip this many articles from the deterministic order first.",
+    ),
+    article_ids: list[UUID] | None = typer.Option(
+        None,
+        "--article-id",
+        help="Restrict comparison to an article ID. May be provided multiple times.",
+    ),
+) -> None:
+    try:
+        report = _summary_quality_comparison_service(db).compare(
+            evaluator_keys=evaluator_keys,
+            article_ids=article_ids,
+            limit=limit,
+            offset=offset,
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    _render_summary_quality_comparison(report)
+
+
+def _render_summary_quality_comparison(
+    report: SummaryQualityComparisonReport,
+) -> None:
+    summary = Table(title="Summary Quality Comparison")
+    summary.add_column("Metric")
+    summary.add_column("Count", justify="right")
+    summary.add_row("Articles selected", str(report.articles_selected))
+    summary.add_row("Evaluators compared", str(len(report.evaluator_keys)))
+    summary.add_row("Expected evaluations", str(report.expected_evaluations))
+    summary.add_row("Present", str(report.present))
+    summary.add_row("Missing", str(report.missing))
+    console.print(summary)
+
+    aggregates = Table(title="Aggregate Quality", show_lines=True)
+    aggregates.add_column("Evaluator")
+    aggregates.add_column("Coverage", justify="right")
+    aggregates.add_column("Average scores")
+    aggregates.add_column("Provenance")
+    aggregates.add_column("Issues", justify="right")
+    for item in report.aggregates:
+        percentage = item.evaluated / item.articles * 100 if item.articles else 0
+        scores = "\n".join(
+            [
+                f"Overall: {_format_quality_score(item.average_score)}",
+                (
+                    "Faithfulness: "
+                    f"{_format_quality_score(item.average_dimensions.faithfulness)}"
+                ),
+                (
+                    "Content coverage: "
+                    f"{_format_quality_score(item.average_dimensions.coverage)}"
+                ),
+                f"Clarity: {_format_quality_score(item.average_dimensions.clarity)}",
+                (
+                    "Concision: "
+                    f"{_format_quality_score(item.average_dimensions.concision)}"
+                ),
+                f"Confidence: {_format_quality_score(item.average_confidence)}",
+            ]
+        )
+        provenance = "\n".join(
+            [
+                (
+                    "Summary: "
+                    f"{', '.join(item.summary_providers) or 'not available'} / "
+                    f"{', '.join(item.summary_models) or 'not available'}"
+                ),
+                (
+                    "Evaluator: "
+                    f"{', '.join(item.evaluator_providers) or 'not available'} / "
+                    f"{', '.join(item.evaluator_models) or 'not available'}"
+                ),
+            ]
+        )
+        aggregates.add_row(
+            item.evaluator,
+            f"{item.evaluated}/{item.articles} ({percentage:.1f}%)",
+            scores,
+            provenance,
+            str(item.issue_count),
+        )
+    console.print(aggregates)
+
+    if not report.articles:
+        console.print(Panel("No articles selected.", title="Article Comparison"))
+        return
+
+    articles = Table(title="Quality by Article", show_lines=True)
+    articles.add_column("Article", overflow="fold", ratio=2)
+    articles.add_column("Evaluator results", overflow="fold", ratio=3)
+    for article in report.articles:
+        article_details = "\n".join(
+            [
+                article.article_title,
+                f"ID: {article.article_id}",
+                f"Source: {_format_available(article.article_source)}",
+            ]
+        )
+        results = "\n\n".join(
+            _format_summary_quality_result(result) for result in article.results
+        )
+        articles.add_row(article_details, results)
+    console.print(articles)
+
+
+def _format_summary_quality_result(
+    result: SummaryQualityComparisonResult,
+) -> str:
+    if result.status == "missing":
+        return f"{result.evaluator}: missing"
+    issues = "; ".join(result.issues) or "none"
+    return "\n".join(
+        [
+            f"{result.evaluator}: present",
+            f"Evaluation: {result.evaluation_id}",
+            f"Overall: {_format_quality_score(result.score)}",
+            (
+                "Dimensions: "
+                f"faithfulness {_format_quality_score(result.dimensions.faithfulness)}, "
+                f"content coverage {_format_quality_score(result.dimensions.coverage)}, "
+                f"clarity {_format_quality_score(result.dimensions.clarity)}, "
+                f"concision {_format_quality_score(result.dimensions.concision)}"
+            ),
+            f"Confidence: {_format_quality_score(result.confidence)}",
+            f"Issues: {issues}",
+            f"Summary extractor: {result.summary_extractor or 'not available'}",
+            (
+                "Summary model: "
+                f"{result.summary_provider or 'not available'} / "
+                f"{result.summary_model or 'not available'}"
+            ),
+            (
+                "Evaluator model: "
+                f"{result.evaluator_provider or 'not available'} / "
+                f"{result.evaluator_model or 'not available'}"
+            ),
+        ]
+    )
+
+
+def _format_quality_score(value: float | None) -> str:
+    return "not available" if value is None else f"{value:.2f}"
 
 
 @evaluation_app.command("show")
