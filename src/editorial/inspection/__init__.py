@@ -10,6 +10,14 @@ from editorial.inspection.evaluations import (
     EvaluationInspectionService,
     EvaluationInspectionSummary,
 )
+from editorial.inspection.evaluation_comparison import (
+    ArticleSummaryQualityComparison,
+    SummaryQualityAggregate,
+    SummaryQualityComparisonReport,
+    SummaryQualityComparisonResult,
+    SummaryQualityComparisonService,
+    SummaryQualityScores,
+)
 from editorial.inspection.extractions import (
     ArticleExtractionCoverage,
     ExtractionArtefactInspection,
@@ -43,6 +51,7 @@ __all__ = [
     "ArticleInspection",
     "ArticleInspectionService",
     "ArticleInspectionSummary",
+    "ArticleSummaryQualityComparison",
     "ArticleExtractionCoverage",
     "EvaluationArticleInspection",
     "EvaluationInspection",
@@ -68,4 +77,9 @@ __all__ = [
     "ReviewInspection",
     "ReviewInspectionService",
     "ReviewInspectionSummary",
+    "SummaryQualityAggregate",
+    "SummaryQualityComparisonReport",
+    "SummaryQualityComparisonResult",
+    "SummaryQualityComparisonService",
+    "SummaryQualityScores",
 ]

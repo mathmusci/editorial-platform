@@ -382,6 +382,33 @@ interpret. When `key` is omitted, the existing type identity such as
 Configuring the same type more than once without distinct keys fails before any
 articles are processed.
 
+After evaluating the summaries, compare every stored summary-quality evaluator:
+
+```bash
+editorial evaluation compare --db bis-getting-started.sqlite
+```
+
+The comparison reports evaluation coverage, average overall and dimension
+scores, confidence, issue counts and provenance for each evaluator. It then
+shows the same results per article, including explicit `missing` entries. The
+provenance distinguishes the model that generated the summary from the model
+that evaluated it.
+
+Use repeatable `--evaluator` options to compare particular configured keys, and
+the standard deterministic article selection controls for smaller experiments:
+
+```bash
+editorial evaluation compare \
+  --db bis-getting-started.sqlite \
+  --evaluator quality_qwen \
+  --evaluator quality_llama \
+  --limit 10
+```
+
+`--offset` and repeatable `--article-id` are also supported. At least two
+summary-quality evaluator keys are required. Comparison reads stored artefacts
+only; it does not call an LLM or change any Evaluation.
+
 ### 4. Optimise an issue proposal
 
 Purpose: create an optimisation request and generate an IssueProposal.
