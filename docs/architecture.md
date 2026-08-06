@@ -150,6 +150,11 @@ without querying SQLite directly. Comparison services remain within the same fac
 boundary; for example, summary-quality comparison aggregates stored Evaluation scores and
 reports missing coverage without rerunning an evaluator.
 
+Human quality references are Evaluation artefacts too. They record the reviewer and exact
+summary Extraction alongside the same dimensions used by an automated summary-quality
+evaluator. Calibration compares stored human and automated judgements only when their
+summary lineage matches, preserving the distinction between measurement and generation.
+
 Explainability answers: "What can be concluded from the recorded evidence?"
 
 Explainability services interpret stored artefacts in editorial terms. They can summarise

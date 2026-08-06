@@ -18,6 +18,13 @@ from editorial.inspection.evaluation_comparison import (
     SummaryQualityComparisonService,
     SummaryQualityScores,
 )
+from editorial.inspection.evaluation_calibration import (
+    HumanSummaryQualityReferenceService,
+    SummaryQualityCalibrationMetrics,
+    SummaryQualityCalibrationReport,
+    SummaryQualityCalibrationResult,
+    SummaryQualityCalibrationService,
+)
 from editorial.inspection.extractions import (
     ArticleExtractionCoverage,
     ExtractionArtefactInspection,
@@ -64,6 +71,7 @@ __all__ = [
     "ExtractionInspectionService",
     "ExtractionInspectionSummary",
     "ExtractorCoverageSummary",
+    "HumanSummaryQualityReferenceService",
     "ProposalArticleInspection",
     "ProposalInspection",
     "ProposalInspectionService",
@@ -78,6 +86,10 @@ __all__ = [
     "ReviewInspectionService",
     "ReviewInspectionSummary",
     "SummaryQualityAggregate",
+    "SummaryQualityCalibrationMetrics",
+    "SummaryQualityCalibrationReport",
+    "SummaryQualityCalibrationResult",
+    "SummaryQualityCalibrationService",
     "SummaryQualityComparisonReport",
     "SummaryQualityComparisonResult",
     "SummaryQualityComparisonService",

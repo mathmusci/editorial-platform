@@ -44,7 +44,9 @@ friction found in practical CLI use.
 - [Architecture](docs/architecture.md)
 - [Product Vision](docs/product-vision.md)
 - [Roadmap](docs/roadmap.md)
-- BIS tutorial: forthcoming
+- [Getting Started](docs/getting-started.md)
+- [BIS Newsletter Tutorial](docs/tutorials/bis-newsletter.md)
+- [Summary Model Comparison And Human Calibration](docs/tutorials/summary-model-calibration.md)
 
 ## Install
 
@@ -99,6 +101,8 @@ Evaluation storage is idempotent by article, evaluator, and kind, so rerunning `
 Configured extractors and evaluators accept an optional stable `key`. This lets multiple instances of the same type store independent artefacts and resume independently with `--missing-only`, while `name` remains a human-readable display label. Existing configurations retain their type-based identity when no key is supplied, and duplicate keys are rejected before processing.
 
 `editorial evaluation compare` compares stored summary-quality evaluator keys across a deterministic article selection. It reports aggregate and per-article dimension scores, confidence, issues, missing coverage, and separate provenance for the summary model and evaluator model without rerunning either.
+
+Editors can record human summary-quality reference Evaluations with `editorial evaluation record-reference`, then use `editorial evaluation calibrate` to measure an LLM evaluator's mean absolute error, bias, tolerance agreement and dimension-level error. Calibration only compares judgements linked to the same stored summary Extraction.
 
 ## Optimisers
 
