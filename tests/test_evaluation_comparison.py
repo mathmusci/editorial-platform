@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -12,6 +13,12 @@ from editorial.storage import (
     SQLiteEvaluationRepository,
     SQLiteExtractionRepository,
 )
+
+ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
+
+def _unstyled(text: str) -> str:
+    return ANSI_ESCAPE_RE.sub("", text)
 
 
 def _service(db_path) -> SummaryQualityComparisonService:
@@ -356,5 +363,5 @@ def test_cli_evaluation_compare_reports_insufficient_evaluators_cleanly(tmp_path
     )
 
     assert result.exit_code != 0
-    output = " ".join(result.output.replace("│", " ").split())
+    output = " ".join(_unstyled(result.output).replace("│", " ").split())
     assert "at least two evaluator keys" in output

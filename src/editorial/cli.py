@@ -56,6 +56,7 @@ from editorial.inspection import (
     ExtractionCoverageOperation,
     ExtractionCoverageReport,
     ExtractionInspectionService,
+    HumanSummaryQualityReferenceService,
     ProposalInspection,
     ProposalInspectionService,
     PublicationInspection,
@@ -65,6 +66,9 @@ from editorial.inspection import (
     SummaryQualityComparisonReport,
     SummaryQualityComparisonResult,
     SummaryQualityComparisonService,
+    SummaryQualityCalibrationReport,
+    SummaryQualityCalibrationResult,
+    SummaryQualityCalibrationService,
 )
 from editorial.models import (
     EditorialStatus,
@@ -136,6 +140,26 @@ def _summary_quality_comparison_service(
     db: Path,
 ) -> SummaryQualityComparisonService:
     return SummaryQualityComparisonService(
+        evaluations=SQLiteEvaluationRepository(db),
+        articles=SQLiteArticleRepository(db),
+        extractions=SQLiteExtractionRepository(db),
+    )
+
+
+def _human_summary_quality_reference_service(
+    db: Path,
+) -> HumanSummaryQualityReferenceService:
+    return HumanSummaryQualityReferenceService(
+        evaluations=SQLiteEvaluationRepository(db),
+        articles=SQLiteArticleRepository(db),
+        extractions=SQLiteExtractionRepository(db),
+    )
+
+
+def _summary_quality_calibration_service(
+    db: Path,
+) -> SummaryQualityCalibrationService:
+    return SummaryQualityCalibrationService(
         evaluations=SQLiteEvaluationRepository(db),
         articles=SQLiteArticleRepository(db),
         extractions=SQLiteExtractionRepository(db),
@@ -1853,6 +1877,209 @@ def evaluation_compare(
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
     _render_summary_quality_comparison(report)
+
+
+@evaluation_app.command("record-reference")
+def evaluation_record_reference(
+    article_id: UUID = typer.Argument(...),
+    summary_extraction_id: UUID = typer.Option(..., "--summary-extraction-id"),
+    evaluator: str = typer.Option(..., "--evaluator"),
+    reviewer: str = typer.Option(..., "--reviewer"),
+    faithfulness: float = typer.Option(..., "--faithfulness"),
+    coverage: float = typer.Option(..., "--coverage"),
+    clarity: float = typer.Option(..., "--clarity"),
+    concision: float = typer.Option(..., "--concision"),
+    rationale: str = typer.Option(..., "--rationale"),
+    confidence: float | None = typer.Option(None, "--confidence"),
+    evidence: list[str] | None = typer.Option(None, "--evidence"),
+    issues: list[str] | None = typer.Option(None, "--issue"),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    try:
+        evaluation = _human_summary_quality_reference_service(db).record(
+            article_id=article_id,
+            summary_extraction_id=summary_extraction_id,
+            evaluator=evaluator,
+            reviewer=reviewer,
+            faithfulness=faithfulness,
+            coverage=coverage,
+            clarity=clarity,
+            concision=concision,
+            rationale=rationale,
+            confidence=confidence,
+            evidence=evidence or [],
+            issues=issues or [],
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    console.print(
+        Panel(
+            "\n".join(
+                [
+                    f"[bold]Evaluation:[/bold] {evaluation.id}",
+                    f"[bold]Article:[/bold] {evaluation.article_id}",
+                    f"[bold]Evaluator:[/bold] {evaluation.evaluator}",
+                    f"[bold]Summary extraction:[/bold] {summary_extraction_id}",
+                    f"[bold]Score:[/bold] {_format_available(evaluation.score)}",
+                    f"[bold]Reviewer:[/bold] {reviewer}",
+                ]
+            ),
+            title="Human Summary-Quality Reference",
+            expand=False,
+        )
+    )
+
+
+@evaluation_app.command("calibrate")
+def evaluation_calibrate(
+    reference_evaluator: str = typer.Option(..., "--reference"),
+    candidate_evaluator: str = typer.Option(..., "--evaluator"),
+    tolerance: float = typer.Option(
+        10,
+        "--tolerance",
+        help="Maximum absolute score difference counted as within tolerance.",
+    ),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+    limit: int | None = typer.Option(
+        None,
+        "--limit",
+        help="Calibrate against at most this many references.",
+    ),
+    offset: int = typer.Option(
+        0,
+        "--offset",
+        help="Skip this many references in deterministic article order first.",
+    ),
+    article_ids: list[UUID] | None = typer.Option(
+        None,
+        "--article-id",
+        help="Restrict calibration to an article ID. May be provided multiple times.",
+    ),
+) -> None:
+    try:
+        report = _summary_quality_calibration_service(db).calibrate(
+            reference_evaluator=reference_evaluator,
+            candidate_evaluator=candidate_evaluator,
+            tolerance=tolerance,
+            article_ids=article_ids,
+            limit=limit,
+            offset=offset,
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    _render_summary_quality_calibration(report)
+
+
+def _render_summary_quality_calibration(
+    report: SummaryQualityCalibrationReport,
+) -> None:
+    summary = Table(title="Summary Quality Calibration")
+    summary.add_column("Metric")
+    summary.add_column("Value")
+    summary.add_row("Human reference", report.reference_evaluator)
+    summary.add_row("Candidate evaluator", report.candidate_evaluator)
+    summary.add_row("References selected", str(report.references_selected))
+    summary.add_row("Matched", str(report.matched))
+    summary.add_row("Missing candidate", str(report.missing_candidate))
+    summary.add_row("Different summary", str(report.different_summary))
+    summary.add_row("Unverifiable summary", str(report.unverifiable_summary))
+    summary.add_row("Tolerance", f"{report.tolerance:.2f} points")
+    summary.add_row(
+        "Candidate provenance",
+        (
+            f"{', '.join(report.candidate_providers) or 'not available'} / "
+            f"{', '.join(report.candidate_models) or 'not available'}"
+        ),
+    )
+    console.print(summary)
+
+    metrics = report.metrics
+    agreement = Table(title="Agreement")
+    agreement.add_column("Measure")
+    agreement.add_column("Value", justify="right")
+    agreement.add_row(
+        "Mean absolute error",
+        _format_quality_score(metrics.mean_absolute_error),
+    )
+    agreement.add_row("Mean error (bias)", _format_signed_delta(metrics.mean_error))
+    within = (
+        "not available"
+        if metrics.within_tolerance_percentage is None
+        else (
+            f"{metrics.within_tolerance}/{metrics.compared_scores} "
+            f"({metrics.within_tolerance_percentage:.1f}%)"
+        )
+    )
+    agreement.add_row("Within tolerance", within)
+    agreement.add_row(
+        "Faithfulness MAE",
+        _format_quality_score(metrics.dimension_mean_absolute_error.faithfulness),
+    )
+    agreement.add_row(
+        "Content coverage MAE",
+        _format_quality_score(metrics.dimension_mean_absolute_error.coverage),
+    )
+    agreement.add_row(
+        "Clarity MAE",
+        _format_quality_score(metrics.dimension_mean_absolute_error.clarity),
+    )
+    agreement.add_row(
+        "Concision MAE",
+        _format_quality_score(metrics.dimension_mean_absolute_error.concision),
+    )
+    console.print(agreement)
+
+    if not report.articles:
+        console.print(Panel("No references selected.", title="Reference Set"))
+        return
+    articles = Table(title="Calibration by Article", show_lines=True)
+    articles.add_column("Article", overflow="fold", ratio=2)
+    articles.add_column("Agreement", overflow="fold", ratio=3)
+    for item in report.articles:
+        articles.add_row(
+            "\n".join([item.article_title, f"ID: {item.article_id}"]),
+            _format_summary_quality_calibration_result(item),
+        )
+    console.print(articles)
+
+
+def _format_summary_quality_calibration_result(
+    result: SummaryQualityCalibrationResult,
+) -> str:
+    lines = [
+        f"Status: {result.status.replace('_', ' ')}",
+        f"Summary extraction: {result.summary_extraction_id}",
+        f"Human reference: {result.reference_evaluation_id}",
+    ]
+    if result.candidate_evaluation_id is not None:
+        lines.append(f"Candidate evaluation: {result.candidate_evaluation_id}")
+    if result.status == "matched":
+        lines.extend(
+            [
+                (
+                    f"Overall: human {_format_quality_score(result.reference_score)}, "
+                    f"candidate {_format_quality_score(result.candidate_score)}, "
+                    f"delta {_format_signed_delta(result.score_delta)}"
+                ),
+                (
+                    "Dimension deltas: "
+                    f"faithfulness {_format_signed_delta(result.dimension_deltas.faithfulness)}, "
+                    f"content coverage {_format_signed_delta(result.dimension_deltas.coverage)}, "
+                    f"clarity {_format_signed_delta(result.dimension_deltas.clarity)}, "
+                    f"concision {_format_signed_delta(result.dimension_deltas.concision)}"
+                ),
+                (
+                    "Candidate model: "
+                    f"{result.candidate_provider or 'not available'} / "
+                    f"{result.candidate_model or 'not available'}"
+                ),
+            ]
+        )
+    return "\n".join(lines)
+
+
+def _format_signed_delta(value: float | None) -> str:
+    return "not available" if value is None else f"{value:+.2f}"
 
 
 def _render_summary_quality_comparison(

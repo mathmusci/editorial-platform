@@ -409,6 +409,72 @@ editorial evaluation compare \
 summary-quality evaluator keys are required. Comparison reads stored artefacts
 only; it does not call an LLM or change any Evaluation.
 
+### Calibrate an LLM evaluator against human judgement
+
+Use a small, representative set of articles to check whether an LLM
+summary-quality evaluator agrees with an editor. Five to twenty varied examples
+are usually enough for an initial calibration pass; they should include strong,
+weak and borderline summaries rather than only obvious successes.
+
+First inspect an article and its summary Extractions:
+
+```bash
+editorial article show <article-id> --db bis-getting-started.sqlite
+editorial extraction show <summary-extraction-id> --db bis-getting-started.sqlite
+```
+
+Record the editor's assessment of that exact summary:
+
+```bash
+editorial evaluation record-reference <article-id> \
+  --summary-extraction-id <summary-extraction-id> \
+  --evaluator human_qwen \
+  --reviewer "Editor name" \
+  --faithfulness 90 \
+  --coverage 80 \
+  --clarity 85 \
+  --concision 75 \
+  --confidence 0.9 \
+  --rationale "Accurate and clear, with one supporting detail omitted." \
+  --evidence "The central claim is supported by the source." \
+  --issue "One supporting detail is omitted." \
+  --db bis-getting-started.sqlite
+```
+
+The command stores a normal `summary_quality` Evaluation with
+`generated_by: human`, the reviewer, all four dimensions, rationale, evidence,
+issues and the exact summary Extraction ID. Repeating the command for the same
+article and evaluator key updates that reference. `--evaluator` is required; use
+a distinct human evaluator key for each summary model, such as `human_qwen` and
+`human_llama`.
+
+After recording the reference set, calibrate the corresponding LLM evaluator:
+
+```bash
+editorial evaluation calibrate \
+  --reference human_qwen \
+  --evaluator quality_qwen \
+  --tolerance 10 \
+  --db bis-getting-started.sqlite
+```
+
+Calibration reports mean absolute error, signed mean error (bias), the share of
+overall scores within the chosen tolerance, and mean absolute error for each
+quality dimension. It also reports missing candidate evaluations, evaluations
+of a different summary, and legacy evaluations whose summary lineage cannot be
+verified. Only candidate and human Evaluations linked to the same summary
+Extraction contribute to agreement metrics.
+Signed error is calculated as candidate score minus human score, so a positive
+value means the automated evaluator scores more generously than the editor.
+
+`--limit`, `--offset` and repeatable `--article-id` options select a smaller
+reference subset in deterministic article order. Calibration reads stored
+artefacts only and does not invoke an LLM.
+
+For a complete three-model example, guidance on choosing the reference set and
+detailed metric interpretation, read
+[Summary Model Comparison And Human Calibration](tutorials/summary-model-calibration.md).
+
 ### 4. Optimise an issue proposal
 
 Purpose: create an optimisation request and generate an IssueProposal.
