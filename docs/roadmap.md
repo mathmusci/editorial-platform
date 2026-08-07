@@ -63,7 +63,7 @@ web interface is placed over them.
 
 #### Proposal comparison and optimisation inspectability
 
-This is the next functional slice.
+Implemented as the first editor-experience slice:
 
 - Compare two stored IssueProposals without rerunning the optimiser.
 - Show articles shared by both proposals and articles added or removed.

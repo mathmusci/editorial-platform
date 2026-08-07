@@ -40,6 +40,15 @@ from editorial.inspection.proposals import (
     ProposalInspectionService,
     ProposalInspectionSummary,
 )
+from editorial.inspection.proposal_comparison import (
+    ProposalArticleComparison,
+    ProposalArticleEvidence,
+    ProposalComparisonReport,
+    ProposalComparisonService,
+    ProposalComparisonSide,
+    ProposalConstraintComparison,
+    ProposalValueDifference,
+)
 from editorial.inspection.publications import (
     PublicationArticleInspection,
     PublicationInspection,
@@ -73,9 +82,16 @@ __all__ = [
     "ExtractorCoverageSummary",
     "HumanSummaryQualityReferenceService",
     "ProposalArticleInspection",
+    "ProposalArticleComparison",
+    "ProposalArticleEvidence",
+    "ProposalComparisonReport",
+    "ProposalComparisonService",
+    "ProposalComparisonSide",
+    "ProposalConstraintComparison",
     "ProposalInspection",
     "ProposalInspectionService",
     "ProposalInspectionSummary",
+    "ProposalValueDifference",
     "PublicationArticleInspection",
     "PublicationInspection",
     "PublicationInspectionService",
