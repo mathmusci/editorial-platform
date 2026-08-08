@@ -150,6 +150,13 @@ without querying SQLite directly. Comparison services remain within the same fac
 boundary; for example, summary-quality comparison aggregates stored Evaluation scores and
 reports missing coverage without rerunning an evaluator.
 
+Proposal comparison reads two stored IssueProposals, their immutable
+OptimisationRequests, constraint results and selected-article evidence snapshots. It
+reports membership, order, policy and outcome differences without rerunning optimisation
+or recommending a winner. Legacy proposals without snapshots may use current stored
+article evidence as an explicitly labelled fallback; that fallback is not presented as
+historical evidence from the original optimiser run.
+
 Human quality references are Evaluation artefacts too. They record the reviewer and exact
 summary Extraction alongside the same dimensions used by an automated summary-quality
 evaluator. Calibration compares stored human and automated judgements only when their

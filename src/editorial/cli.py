@@ -57,6 +57,9 @@ from editorial.inspection import (
     ExtractionCoverageReport,
     ExtractionInspectionService,
     HumanSummaryQualityReferenceService,
+    ProposalArticleEvidence,
+    ProposalComparisonReport,
+    ProposalComparisonService,
     ProposalInspection,
     ProposalInspectionService,
     PublicationInspection,
@@ -71,6 +74,7 @@ from editorial.inspection import (
     SummaryQualityCalibrationService,
 )
 from editorial.models import (
+    ConstraintResult,
     EditorialStatus,
     Review,
     ReviewDecision,
@@ -125,6 +129,10 @@ def _proposal_inspection_service(db: Path) -> ProposalInspectionService:
         reviews=SQLiteReviewRepository(db),
         publications=SQLitePublicationRepository(db),
     )
+
+
+def _proposal_comparison_service(db: Path) -> ProposalComparisonService:
+    return ProposalComparisonService(_proposal_inspection_service(db))
 
 
 def _evaluation_inspection_service(db: Path) -> EvaluationInspectionService:
@@ -2628,6 +2636,210 @@ def proposal_show(
         console.print(f"Issue proposal not found: {proposal_id}")
         raise typer.Exit(1)
     _render_proposal_inspection(inspection)
+
+
+@proposal_app.command("compare")
+def proposal_compare(
+    base_proposal_id: UUID = typer.Argument(...),
+    candidate_proposal_id: UUID = typer.Argument(...),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    try:
+        report = _proposal_comparison_service(db).compare(
+            base_proposal_id, candidate_proposal_id
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    _render_proposal_comparison(report)
+
+
+def _render_proposal_comparison(report: ProposalComparisonReport) -> None:
+    summary = "\n".join(
+        [
+            f"[bold]Base proposal:[/bold] {report.base.proposal_id}",
+            f"[bold]Candidate proposal:[/bold] {report.candidate.proposal_id}",
+            (
+                "[bold]Articles:[/bold] "
+                f"{report.shared_articles} shared, {report.added_articles} added, "
+                f"{report.removed_articles} removed, {report.moved_articles} moved"
+            ),
+            (
+                "[bold]Objective:[/bold] "
+                f"{report.base.objective_value} -> "
+                f"{report.candidate.objective_value} "
+                f"({_format_signed_delta(report.objective_delta)})"
+            ),
+            (
+                "[bold]Known reading time:[/bold] "
+                f"{report.base.known_reading_minutes:g} min -> "
+                f"{report.candidate.known_reading_minutes:g} min"
+            ),
+            (
+                "[bold]Missing reading times:[/bold] "
+                f"{report.base.articles_missing_reading_time} -> "
+                f"{report.candidate.articles_missing_reading_time}"
+            ),
+        ]
+    )
+    console.print(Panel(summary, title="Proposal Comparison", expand=False))
+    _render_proposal_comparison_provenance(report)
+    _render_proposal_comparison_articles(report)
+    _render_proposal_request_differences(report)
+    _render_proposal_constraint_comparison(report)
+    _render_proposal_comparison_gaps(report)
+
+
+def _render_proposal_comparison_provenance(
+    report: ProposalComparisonReport,
+) -> None:
+    table = Table(title="Provenance")
+    table.add_column("Field")
+    table.add_column("Base")
+    table.add_column("Candidate")
+    rows = [
+        (
+            "Optimisation request",
+            report.base.optimisation_request_id,
+            report.candidate.optimisation_request_id,
+        ),
+        (
+            "Publication",
+            report.base.publication_name,
+            report.candidate.publication_name,
+        ),
+        ("Strategy", report.base.strategy, report.candidate.strategy),
+        ("Optimiser", report.base.optimiser, report.candidate.optimiser),
+        (
+            "Optimiser version",
+            report.base.optimiser_version,
+            report.candidate.optimiser_version,
+        ),
+    ]
+    for label, base, candidate in rows:
+        table.add_row(label, _format_available(base), _format_available(candidate))
+    console.print(table)
+
+
+def _render_proposal_comparison_articles(report: ProposalComparisonReport) -> None:
+    if not report.articles:
+        console.print(Panel("Neither proposal selects an article.", title="Articles"))
+        return
+
+    table = Table(title="Article Changes", show_lines=True)
+    table.add_column("Change")
+    table.add_column("Details")
+    for article in report.articles:
+        change = article.status
+        if article.moved:
+            change = "shared, moved"
+        details = "\n".join(
+            [
+                f"[bold]{article.title}[/bold]",
+                str(article.article_id),
+                (
+                    "Positions: "
+                    f"{_format_available(article.base_position)} -> "
+                    f"{_format_available(article.candidate_position)}"
+                ),
+                "Base:",
+                _format_proposal_article_evidence(article.base_evidence),
+                "Candidate:",
+                _format_proposal_article_evidence(article.candidate_evidence),
+            ]
+        )
+        table.add_row(
+            change,
+            details,
+        )
+    console.print(table)
+
+
+def _format_proposal_article_evidence(
+    evidence: ProposalArticleEvidence | None,
+) -> str:
+    if evidence is None:
+        return "not selected"
+    return "\n".join(
+        [
+            f"Relevance: {_format_available(evidence.relevance_score)}",
+            f"Reading: {_format_available(evidence.reading_minutes)} min",
+            f"Source: {_format_available(evidence.source)}",
+            f"Evidence: {_format_label(evidence.origin)}",
+        ]
+    )
+
+
+def _render_proposal_request_differences(report: ProposalComparisonReport) -> None:
+    if not report.request_differences:
+        console.print(
+            Panel("No optimisation request differences found.", title="Request Changes")
+        )
+        return
+
+    table = Table(title="Optimisation Request Changes", show_lines=True)
+    table.add_column("Field")
+    table.add_column("Base")
+    table.add_column("Candidate")
+    for difference in report.request_differences:
+        base = (
+            _format_structured_value(difference.base_value)
+            if difference.base_present
+            else "not set"
+        )
+        candidate = (
+            _format_structured_value(difference.candidate_value)
+            if difference.candidate_present
+            else "not set"
+        )
+        table.add_row(_format_label(difference.field), base, candidate)
+    console.print(table)
+
+
+def _render_proposal_constraint_comparison(
+    report: ProposalComparisonReport,
+) -> None:
+    if not report.constraints:
+        console.print(Panel("No constraint results available.", title="Constraints"))
+        return
+
+    table = Table(title="Constraint Outcomes", show_lines=True)
+    table.add_column("Constraint")
+    table.add_column("Change")
+    table.add_column("Base")
+    table.add_column("Candidate")
+    for comparison in report.constraints:
+        table.add_row(
+            f"{comparison.name}\n{comparison.kind}",
+            comparison.status,
+            _format_constraint_result(comparison.base),
+            _format_constraint_result(comparison.candidate),
+        )
+    console.print(table)
+
+
+def _format_constraint_result(result: ConstraintResult | None) -> str:
+    if result is None:
+        return "not present"
+    return "\n".join(
+        [
+            f"Satisfied: {result.satisfied}",
+            f"Value: {_format_available(result.value)}",
+            f"Target: {_format_available(result.target)}",
+            f"Penalty: {result.penalty}",
+        ]
+    )
+
+
+def _render_proposal_comparison_gaps(report: ProposalComparisonReport) -> None:
+    if not report.evidence_gaps:
+        console.print(Panel("No evidence gaps found.", title="Evidence Gaps"))
+        return
+    console.print(
+        Panel(
+            "\n".join(f"- {gap}" for gap in report.evidence_gaps),
+            title="Evidence Gaps",
+        )
+    )
 
 
 def _render_proposal_inspection(inspection: ProposalInspection) -> None:

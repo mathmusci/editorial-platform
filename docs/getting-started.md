@@ -503,6 +503,22 @@ editorial proposal show <proposal-id> --db bis-getting-started.sqlite
 
 Use that `<proposal-id>` in the next commands.
 
+When a later optimisation run produces another proposal, compare it with the
+current proposal before review:
+
+```bash
+editorial proposal compare \
+  <base-proposal-id> \
+  <candidate-proposal-id> \
+  --db bis-getting-started.sqlite
+```
+
+The report shows added, removed, shared, and reordered articles; proposal-time
+relevance and reading-time evidence; optimisation request changes; constraint
+outcomes; provenance; and missing evidence. It reads stored artefacts only and
+does not rerun the optimiser or recommend a winner. For a complete revision
+example, read [Comparing Issue Proposals](tutorials/proposal-comparison.md).
+
 ### 5. Review the proposal
 
 Purpose: record editorial approval of the generated IssueProposal.
@@ -697,6 +713,10 @@ and workflow concepts.
 
 Read [tutorials/bis-newsletter.md](tutorials/bis-newsletter.md) for the BIS
 newsletter validation walkthrough and editorial context.
+
+Read [tutorials/proposal-comparison.md](tutorials/proposal-comparison.md) to
+compare optimisation runs and understand article, request, constraint, and
+evidence changes before review.
 
 Read [developer-notes.md](developer-notes.md) for observations from the first
 end-to-end BIS validation run and known areas for improvement.
