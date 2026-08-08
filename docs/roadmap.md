@@ -55,6 +55,10 @@ Validation success criteria:
 
 ## Planned
 
+Items in the versioned sections below are planned product direction. Ideas that have been
+identified but have not yet been designed or agreed are listed separately under Future
+candidates. Recording a candidate does not commit it to a release.
+
 ### v0.10.0 Editor Experience
 
 The next phase moves from inspecting individual evidence artefacts to making and revising an
@@ -90,11 +94,17 @@ Implemented as the second editor-experience slice:
 
 #### Publication composition
 
+- Implement manual, editor-controlled composition through the CLI before adding further
+  automation or user interfaces.
 - Allow an editor to control section order and article placement.
 - Support editorial titles, introductions, exclusions, and other composition choices as
   explicit publication data.
 - Preserve the proposal, review, and source evidence behind each publication section.
 - Keep Publication separate from Markdown, HTML, email, or other rendering formats.
+
+This work does not currently include automatic section generation, LLM-written editorial
+text, additional rendering formats, or publication distribution. Those capabilities require
+separate design and prioritisation.
 
 #### Workflow overview
 
@@ -136,3 +146,30 @@ Success criteria:
 - Reference BIS tutorial.
 - Reproducible publication workflow.
 - Polished editor experience.
+
+## Future Candidates
+
+The following areas have been identified during publication-composition discussion, but
+have not been designed, prioritised, or assigned to a release. They are not current roadmap
+commitments.
+
+### AI-assisted composition
+
+Possible capabilities include suggested section groupings and draft editorial introductions.
+Before this work can be planned, the workflow must define how editors accept, edit, or reject
+suggestions and how model, prompt, and source provenance is retained. Manual publication
+composition is the prerequisite.
+
+### Multi-format publication rendering
+
+The architecture permits a Publication to be rendered as Markdown, HTML, email, PDF, or
+another format. Only existing rendering behaviour is currently committed. Additional
+formats, including email templates, require their own requirements and prioritisation and
+must remain separate from the Publication artefact.
+
+### Publication distribution
+
+Sending or distributing a rendered publication is not currently planned. Any future work
+would need an explicit discussion of delivery channels, recipient data, credentials,
+delivery status, retries, audit history, and the boundary between Editorial Platform and
+external delivery services.
