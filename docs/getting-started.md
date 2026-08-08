@@ -536,6 +536,24 @@ editorial review create \
 Expected outcome: the command prints the new review ID and records a
 `review-submitted` workflow event.
 
+If the decision is `needs_changes`, create a linked revision request instead of
+continuing to publication:
+
+```bash
+editorial review revise <review-id> \
+  --config examples/bis/publication.yaml \
+  --setting reading_time_target_minutes=18 \
+  --run \
+  --db bis-getting-started.sqlite
+```
+
+The original proposal and Review remain unchanged. The command records their
+lineage on a new OptimisationRequest, optionally creates a candidate proposal,
+and prints the corresponding `editorial proposal compare` command. Review
+recommendations are retained as evidence but become optimiser overrides only
+when the editor supplies them explicitly. See
+[Review And Revision](tutorials/review-and-revision.md) for the complete loop.
+
 ### 6. Create a Publication
 
 Purpose: turn the approved proposal into a presentation-independent Publication
@@ -717,6 +735,10 @@ newsletter validation walkthrough and editorial context.
 Read [tutorials/proposal-comparison.md](tutorials/proposal-comparison.md) to
 compare optimisation runs and understand article, request, constraint, and
 evidence changes before review.
+
+Read [tutorials/review-and-revision.md](tutorials/review-and-revision.md) to
+turn requested changes into a linked request and candidate proposal without
+overwriting the original editorial history.
 
 Read [developer-notes.md](developer-notes.md) for observations from the first
 end-to-end BIS validation run and known areas for improvement.

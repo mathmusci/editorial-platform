@@ -80,6 +80,8 @@ replace relevance or human editorial judgement.
 
 #### Review and revision
 
+Implemented as the second editor-experience slice:
+
 - Record approval, rejection, or requested changes against a proposal.
 - Create a revised OptimisationRequest from an explicit review decision.
 - Generate a new proposal while preserving the reviewed proposal and its history.

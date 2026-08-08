@@ -36,6 +36,7 @@ class ReviewInspection(BaseModel):
     review: Review
     issue_proposal: IssueProposal | None = None
     optimisation_request: OptimisationRequest | None = None
+    revision_requests: list[OptimisationRequest]
     publications: list[Publication]
     review_workflow_events: list[WorkflowEvent]
     artefact_workflow_events: list[WorkflowEvent]
@@ -85,6 +86,7 @@ class ReviewInspectionService:
             review=review,
             issue_proposal=proposal,
             optimisation_request=self._optimisation_request_for(proposal),
+            revision_requests=self._revision_requests_for(review.id),
             publications=self._publications_for(review),
             review_workflow_events=self.workflow_events.list(
                 artefact_type="review", artefact_id=review.id
@@ -128,6 +130,13 @@ class ReviewInspectionService:
             publication
             for publication in self.publications.list()
             if publication.proposal_id == review.artefact_id
+        ]
+
+    def _revision_requests_for(self, review_id: UUID) -> list[OptimisationRequest]:
+        return [
+            request
+            for request in self.optimisation_requests.list()
+            if request.metadata.get("source_review_id") == str(review_id)
         ]
 
     def _comments_preview(self, comments: str | None) -> str | None:
