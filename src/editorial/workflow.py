@@ -9,6 +9,7 @@ EVENT_STATE_MAP = {
     "proposal-created": "draft",
     "review-requested": "under_review",
     "review-submitted": "reviewed",
+    "revision-requested": "changes_requested",
     "proposal-approved": "approved",
     "proposal-rejected": "rejected",
     "publication-created": "published",

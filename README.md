@@ -48,6 +48,7 @@ friction found in practical CLI use.
 - [BIS Newsletter Tutorial](docs/tutorials/bis-newsletter.md)
 - [Summary Model Comparison And Human Calibration](docs/tutorials/summary-model-calibration.md)
 - [Comparing Issue Proposals](docs/tutorials/proposal-comparison.md)
+- [Review And Revision](docs/tutorials/review-and-revision.md)
 
 ## Install
 
@@ -168,7 +169,7 @@ editorial workflow state --artefact-type issue_proposal --artefact-id <uuid>
 Review records are immutable editorial judgements about any artefact identified by
 `artefact_type` and `artefact_id`. They can approve, reject, request changes, or leave a
 comment. Reviews do not mutate IssueProposal records, create OptimisationRequests, trigger
-optimisation, or store workflow state.
+optimisation, or store workflow state by themselves.
 
 Creating a review automatically records a generic `review-submitted` WorkflowEvent against
 the reviewed artefact.
@@ -186,6 +187,20 @@ editorial review create \
 editorial review list --artefact-type issue_proposal --artefact-id <uuid>
 editorial review show <review-id>
 ```
+
+A `needs_changes` review can be used explicitly to create a linked revision request. The
+editor chooses which recommendations become optimiser overrides; recommendation fields are
+never applied silently. Add `--run` to create the candidate proposal immediately.
+
+```bash
+editorial review revise <review-id> \
+  --config publication.yaml \
+  --setting reading_time_target_minutes=18 \
+  --run \
+  --db editorial.sqlite
+```
+
+See [Review And Revision](docs/tutorials/review-and-revision.md) for the complete workflow.
 
 ## Publications And Markdown Publishing
 

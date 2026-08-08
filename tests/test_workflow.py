@@ -126,6 +126,29 @@ def test_workflow_projection_unknown_state_when_no_events_exist():
     assert WorkflowProjection().state_for([]) == "unknown"
 
 
+def test_workflow_projection_marks_requested_revision_as_changes_requested():
+    artefact_id = uuid4()
+    events = [
+        WorkflowEvent(
+            artefact_type="issue_proposal",
+            artefact_id=artefact_id,
+            event_type="proposal-created",
+        ),
+        WorkflowEvent(
+            artefact_type="issue_proposal",
+            artefact_id=artefact_id,
+            event_type="review-submitted",
+        ),
+        WorkflowEvent(
+            artefact_type="issue_proposal",
+            artefact_id=artefact_id,
+            event_type="revision-requested",
+        ),
+    ]
+
+    assert WorkflowProjection().state_for(events) == "changes_requested"
+
+
 def test_cli_workflow_record_history_and_state(tmp_path):
     db_path = tmp_path / "test.sqlite"
     artefact_id = uuid4()

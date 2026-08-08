@@ -82,6 +82,7 @@ from editorial.models import (
 )
 from editorial.publishing import MarkdownPublisher, PublicationBuilder
 from editorial.providers import build_provider
+from editorial.revisions import ReviewRevisionService
 from editorial.storage import (
     SQLiteArticleRepository,
     SQLiteEvaluationRepository,
@@ -212,6 +213,15 @@ def _review_inspection_service(db: Path) -> ReviewInspectionService:
         proposals=SQLiteIssueProposalRepository(db),
         optimisation_requests=SQLiteOptimisationRequestRepository(db),
         publications=SQLitePublicationRepository(db),
+        workflow_events=SQLiteWorkflowEventRepository(db),
+    )
+
+
+def _review_revision_service(db: Path) -> ReviewRevisionService:
+    return ReviewRevisionService(
+        reviews=SQLiteReviewRepository(db),
+        proposals=SQLiteIssueProposalRepository(db),
+        optimisation_requests=SQLiteOptimisationRequestRepository(db),
         workflow_events=SQLiteWorkflowEventRepository(db),
     )
 
@@ -3086,6 +3096,75 @@ def review_create(
     console.print(f"Created review {review.id}")
 
 
+@review_app.command("revise")
+def review_revise(
+    review_id: UUID = typer.Argument(...),
+    config: Path = typer.Option(..., "--config", "-c"),
+    created_by: str | None = typer.Option(None, "--created-by"),
+    setting: list[str] | None = typer.Option(
+        None,
+        "--setting",
+        help="Override a config setting as key=value. May be repeated.",
+    ),
+    constraint: list[str] | None = typer.Option(
+        None,
+        "--constraint",
+        help="Override a config constraint as key=value. May be repeated.",
+    ),
+    goal: list[str] | None = typer.Option(
+        None,
+        "--goal",
+        help="Override a config goal as key=value. May be repeated.",
+    ),
+    preference: list[str] | None = typer.Option(
+        None,
+        "--preference",
+        help="Override a config preference as key=value. May be repeated.",
+    ),
+    run: bool = typer.Option(
+        False,
+        "--run",
+        help="Run the revision request and create a candidate proposal immediately.",
+    ),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    template = request_from_config(config, created_by=created_by)
+    try:
+        revision = _review_revision_service(db).create(
+            review_id,
+            template,
+            created_by=created_by,
+            settings=parse_key_values(setting, "--setting"),
+            constraints=parse_key_values(constraint, "--constraint"),
+            goals=parse_key_values(goal, "--goal"),
+            preferences=parse_key_values(preference, "--preference"),
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    request = revision.request
+    console.print(f"Created revision request {request.id}")
+    console.print(f"Source review: {revision.review.id}")
+    console.print(f"Parent proposal: {revision.source_proposal_id}")
+    console.print(
+        f"Parent optimisation request: {_format_available(revision.source_request_id)}"
+    )
+    if not run:
+        console.print(
+            f"Next: editorial optimisation-request run {request.id} --db {db}"
+        )
+        return
+
+    result, _proposal = run_optimisation_request(request, db)
+    console.print(f"Created revised issue proposal {result.proposal_id}")
+    console.print(f"Selected articles: {result.selected_articles}")
+    console.print(f"Objective value: {result.objective_value}")
+    console.print(
+        "Compare: editorial proposal compare "
+        f"{revision.source_proposal_id} {result.proposal_id} --db {db}"
+    )
+
+
 @review_app.command("list")
 def review_list(
     artefact_type: str | None = typer.Option(None, "--artefact-type"),
@@ -3144,6 +3223,7 @@ def _render_review_inspection(inspection: ReviewInspection) -> None:
     )
     console.print(Panel(details, title="Review", expand=False))
     _render_review_proposal_context(inspection)
+    _render_review_revision_requests(inspection)
     _render_review_publications(inspection)
     _render_review_workflow(inspection)
     _render_review_metadata(inspection)
@@ -3198,6 +3278,28 @@ def _render_review_publications(inspection: ReviewInspection) -> None:
             str(publication.id),
             publication.title,
         )
+    console.print(table)
+
+
+def _render_review_revision_requests(inspection: ReviewInspection) -> None:
+    if not inspection.revision_requests:
+        console.print(Panel("No revision requests found.", title="Revision Requests"))
+        return
+
+    table = Table(title="Linked Revision Requests", show_lines=True)
+    table.add_column("Created")
+    table.add_column("ID", no_wrap=True)
+    table.add_column("Details")
+    for request in inspection.revision_requests:
+        details = "\n".join(
+            [
+                f"Strategy: {request.strategy}",
+                f"Created by: {_format_available(request.created_by)}",
+                f"Parent request: {_format_available(request.parent_request_id)}",
+                f"Parent proposal: {_format_available(request.parent_proposal_id)}",
+            ]
+        )
+        table.add_row(request.created_at.isoformat(), str(request.id), details)
     console.print(table)
 
 
@@ -3559,6 +3661,10 @@ def optimisation_request_show(
     console.print(f"Strategy: {request.strategy}")
     console.print(f"Created by: {request.created_by or ''}")
     console.print(f"Created at: {request.created_at.isoformat()}")
+    console.print(
+        f"Parent optimisation request: {_format_available(request.parent_request_id)}"
+    )
+    console.print(f"Parent proposal: {_format_available(request.parent_proposal_id)}")
     _render_key_value_table("Settings", request.settings)
     _render_key_value_table("Constraints", request.constraints)
     _render_key_value_table("Goals", request.goals)

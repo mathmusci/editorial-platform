@@ -132,6 +132,11 @@ Review records are append-only and immutable. They store reviewer, decision, com
 findings, recommendations, metadata, and the reviewed artefact identity. They do not modify
 the reviewed artefact, trigger optimisation, or store workflow state.
 
+A `needs_changes` Review can be the explicit source of a new OptimisationRequest. The new
+request records the Review, parent IssueProposal, and originating OptimisationRequest while
+preserving the reviewed artefacts. Review recommendations remain evidence until an editor
+explicitly maps chosen values to revision settings, constraints, goals, or preferences.
+
 Publication records are append-only and immutable. They store title, optional subtitle,
 sections, metadata, and the proposal they were built from. Creating a Publication does not
 render an output file. Publisher implementations render Publications into concrete formats;
@@ -291,10 +296,14 @@ Purpose: record editorial judgement about a proposal or any other artefact.
 Input artefacts: IssueProposal records, Publication records, Evaluations, Extractions, or
 other artefacts under review.
 
-Output artefacts: Review records and associated WorkflowEvents recorded by orchestration.
+Output artefacts: Review records and associated WorkflowEvents recorded by orchestration. A
+separate revision action may create a linked OptimisationRequest from a `needs_changes`
+Review.
 
 Example: a human reviewer marks an IssueProposal as `needs_changes` because the reading time
-is too long. Reviewers decide; the proposal itself is not mutated.
+is too long. The editor explicitly applies a shorter reading-time target to a child
+OptimisationRequest, generates a new proposal, and compares it with the original. Reviewers
+decide; neither the proposal nor the Review is mutated.
 
 ### Publication
 
