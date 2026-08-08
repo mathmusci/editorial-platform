@@ -17,6 +17,7 @@
 | Publication composition | Manual process of arranging every proposed Article into a Publication section or an explicit exclusion after proposal approval. |
 | WorkflowEvent | Append-only record of a significant editorial action or decision attached to any artefact by `artefact_type` and `artefact_id`. |
 | WorkflowState | Current state derived from workflow events, not stored directly. |
+| Workflow overview | Proposal-anchored, inspection-only summary of evidence coverage, editorial stages, linked artefacts, and outstanding actions. |
 | OptimisationRequest | Immutable input to an optimiser run; explains why an IssueProposal was generated. |
 | Editorial Engine | Orchestrates processing and records results. |
 | Publication | Immutable presentation-independent editorial artefact composed from an approved IssueProposal and reproducible content snapshots. |

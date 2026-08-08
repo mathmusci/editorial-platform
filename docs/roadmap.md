@@ -110,6 +110,8 @@ separate design and prioritisation.
 
 #### Workflow overview
 
+Implemented as the fourth editor-experience slice:
+
 - Present the state of a complete issue in one place.
 - Summarise extraction and evaluation coverage, proposals, reviews, publications, and
   outstanding actions.

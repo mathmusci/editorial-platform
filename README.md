@@ -50,6 +50,7 @@ friction found in practical CLI use.
 - [Comparing Issue Proposals](docs/tutorials/proposal-comparison.md)
 - [Review And Revision](docs/tutorials/review-and-revision.md)
 - [Publication Composition](docs/tutorials/publication-composition.md)
+- [Workflow Overview](docs/tutorials/workflow-overview.md)
 
 ## Install
 
@@ -229,6 +230,19 @@ editorial publication compose \
 
 See [Publication Composition](docs/tutorials/publication-composition.md) for the composition
 format, validation rules, revision workflow, and rendering behavior.
+
+Inspect the complete stored workflow for a specific proposal:
+
+```bash
+editorial workflow overview \
+  --config publication.yaml \
+  --proposal-id <proposal-uuid> \
+  --db editorial.sqlite
+```
+
+The overview derives evidence coverage, review state, composition, rendering, and outstanding
+actions from stored artefacts and WorkflowEvents. See
+[Workflow Overview](docs/tutorials/workflow-overview.md) for the stage and status rules.
 
 ```bash
 editorial publication create \

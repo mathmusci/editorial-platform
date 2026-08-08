@@ -744,5 +744,9 @@ Read [tutorials/publication-composition.md](tutorials/publication-composition.md
 to turn an approved proposal into an ordered, reproducible Publication with
 explicit introductions, editorial text, exclusions, and provenance.
 
+Read [tutorials/workflow-overview.md](tutorials/workflow-overview.md) to inspect
+evidence coverage, editorial state, linked artefacts, and outstanding actions
+for one IssueProposal in a single command.
+
 Read [developer-notes.md](developer-notes.md) for observations from the first
 end-to-end BIS validation run and known areas for improvement.

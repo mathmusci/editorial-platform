@@ -62,6 +62,16 @@ from editorial.inspection.reviews import (
     ReviewInspectionService,
     ReviewInspectionSummary,
 )
+from editorial.inspection.workflows import (
+    WorkflowCoverage,
+    WorkflowOutstandingAction,
+    WorkflowOverview,
+    WorkflowOverviewService,
+    WorkflowProcessorCoverage,
+    WorkflowPublicationSummary,
+    WorkflowReviewSummary,
+    WorkflowStage,
+)
 
 __all__ = [
     "ArticleInspection",
@@ -110,4 +120,12 @@ __all__ = [
     "SummaryQualityComparisonResult",
     "SummaryQualityComparisonService",
     "SummaryQualityScores",
+    "WorkflowCoverage",
+    "WorkflowOutstandingAction",
+    "WorkflowOverview",
+    "WorkflowOverviewService",
+    "WorkflowProcessorCoverage",
+    "WorkflowPublicationSummary",
+    "WorkflowReviewSummary",
+    "WorkflowStage",
 ]

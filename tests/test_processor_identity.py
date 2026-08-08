@@ -6,7 +6,7 @@ from editorial.cli import app
 from editorial.config import load_publication_config
 from editorial.config.models import ProcessorConfig
 from editorial.engine import EditorialEngine
-from editorial.evaluators import build_evaluator
+from editorial.evaluators import build_evaluator, describe_evaluator
 from editorial.extractors import build_extractor, describe_extractor
 from editorial.models import Article
 from editorial.storage import (
@@ -121,11 +121,22 @@ def test_evaluator_key_controls_stored_identity():
             QUALITY_A,
         )
     )
+    descriptor = describe_evaluator(
+        _quality_config(
+            "quality_qwen",
+            "Qwen summary quality",
+            "summary_qwen",
+            QUALITY_A,
+        )
+    )
 
     evaluation = evaluator.evaluate(article, [extraction])
 
     assert evaluator.name == "quality_qwen"
     assert evaluator.display_name == "Qwen summary quality"
+    assert descriptor.key == "quality_qwen"
+    assert descriptor.display_name == "Qwen summary quality"
+    assert descriptor.kind == "summary_quality"
     assert evaluation.evaluator == "quality_qwen"
     assert evaluation.payload["summary_extractor"] == "summary_qwen"
 
