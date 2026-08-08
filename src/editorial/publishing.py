@@ -9,6 +9,7 @@ from editorial.models import (
     Extraction,
     IssueProposal,
     Publication,
+    PublicationArticle,
     PublicationSection,
 )
 
@@ -23,11 +24,11 @@ class PublicationBuilder:
         title: str,
         subtitle: str | None = None,
     ) -> Publication:
-        article_ids = [article.id for article in articles]
+        articles_by_id = {article.id: article for article in articles}
         selected_article_ids = [
             article_id
             for article_id in proposal.article_ids
-            if article_id in article_ids
+            if article_id in articles_by_id
         ]
         return Publication(
             proposal_id=proposal.id,
@@ -36,7 +37,10 @@ class PublicationBuilder:
             sections=[
                 PublicationSection(
                     heading="Selected articles",
-                    article_ids=selected_article_ids,
+                    articles=[
+                        self._snapshot_article(articles_by_id[article_id])
+                        for article_id in selected_article_ids
+                    ],
                     metadata={"article_count": len(selected_article_ids)},
                 )
             ],
@@ -48,6 +52,15 @@ class PublicationBuilder:
                 "extraction_count": len(extractions),
                 "evaluation_count": len(evaluations),
             },
+        )
+
+    def _snapshot_article(self, article: Article) -> PublicationArticle:
+        return PublicationArticle(
+            article_id=article.id,
+            title=article.title,
+            summary=article.summary,
+            source=article.source,
+            url=str(article.url) if article.url else None,
         )
 
 
@@ -68,31 +81,48 @@ class MarkdownPublisher:
         lines = [f"# {publication.title}", ""]
         if publication.subtitle:
             lines.extend([publication.subtitle, ""])
+        if publication.introduction:
+            lines.extend([publication.introduction, ""])
 
         for section in publication.sections:
             lines.extend([f"## {section.heading}", ""])
-            if section.summary:
-                lines.extend([section.summary, ""])
-            for article_id in section.article_ids:
-                article = self.articles_by_id.get(article_id)
-                if article is None:
-                    lines.extend([f"- Missing article: {article_id}"])
+            if section.introduction:
+                lines.extend([section.introduction, ""])
+            for item in section.articles:
+                article = self.articles_by_id.get(item.article_id)
+                if item.title is None and article is None:
+                    lines.extend([f"- Missing article: {item.article_id}"])
                     continue
-                lines.extend(self._article_lines(article))
+                lines.extend(self._article_lines(item, article))
             if lines[-1] != "":
                 lines.append("")
 
         return "\n".join(lines).rstrip() + "\n"
 
-    def _article_lines(self, article: Article) -> list[str]:
-        lines = [f"- **{article.title}**"]
-        if article.summary:
-            lines.append(f"  {article.summary}")
+    def _article_lines(
+        self, item: PublicationArticle, article: Article | None
+    ) -> list[str]:
+        if item.title is not None:
+            title = item.title
+            summary = item.summary
+            source = item.source
+            url = item.url
+        else:
+            if article is None:
+                raise ValueError(f"Article record not available: {item.article_id}")
+            title = article.title
+            summary = article.summary
+            source = article.source
+            url = str(article.url or "")
+
+        lines = [f"- **{title}**"]
+        if summary:
+            lines.append(f"  {summary}")
         source_parts = []
-        if article.source:
-            source_parts.append(article.source)
-        if article.url:
-            source_parts.append(str(article.url))
+        if source:
+            source_parts.append(source)
+        if url:
+            source_parts.append(url)
         if source_parts:
             lines.append(f"  Source: {' - '.join(source_parts)}")
         return lines

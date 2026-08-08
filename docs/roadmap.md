@@ -94,6 +94,8 @@ Implemented as the second editor-experience slice:
 
 #### Publication composition
 
+Implemented as the third editor-experience slice:
+
 - Implement manual, editor-controlled composition through the CLI before adding further
   automation or user interfaces.
 - Allow an editor to control section order and article placement.

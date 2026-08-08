@@ -740,5 +740,9 @@ Read [tutorials/review-and-revision.md](tutorials/review-and-revision.md) to
 turn requested changes into a linked request and candidate proposal without
 overwriting the original editorial history.
 
+Read [tutorials/publication-composition.md](tutorials/publication-composition.md)
+to turn an approved proposal into an ordered, reproducible Publication with
+explicit introductions, editorial text, exclusions, and provenance.
+
 Read [developer-notes.md](developer-notes.md) for observations from the first
 end-to-end BIS validation run and known areas for improvement.

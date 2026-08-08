@@ -12,6 +12,7 @@ from editorial.models import (
     IssueProposal,
     OptimisationRequest,
     Publication,
+    PublicationArticle,
     PublicationSection,
     Review,
     WorkflowEvent,
@@ -41,6 +42,7 @@ class PublicationInspectionSummary(BaseModel):
 
 
 class PublicationArticleInspection(BaseModel):
+    publication_article: PublicationArticle
     article: Article | None
     article_id: UUID
     reading_minutes: int | float | None = None
@@ -65,6 +67,9 @@ class PublicationInspection(BaseModel):
     publication: Publication
     proposal: IssueProposal | None = None
     optimisation_request: OptimisationRequest | None = None
+    approved_review: Review | None = None
+    parent_publication: Publication | None = None
+    revised_publications: list[Publication]
     sections: list[PublicationSectionInspection]
     proposal_reviews: list[Review]
     publication_workflow_events: list[WorkflowEvent]
@@ -122,6 +127,21 @@ class PublicationInspectionService:
             publication=publication,
             proposal=proposal,
             optimisation_request=optimisation_request,
+            approved_review=(
+                self.reviews.get(publication.approved_review_id)
+                if publication.approved_review_id
+                else None
+            ),
+            parent_publication=(
+                self.publications.get(publication.parent_publication_id)
+                if publication.parent_publication_id
+                else None
+            ),
+            revised_publications=[
+                candidate
+                for candidate in self.publications.list()
+                if candidate.parent_publication_id == publication.id
+            ],
             sections=self._sections_for(publication),
             proposal_reviews=self.reviews.list(
                 artefact_type="issue_proposal", artefact_id=publication.proposal_id
@@ -144,7 +164,7 @@ class PublicationInspectionService:
             proposal_id=publication.proposal_id,
             section_count=len(publication.sections),
             article_count=sum(
-                len(section.article_ids) for section in publication.sections
+                len(section.articles) for section in publication.sections
             ),
             rendered_output_count=len(self._rendered_outputs_from(publication_events)),
             status=self._status_for(publication_events),
@@ -158,16 +178,19 @@ class PublicationInspectionService:
                 section=section,
                 order=index + 1,
                 articles=[
-                    self._article_inspection_for(article_id)
-                    for article_id in section.article_ids
+                    self._article_inspection_for(item) for item in section.articles
                 ],
             )
             for index, section in enumerate(publication.sections)
         ]
 
-    def _article_inspection_for(self, article_id: UUID) -> PublicationArticleInspection:
+    def _article_inspection_for(
+        self, publication_article: PublicationArticle
+    ) -> PublicationArticleInspection:
+        article_id = publication_article.article_id
         article = self.articles.get(article_id)
         return PublicationArticleInspection(
+            publication_article=publication_article,
             article=article,
             article_id=article_id,
             reading_minutes=self._reading_minutes(article_id),
