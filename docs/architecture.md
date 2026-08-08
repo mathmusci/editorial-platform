@@ -137,10 +137,13 @@ request records the Review, parent IssueProposal, and originating OptimisationRe
 preserving the reviewed artefacts. Review recommendations remain evidence until an editor
 explicitly maps chosen values to revision settings, constraints, goals, or preferences.
 
-Publication records are append-only and immutable. They store title, optional subtitle,
-sections, metadata, and the proposal they were built from. Creating a Publication does not
-render an output file. Publisher implementations render Publications into concrete formats;
-the first implementation renders Markdown.
+Publication records are append-only and immutable. A manually composed Publication stores
+its title, optional subtitle and introduction, ordered sections, publication-time Article
+snapshots, explicit exclusions, approving Review, editor, parent Publication, metadata, and
+originating proposal. Source Article and summary Extraction ids retain provenance while the
+snapshots make rendering reproducible. Creating a Publication does not render an output
+file. Publisher implementations render Publications into concrete formats; the first
+implementation renders Markdown.
 
 ## Inspection And Explainability
 
@@ -313,9 +316,11 @@ Input artefacts: an IssueProposal and the editorial decisions around it.
 
 Output artefacts: Publication records.
 
-Example: a Publication stores the title, subtitle, sections, selected article ids, and
-editorial metadata for the BIS issue. Publication records approved editorial decisions; it
-is separate from Markdown, HTML, PDF, or email output.
+Example: a Publication stores the title, subtitle, introduction, ordered sections,
+publication-time article text, explicit exclusions and their reasons, approving Review,
+source evidence, revision lineage, and editorial metadata for the BIS issue. The strict
+composition workflow requires an approving Review and accounts for every proposed article.
+The Publication is separate from Markdown, HTML, PDF, or email output.
 
 ### Rendering
 

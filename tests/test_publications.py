@@ -1,4 +1,6 @@
+import json
 import sqlite3
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -94,6 +96,47 @@ def test_publication_insert_duplicate_id_is_rejected(tmp_path):
 
     with pytest.raises(sqlite3.IntegrityError):
         repo.insert(publication)
+
+
+def test_publication_repository_migrates_legacy_publication_rows(tmp_path):
+    db_path = tmp_path / "legacy.sqlite"
+    publication_id = uuid4()
+    proposal_id = uuid4()
+    article_id = uuid4()
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("""CREATE TABLE publications (
+            id TEXT PRIMARY KEY, proposal_id TEXT NOT NULL,
+            title TEXT NOT NULL, subtitle TEXT, sections_json TEXT NOT NULL,
+            metadata_json TEXT NOT NULL, created_at TEXT NOT NULL)""")
+        conn.execute(
+            "INSERT INTO publications VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                str(publication_id),
+                str(proposal_id),
+                "Legacy issue",
+                None,
+                json.dumps(
+                    [
+                        {
+                            "heading": "Selected articles",
+                            "article_ids": [str(article_id)],
+                            "summary": "Legacy section summary.",
+                            "metadata": {},
+                        }
+                    ]
+                ),
+                "{}",
+                datetime.now(UTC).isoformat(),
+            ),
+        )
+
+    publication = SQLitePublicationRepository(db_path).get(publication_id)
+
+    assert publication is not None
+    assert publication.introduction is None
+    assert publication.exclusions == []
+    assert publication.sections[0].introduction == "Legacy section summary."
+    assert publication.sections[0].article_ids == [article_id]
 
 
 def test_publication_builder_preserves_proposal_article_order_and_metadata():

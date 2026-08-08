@@ -30,6 +30,10 @@ from editorial.cli_helpers import (
     request_from_config,
     run_optimisation_request,
 )
+from editorial.composition import (
+    PublicationCompositionService,
+    load_publication_composition,
+)
 from editorial.config import load_publication_config
 from editorial.engine import EditorialEngine, EvaluationProgress, ExtractionProgress
 from editorial.evaluators import build_evaluator
@@ -204,6 +208,16 @@ def _publication_inspection_service(db: Path) -> PublicationInspectionService:
         evaluations=SQLiteEvaluationRepository(db),
         reviews=SQLiteReviewRepository(db),
         workflow_events=SQLiteWorkflowEventRepository(db),
+    )
+
+
+def _publication_composition_service(db: Path) -> PublicationCompositionService:
+    return PublicationCompositionService(
+        proposals=SQLiteIssueProposalRepository(db),
+        reviews=SQLiteReviewRepository(db),
+        publications=SQLitePublicationRepository(db),
+        articles=SQLiteArticleRepository(db),
+        extractions=SQLiteExtractionRepository(db),
     )
 
 
@@ -983,6 +997,9 @@ def _render_publication_explanation(explanation: PublicationExplanation) -> None
             f"[bold]Created:[/bold] {identity.created_at.isoformat()}",
             f"[bold]Issue proposal:[/bold] {identity.proposal_id}",
             f"[bold]Optimisation request:[/bold] {_format_available(identity.optimisation_request_id)}",
+            f"[bold]Approved review:[/bold] {_format_available(identity.approved_review_id)}",
+            f"[bold]Parent publication:[/bold] {_format_available(identity.parent_publication_id)}",
+            f"[bold]Created by:[/bold] {_format_available(identity.created_by)}",
             f"[bold]Status:[/bold] {_format_available(identity.status)}",
         ]
     )
@@ -1023,6 +1040,7 @@ def _render_publication_explanation_composition(
         if composition.section_titles
         else "none",
         "Article count": composition.article_count,
+        "Explicit exclusions": composition.excluded_article_count,
         "Sources represented": composition.source_counts,
         "Total reading minutes": _format_available(composition.total_reading_minutes),
         "Average relevance score": _format_available(
@@ -1060,6 +1078,8 @@ def _render_publication_explanation_evidence(
             context.metadata,
             {
                 "article_count",
+                "approved_review_id",
+                "excluded_article_count",
                 "objective_value",
                 "optimiser",
                 "proposal_id",
@@ -3385,6 +3405,46 @@ def publication_create(
     console.print(f"Created publication {publication.id}")
 
 
+@publication_app.command("compose")
+def publication_compose(
+    proposal_id: UUID = typer.Option(..., "--proposal-id"),
+    approved_review_id: UUID = typer.Option(..., "--approved-review-id"),
+    composition_path: Path = typer.Option(
+        ...,
+        "--composition",
+        exists=True,
+        dir_okay=False,
+        readable=True,
+        help="YAML file describing the publication composition.",
+    ),
+    created_by: str | None = typer.Option(None, "--created-by"),
+    parent_publication_id: UUID | None = typer.Option(None, "--parent-publication-id"),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    try:
+        composition = load_publication_composition(composition_path)
+        publication = _publication_composition_service(db).compose(
+            proposal_id,
+            approved_review_id,
+            composition,
+            created_by=created_by,
+            parent_publication_id=parent_publication_id,
+            composition_source=str(composition_path),
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    record_publication_created(publication, db)
+    console.print(f"Created composed publication {publication.id}")
+    console.print(f"Approved review: {publication.approved_review_id}")
+    console.print(f"Sections: {len(publication.sections)}")
+    console.print(
+        "Included articles: "
+        f"{sum(len(section.articles) for section in publication.sections)}"
+    )
+    console.print(f"Excluded articles: {len(publication.exclusions)}")
+
+
 @publication_app.command("list")
 def publication_list(
     limit: int | None = typer.Option(None, "--limit"),
@@ -3440,13 +3500,23 @@ def _render_publication_inspection(inspection: PublicationInspection) -> None:
             f"[bold]Created:[/bold] {publication.created_at.isoformat()}",
             f"[bold]Title:[/bold] {publication.title}",
             f"[bold]Subtitle:[/bold] {_format_available(publication.subtitle)}",
+            f"[bold]Created by:[/bold] {_format_available(publication.created_by)}",
             f"[bold]Issue proposal:[/bold] {publication.proposal_id}",
             f"[bold]Optimisation request:[/bold] {request_id}",
+            f"[bold]Approved review:[/bold] {_format_available(publication.approved_review_id)}",
+            f"[bold]Parent publication:[/bold] {_format_available(publication.parent_publication_id)}",
             f"[bold]Sections:[/bold] {len(publication.sections)}",
+            f"[bold]Excluded articles:[/bold] {len(publication.exclusions)}",
         ]
     )
     console.print(Panel(details, title="Publication", expand=False))
+    if publication.introduction:
+        console.print(
+            Panel(publication.introduction, title="Introduction", expand=False)
+        )
     _render_publication_sections(inspection)
+    _render_publication_exclusions(inspection)
+    _render_publication_lineage(inspection)
     _render_publication_reviews(inspection)
     _render_publication_rendered_outputs(inspection)
     _render_publication_workflow(inspection)
@@ -3463,8 +3533,10 @@ def _render_publication_sections(inspection: PublicationInspection) -> None:
             f"Section {section.order}: {section.section.heading} "
             f"({len(section.articles)} articles)"
         )
-        if section.section.summary:
-            console.print(Panel(section.section.summary, title=heading, expand=False))
+        if section.section.introduction:
+            console.print(
+                Panel(section.section.introduction, title=heading, expand=False)
+            )
         else:
             console.print(Panel("", title=heading, expand=False))
         if section.section.metadata:
@@ -3477,21 +3549,63 @@ def _render_publication_sections(inspection: PublicationInspection) -> None:
 
         for item in section.articles:
             article = item.article
-            if article is None:
+            snapshot = item.publication_article
+            if snapshot.title is None and article is None:
                 details = "Article record not available."
             else:
+                if snapshot.title is not None:
+                    title = snapshot.title
+                    source = snapshot.source
+                    url = snapshot.url
+                    summary = snapshot.summary
+                else:
+                    title = article.title if article else None
+                    source = article.source if article else None
+                    url = str(article.url) if article and article.url else None
+                    summary = article.summary if article else None
                 details = "\n".join(
                     [
-                        f"Title: {article.title}",
-                        f"Source: {_format_available(article.source)}",
-                        f"URL: {_format_available(article.url)}",
-                        f"Summary: {_format_available(article.summary)}",
+                        f"Title: {_format_available(title)}",
+                        f"Source: {_format_available(source)}",
+                        f"URL: {_format_available(url)}",
+                        f"Summary: {_format_available(summary)}",
+                        "Summary extraction: "
+                        f"{_format_available(snapshot.summary_extraction_id)}",
                         f"Reading time: {_format_available(item.reading_minutes)}",
                         f"Relevance: {_format_available(item.relevance_score)}",
                         f"Rationale: {_format_available(item.relevance_rationale)}",
                     ]
                 )
             console.print(Panel(details, title=str(item.article_id), expand=False))
+
+
+def _render_publication_exclusions(inspection: PublicationInspection) -> None:
+    if not inspection.publication.exclusions:
+        return
+    table = Table(title="Explicit Exclusions", show_lines=True)
+    table.add_column("Article ID", no_wrap=True)
+    table.add_column("Reason")
+    for exclusion in inspection.publication.exclusions:
+        table.add_row(str(exclusion.article_id), exclusion.reason)
+    console.print(table)
+
+
+def _render_publication_lineage(inspection: PublicationInspection) -> None:
+    rows: dict[str, object] = {}
+    if inspection.approved_review:
+        rows["Approving editor"] = inspection.approved_review.reviewer
+        rows["Approval decision"] = inspection.approved_review.decision.value
+        rows["Approval comments"] = _format_available(
+            inspection.approved_review.comments
+        )
+    if inspection.parent_publication:
+        rows["Parent publication"] = inspection.parent_publication.id
+    if inspection.revised_publications:
+        rows["Revised publications"] = [
+            str(publication.id) for publication in inspection.revised_publications
+        ]
+    if rows:
+        _render_key_value_table("Composition Lineage", rows)
 
 
 def _render_publication_reviews(inspection: PublicationInspection) -> None:
@@ -3577,6 +3691,8 @@ def _render_publication_metadata(inspection: PublicationInspection) -> None:
         inspection.metadata,
         omitted_keys={
             "article_count",
+            "approved_review_id",
+            "excluded_article_count",
             "objective_value",
             "optimiser",
             "proposal_id",

@@ -49,6 +49,7 @@ friction found in practical CLI use.
 - [Summary Model Comparison And Human Calibration](docs/tutorials/summary-model-calibration.md)
 - [Comparing Issue Proposals](docs/tutorials/proposal-comparison.md)
 - [Review And Revision](docs/tutorials/review-and-revision.md)
+- [Publication Composition](docs/tutorials/publication-composition.md)
 
 ## Install
 
@@ -211,6 +212,23 @@ to concrete output formats; the first implementation is a simple Markdown publis
 Creating a Publication records `publication-created`. Rendering it to Markdown records
 `publication-published`; for now this means rendered to an output artefact, not distributed
 externally.
+
+For an approved, editor-controlled issue, use a composition YAML file to record section
+order, article placement, introductions, editorial headlines, summaries, and explicit
+exclusions. The resulting Publication snapshots the chosen content while retaining Article,
+Extraction, Review, proposal, and parent Publication provenance.
+
+```bash
+editorial publication compose \
+  --proposal-id <proposal-uuid> \
+  --approved-review-id <review-uuid> \
+  --composition issue-composition.yaml \
+  --created-by "Editor" \
+  --db editorial.sqlite
+```
+
+See [Publication Composition](docs/tutorials/publication-composition.md) for the composition
+format, validation rules, revision workflow, and rendering behavior.
 
 ```bash
 editorial publication create \

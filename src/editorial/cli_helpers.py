@@ -97,12 +97,18 @@ def record_review_submitted(review: Review, db: Path) -> None:
 
 
 def record_publication_created(publication: Publication, db: Path) -> None:
+    payload = {"proposal_id": str(publication.proposal_id)}
+    if publication.approved_review_id:
+        payload["approved_review_id"] = str(publication.approved_review_id)
+    if publication.parent_publication_id:
+        payload["parent_publication_id"] = str(publication.parent_publication_id)
     SQLiteWorkflowEventRepository(db).insert(
         WorkflowEvent(
             artefact_type="publication",
             artefact_id=publication.id,
             event_type="publication-created",
-            payload={"proposal_id": str(publication.proposal_id)},
+            actor=publication.created_by,
+            payload=payload,
         )
     )
 

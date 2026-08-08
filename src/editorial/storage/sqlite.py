@@ -15,6 +15,7 @@ from editorial.models import (
     IssueProposal,
     OptimisationRequest,
     Publication,
+    PublicationExclusion,
     PublicationSection,
     Review,
     WorkflowEvent,
@@ -33,6 +34,17 @@ def dump_json(value: object) -> str:
 
 def load_json(value: str) -> Any:
     return json.loads(value)
+
+
+def ensure_columns(
+    conn: sqlite3.Connection, table: str, columns: dict[str, str]
+) -> None:
+    existing = {
+        row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+    }
+    for name, declaration in columns.items():
+        if name not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {declaration}")
 
 
 class ArticleInsertOutcome(StrEnum):
@@ -625,28 +637,61 @@ class SQLitePublicationRepository:
         with self._connect() as conn:
             conn.execute("""CREATE TABLE IF NOT EXISTS publications (
                 id TEXT PRIMARY KEY, proposal_id TEXT NOT NULL,
-                title TEXT NOT NULL, subtitle TEXT, sections_json TEXT NOT NULL,
+                title TEXT NOT NULL, subtitle TEXT, introduction TEXT,
+                approved_review_id TEXT, parent_publication_id TEXT, created_by TEXT,
+                sections_json TEXT NOT NULL, exclusions_json TEXT NOT NULL,
                 metadata_json TEXT NOT NULL, created_at TEXT NOT NULL)""")
+            ensure_columns(
+                conn,
+                "publications",
+                {
+                    "introduction": "TEXT",
+                    "approved_review_id": "TEXT",
+                    "parent_publication_id": "TEXT",
+                    "created_by": "TEXT",
+                    "exclusions_json": "TEXT NOT NULL DEFAULT '[]'",
+                },
+            )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_publications_created_at ON publications(created_at)"
             )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_publications_proposal_id ON publications(proposal_id)"
             )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_publications_approved_review_id ON publications(approved_review_id)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_publications_parent_id ON publications(parent_publication_id)"
+            )
 
     def insert(self, publication: Publication) -> None:
         with self._connect() as conn:
             conn.execute(
-                """INSERT INTO publications (id, proposal_id, title, subtitle, sections_json, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO publications (id, proposal_id, title, subtitle, introduction, approved_review_id, parent_publication_id, created_by, sections_json, exclusions_json, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     str(publication.id),
                     str(publication.proposal_id),
                     publication.title,
                     publication.subtitle,
+                    publication.introduction,
+                    str(publication.approved_review_id)
+                    if publication.approved_review_id
+                    else None,
+                    str(publication.parent_publication_id)
+                    if publication.parent_publication_id
+                    else None,
+                    publication.created_by,
                     dump_json(
                         [
                             section.model_dump(mode="json")
                             for section in publication.sections
+                        ]
+                    ),
+                    dump_json(
+                        [
+                            exclusion.model_dump(mode="json")
+                            for exclusion in publication.exclusions
                         ]
                     ),
                     dump_json(publication.metadata),
@@ -683,9 +728,17 @@ class SQLitePublicationRepository:
                 "proposal_id": row["proposal_id"],
                 "title": row["title"],
                 "subtitle": row["subtitle"],
+                "introduction": row["introduction"],
+                "approved_review_id": row["approved_review_id"],
+                "parent_publication_id": row["parent_publication_id"],
+                "created_by": row["created_by"],
                 "sections": [
                     PublicationSection.model_validate(section)
                     for section in load_json(row["sections_json"])
+                ],
+                "exclusions": [
+                    PublicationExclusion.model_validate(exclusion)
+                    for exclusion in load_json(row["exclusions_json"])
                 ],
                 "metadata": load_json(row["metadata_json"]),
                 "created_at": row["created_at"],

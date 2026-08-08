@@ -18,6 +18,9 @@ class PublicationIdentity(BaseModel):
     created_at: datetime
     proposal_id: UUID
     optimisation_request_id: UUID | None = None
+    approved_review_id: UUID | None = None
+    parent_publication_id: UUID | None = None
+    created_by: str | None = None
     status: str | None = None
 
 
@@ -25,6 +28,7 @@ class PublicationComposition(BaseModel):
     section_count: int
     section_titles: list[str]
     article_count: int
+    excluded_article_count: int
     source_counts: dict[str, int]
     total_reading_minutes: int | float | None = None
     average_relevance_score: float | None = None
@@ -110,6 +114,9 @@ class PublicationExplanationService:
                 if inspection.optimisation_request
                 else None
             ),
+            approved_review_id=inspection.publication.approved_review_id,
+            parent_publication_id=inspection.publication.parent_publication_id,
+            created_by=inspection.publication.created_by,
             status=status,
         )
 
@@ -129,16 +136,16 @@ class PublicationExplanationService:
         ]
         source_counts: dict[str, int] = {}
         for article_item in article_items:
-            source = (
-                article_item.article.source
-                if article_item.article and article_item.article.source
-                else "not available"
-            )
+            source = article_item.publication_article.source
+            if source is None and article_item.publication_article.title is None:
+                source = article_item.article.source if article_item.article else None
+            source = source or "not available"
             source_counts[source] = source_counts.get(source, 0) + 1
         return PublicationComposition(
             section_count=len(inspection.sections),
             section_titles=[section.section.heading for section in inspection.sections],
             article_count=len(article_items),
+            excluded_article_count=len(inspection.publication.exclusions),
             source_counts=source_counts,
             total_reading_minutes=sum(reading_times) if reading_times else None,
             average_relevance_score=(
@@ -273,6 +280,10 @@ class PublicationExplanationService:
                 "It includes material from "
                 f"{len(composition.source_counts)} recorded sources."
             )
+        if composition.excluded_article_count:
+            parts.append(
+                f"It records {pluralize(composition.excluded_article_count, 'explicit exclusion')}."
+            )
         return " ".join(parts)
 
     def _limitations(
@@ -321,6 +332,14 @@ class PublicationExplanationService:
         if inspection.optimisation_request:
             artefacts["optimisation_request"] = [
                 str(inspection.optimisation_request.id)
+            ]
+        if inspection.publication.approved_review_id:
+            artefacts["approved_review"] = [
+                str(inspection.publication.approved_review_id)
+            ]
+        if inspection.publication.parent_publication_id:
+            artefacts["parent_publication"] = [
+                str(inspection.publication.parent_publication_id)
             ]
         if inspection.proposal_reviews:
             artefacts["reviews"] = [
