@@ -458,11 +458,11 @@ ingest a realistic corpus, extract evidence, evaluate relevance, generate an
 OptimisationRequest, produce an IssueProposal, support review, create a Publication, and
 render a complete draft.
 
-The same validation also showed where the v0.9.x phase should focus next. Inspection of
-editorial artefacts needs to improve, optimisation decisions need clearer explainability,
-and rendering needs more editorial presentation work. The current Markdown rendering is
-useful as a representation of a Publication, but it is not yet the final measure of a
-polished newsletter experience.
+The same validation established priorities for post-`v1.0.0` work. Subsequent development
+improved artefact inspection, optimisation explainability, review and revision, publication
+composition, and workflow overview. The current Markdown rendering is useful as a
+representation of a Publication, but it is not yet the final measure of a polished
+newsletter experience.
 
 ## Architectural Principles
 

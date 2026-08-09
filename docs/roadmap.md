@@ -1,34 +1,21 @@
 # Roadmap
 
-## Completed
+## Release Baseline
 
-- [x] v0.3.0 Ingestion
-- [x] v0.4.0 Extraction
-- [x] v0.5.0 Evaluation
-- [x] v0.6.0 Optimisation & Issue Proposals
-- [x] v0.7.0 Workflow Infrastructure
-- [x] v0.8.0 Editorial Workflow
-- [x] v0.9.0 AI Integration
+Git tags are the authoritative release history. The repository progressed through the
+`v0.x` releases and reached `v1.0.0`, tagged as **Explainable Editorial Platform**. Current
+`main` contains post-`v1.0.0` development.
 
-## Current Phase
+The functional areas below are deliberately not assigned release numbers. The next version
+must be chosen through an explicit release decision; this roadmap does not reuse historical
+version numbers or silently decide between a minor and major release.
 
-### v0.9.x Validation
+## Completed Post-v1.0 Work
 
-The platform is moving from feature development into product validation. The goal of this
-phase is to prove that the implemented architecture works for a real editorial workflow,
-using the BIS newsletter as the reference scenario.
+### Operational correctness and validation
 
-Objectives:
-
-- Architecture documentation.
-- BIS newsletter walkthrough.
-- Real-world validation.
-- CLI usability improvements.
-- Documentation improvements.
-- Capture observations from practical use.
-
-The validation work has established the operational and evidence layers needed for a
-credible editorial workflow:
+Practical BIS newsletter validation established the operational and evidence layers needed
+for a credible editorial workflow:
 
 - Accurate ingest, extraction, and evaluation reporting.
 - Progress reporting and deterministic article selection.
@@ -38,36 +25,12 @@ credible editorial workflow:
 - Stable processor identities for running multiple extractor and evaluator instances.
 - Summary-quality evaluation, model comparison, and human calibration.
 
-The remaining v0.9.x work is to exercise these capabilities as one real BIS workflow. A
-representative set of five to twenty summaries should be assessed by an editor and used to
-calibrate the automated evaluator. The resulting evaluator configuration should then be used
-to produce, review, and render a complete issue using only the CLI. Friction found during
-that exercise should become focused usability or correctness work rather than new parallel
-feature areas.
+### Editor experience
 
-Validation success criteria:
-
-- A complete BIS newsletter can be produced using only the CLI.
-- The tutorial is complete and accurate.
-- Every workflow step is documented.
-- Friction points are recorded.
-- Architecture documentation matches the implementation.
-
-## Planned
-
-Items in the versioned sections below are planned product direction. Ideas that have been
-identified but have not yet been designed or agreed are listed separately under Future
-candidates. Recording a candidate does not commit it to a release.
-
-### v0.10.0 Editor Experience
-
-The next phase moves from inspecting individual evidence artefacts to making and revising an
-editorial decision. CLI application services should be implemented and validated before a
-web interface is placed over them.
+CLI application services were implemented before introducing a web interface. They preserve
+immutable artefacts, explicit decisions, and inspectable lineage.
 
 #### Proposal comparison and optimisation inspectability
-
-Implemented as the first editor-experience slice:
 
 - Compare two stored IssueProposals without rerunning the optimiser.
 - Show articles shared by both proposals and articles added or removed.
@@ -84,8 +47,6 @@ replace relevance or human editorial judgement.
 
 #### Review and revision
 
-Implemented as the second editor-experience slice:
-
 - Record approval, rejection, or requested changes against a proposal.
 - Create a revised OptimisationRequest from an explicit review decision.
 - Generate a new proposal while preserving the reviewed proposal and its history.
@@ -94,23 +55,18 @@ Implemented as the second editor-experience slice:
 
 #### Publication composition
 
-Implemented as the third editor-experience slice:
-
-- Implement manual, editor-controlled composition through the CLI before adding further
-  automation or user interfaces.
+- Implement manual, editor-controlled composition through the CLI.
 - Allow an editor to control section order and article placement.
 - Support editorial titles, introductions, exclusions, and other composition choices as
   explicit publication data.
 - Preserve the proposal, review, and source evidence behind each publication section.
 - Keep Publication separate from Markdown, HTML, email, or other rendering formats.
 
-This work does not currently include automatic section generation, LLM-written editorial
-text, additional rendering formats, or publication distribution. Those capabilities require
+This work does not include automatic section generation, LLM-written editorial text,
+additional rendering formats, or publication distribution. Those capabilities require
 separate design and prioritisation.
 
 #### Workflow overview
-
-Implemented as the fourth editor-experience slice:
 
 - Present the state of a complete issue in one place.
 - Summarise extraction and evaluation coverage, proposals, reviews, publications, and
@@ -118,7 +74,33 @@ Implemented as the fourth editor-experience slice:
 - Link each status to the existing inspection and explanation commands.
 - Derive state from stored artefacts and WorkflowEvents rather than hidden mutable flags.
 
-#### Web editor
+## Current Phase
+
+### Post-v1.0 product validation
+
+The current goal is to prove the complete architecture through real editorial operation,
+using the BIS newsletter as the reference scenario. A representative set of summaries
+should be assessed by an editor and used to calibrate the automated evaluator. The resulting
+configuration should then produce, review, compose, and render a complete issue using only
+the CLI.
+
+Friction found during this exercise should become focused usability or correctness work
+rather than new parallel feature areas.
+
+Validation success criteria:
+
+- A complete BIS newsletter can be produced using only the CLI.
+- The reference tutorial is complete and accurate.
+- Every workflow step is documented.
+- Friction points are recorded.
+- Architecture documentation matches the implementation.
+
+## Planned Functional Areas
+
+The following areas are agreed product direction but are not assigned to a release. Scope,
+acceptance criteria, and versioning must be agreed before implementation begins.
+
+### Web editor
 
 - Web UI.
 - Proposal comparison and human review interface.
@@ -129,7 +111,7 @@ Implemented as the fourth editor-experience slice:
 The web editor should use the same application services and create the same artefacts and
 WorkflowEvents as the CLI.
 
-### v0.11.0 Production Readiness
+### Production readiness
 
 After the editorial workflow is coherent and validated, focus on operating it reliably:
 
@@ -141,13 +123,11 @@ After the editorial workflow is coherent and validated, focus on operating it re
 - End-to-end integration tests for the reference BIS workflow.
 - Stable data migration and upgrade paths.
 
-### v1.0.0 Stable Platform
-
-Success criteria:
+### Ongoing platform outcomes
 
 - Stable public interfaces.
 - Complete documentation.
-- Reference BIS tutorial.
+- Maintained reference BIS tutorial.
 - Reproducible publication workflow.
 - Polished editor experience.
 

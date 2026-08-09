@@ -6,9 +6,10 @@ Editorial Platform occupies a different design space from traditional content ma
 
 The BIS newsletter is the first reference application, not the whole platform.
 
-The current development focus is v0.9.x Validation: proving the implemented architecture
-through the BIS newsletter reference workflow, improving documentation, and recording
-friction found in practical CLI use.
+The repository has reached `v1.0.0`. Current development is post-`v1.0.0` product
+validation: proving the implemented architecture through the BIS newsletter reference
+workflow, improving documentation, and recording friction found in practical CLI use. The
+next release number has not yet been assigned.
 
 ## Includes
 
