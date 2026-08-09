@@ -1,11 +1,39 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from editorial.config.models import ProcessorConfig
 from editorial.evaluators.llm_relevance import LLMRelevanceEvaluator
 from editorial.evaluators.llm_summary_quality import LLMSummaryQualityEvaluator
 from editorial.evaluators.rule_relevance import RuleBasedRelevanceEvaluator
 from editorial.interfaces import Evaluator
 from editorial.llm import LLMProvider, LLMProviderFactoryConfig, build_llm_provider
+
+
+@dataclass(frozen=True)
+class EvaluatorDescriptor:
+    key: str
+    display_name: str
+    kind: str
+
+
+def describe_evaluator(config: ProcessorConfig) -> EvaluatorDescriptor:
+    if config.type == "rule_relevance":
+        evaluator_type = RuleBasedRelevanceEvaluator
+        kind = "relevance"
+    elif config.type == "llm_relevance":
+        evaluator_type = LLMRelevanceEvaluator
+        kind = "relevance"
+    elif config.type == "llm_summary_quality":
+        evaluator_type = LLMSummaryQualityEvaluator
+        kind = "summary_quality"
+    else:
+        raise ValueError(f"Unsupported evaluator type: {config.type!r}")
+    return EvaluatorDescriptor(
+        key=config.key or evaluator_type.name,
+        display_name=config.name or config.key or evaluator_type.name,
+        kind=kind,
+    )
 
 
 def build_evaluator(config: ProcessorConfig) -> Evaluator:

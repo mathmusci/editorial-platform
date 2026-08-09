@@ -36,7 +36,7 @@ from editorial.composition import (
 )
 from editorial.config import load_publication_config
 from editorial.engine import EditorialEngine, EvaluationProgress, ExtractionProgress
-from editorial.evaluators import build_evaluator
+from editorial.evaluators import build_evaluator, describe_evaluator
 from editorial.explain import (
     ArticleSelectionArticleNotFound,
     ArticleSelectionExplanation,
@@ -76,6 +76,9 @@ from editorial.inspection import (
     SummaryQualityCalibrationReport,
     SummaryQualityCalibrationResult,
     SummaryQualityCalibrationService,
+    WorkflowCoverage,
+    WorkflowOverview,
+    WorkflowOverviewService,
 )
 from editorial.models import (
     ConstraintResult,
@@ -236,6 +239,19 @@ def _review_revision_service(db: Path) -> ReviewRevisionService:
         reviews=SQLiteReviewRepository(db),
         proposals=SQLiteIssueProposalRepository(db),
         optimisation_requests=SQLiteOptimisationRequestRepository(db),
+        workflow_events=SQLiteWorkflowEventRepository(db),
+    )
+
+
+def _workflow_overview_service(db: Path) -> WorkflowOverviewService:
+    return WorkflowOverviewService(
+        articles=SQLiteArticleRepository(db),
+        extractions=SQLiteExtractionRepository(db),
+        evaluations=SQLiteEvaluationRepository(db),
+        proposals=SQLiteIssueProposalRepository(db),
+        optimisation_requests=SQLiteOptimisationRequestRepository(db),
+        reviews=SQLiteReviewRepository(db),
+        publications=SQLitePublicationRepository(db),
         workflow_events=SQLiteWorkflowEventRepository(db),
     )
 
@@ -3089,6 +3105,152 @@ def workflow_state(
     )
     state = WorkflowProjection().state_for(events)
     console.print(f"Workflow state: {state}")
+
+
+@workflow_app.command("overview")
+def workflow_overview(
+    proposal_id: UUID = typer.Option(..., "--proposal-id"),
+    config: Path = typer.Option(..., "--config", "-c"),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+) -> None:
+    cfg = load_publication_config(config)
+    extractors = [describe_extractor(item) for item in cfg.extractors if item.enabled]
+    evaluators = [describe_evaluator(item) for item in cfg.evaluators if item.enabled]
+    try:
+        overview = _workflow_overview_service(db).build(
+            proposal_id,
+            cfg.publication.name,
+            extractors,
+            evaluators,
+            config_path=config,
+            db_path=db,
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    _render_workflow_overview(overview)
+
+
+def _render_workflow_overview(overview: WorkflowOverview) -> None:
+    request_id = (
+        str(overview.optimisation_request.id)
+        if overview.optimisation_request
+        else "not available"
+    )
+    details = "\n".join(
+        [
+            f"[bold]Publication:[/bold] {overview.publication_name}",
+            f"[bold]Issue proposal:[/bold] {overview.proposal.id}",
+            f"[bold]Optimisation request:[/bold] {request_id}",
+            f"[bold]Selected articles:[/bold] {overview.article_count}",
+            f"[bold]Derived status:[/bold] {overview.overall_status}",
+            f"[bold]Proposal event state:[/bold] {overview.proposal_event_state}",
+        ]
+    )
+    console.print(Panel(details, title="Workflow Overview", expand=False))
+
+    stages = Table(title="Issue Stages", show_lines=True)
+    stages.add_column("Stage", no_wrap=True)
+    stages.add_column("Status", no_wrap=True)
+    stages.add_column("Summary", overflow="fold", ratio=2)
+    stages.add_column("Inspect", overflow="fold", ratio=2)
+    for stage in overview.stages:
+        stages.add_row(stage.name, stage.status, stage.summary, stage.command)
+    console.print(stages)
+
+    _render_workflow_coverage("Extraction Coverage", overview.extraction_coverage)
+    _render_workflow_coverage("Evaluation Coverage", overview.evaluation_coverage)
+    _render_workflow_linked_artefacts(overview)
+    _render_workflow_outstanding_actions(overview)
+
+
+def _render_workflow_coverage(title: str, report: WorkflowCoverage) -> None:
+    table = Table(title=title, show_lines=True)
+    table.add_column("Processor")
+    table.add_column("Kind")
+    table.add_column("Present", justify="right")
+    table.add_column("Missing", justify="right")
+    table.add_column("Coverage", justify="right")
+    for processor in report.by_processor:
+        total = processor.present + processor.missing
+        percentage = processor.present / total * 100 if total else 0
+        table.add_row(
+            f"{processor.display_name} ({processor.key})",
+            processor.kind,
+            str(processor.present),
+            str(processor.missing),
+            f"{percentage:.1f}%",
+        )
+    if not report.by_processor:
+        table.add_row("No enabled processors", "", "0", "0", "not configured")
+    console.print(table)
+
+
+def _render_workflow_linked_artefacts(overview: WorkflowOverview) -> None:
+    table = Table(title="Linked Editorial Artefacts", show_lines=True)
+    table.add_column("Type")
+    table.add_column("ID", no_wrap=True)
+    table.add_column("Details", overflow="fold")
+    for review in overview.reviews:
+        table.add_row(
+            "Review",
+            str(review.review_id),
+            "\n".join(
+                [
+                    f"Reviewer: {review.reviewer}",
+                    f"Decision: {review.decision}",
+                    f"Comments: {_format_available(review.comments)}",
+                ]
+            ),
+        )
+    for request in overview.revision_requests:
+        table.add_row(
+            "Revision request",
+            str(request.id),
+            "\n".join(
+                [
+                    f"Strategy: {request.strategy}",
+                    f"Created by: {_format_available(request.created_by)}",
+                ]
+            ),
+        )
+    for publication in overview.publications:
+        table.add_row(
+            "Publication",
+            str(publication.publication_id),
+            "\n".join(
+                [
+                    f"Title: {publication.title}",
+                    f"Approved review: {_format_available(publication.approved_review_id)}",
+                    f"Parent publication: {_format_available(publication.parent_publication_id)}",
+                    f"Rendered outputs: {publication.rendered_output_count}",
+                ]
+            ),
+        )
+    if (
+        not overview.reviews
+        and not overview.revision_requests
+        and not overview.publications
+    ):
+        table.add_row("None", "", "No linked Reviews or Publications found.")
+    console.print(table)
+
+
+def _render_workflow_outstanding_actions(overview: WorkflowOverview) -> None:
+    if not overview.outstanding_actions:
+        console.print(
+            Panel(
+                "No outstanding actions derived from stored artefacts.",
+                title="Outstanding Actions",
+            )
+        )
+        return
+    table = Table(title="Outstanding Actions", show_lines=True)
+    table.add_column("Action")
+    table.add_column("Why", overflow="fold", ratio=2)
+    table.add_column("Command", overflow="fold", ratio=2)
+    for action in overview.outstanding_actions:
+        table.add_row(action.action, action.reason, action.command)
+    console.print(table)
 
 
 @review_app.command("create")

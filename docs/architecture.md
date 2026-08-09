@@ -363,6 +363,12 @@ generic projection maps events such as `proposal-created`, `review-requested`,
 `publication-published` to current state labels. Unknown or missing history projects to
 `unknown`.
 
+The workflow overview is an inspection-only projection anchored to an explicit
+IssueProposal. It combines configured extraction and evaluation coverage for the selected
+articles with stored Reviews, revision requests, Publications, and rendering events. It
+derives stage status and outstanding actions without storing another workflow-state record
+or selecting a proposal implicitly.
+
 OptimisationRequest is now implemented as the immutable input to an optimisation run. It has
 no mutable status and is not itself a proposal. When a request produces an IssueProposal,
 the proposal can be traced back through `metadata.optimisation_request_id`, and a
