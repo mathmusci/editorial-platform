@@ -513,7 +513,7 @@ Needs further development
 
 The renderer currently exposes article data rather than producing an editor-friendly newsletter.
 
-This is expected at the current stage of the project and naturally becomes one of the priorities for the remainder of the Validation phase.
+This remains a candidate for ongoing product validation and future rendering work.
 
 ⸻
 
@@ -539,14 +539,14 @@ The principal themes emerging from this validation are:
 3. Improve publication rendering and editorial presentation.
 4. Continue refining documentation using the BIS newsletter as the reference implementation.
 
-These findings provide a clear direction for the remainder of the v0.9.x Validation phase and establish a strong foundation for the future web-based editor experience.
+These findings established the direction for post-`v1.0.0` product validation and provide a strong foundation for the future web-based editor experience.
 
 
 # Open Questions
 
 The following questions emerged during the first BIS validation run. They are intentionally left unresolved until additional practical experience has been gained.
 
-They should guide the remainder of the Validation phase and the transition towards the Editor Experience milestone.
+They should guide ongoing product validation and future editor-experience work.
 
 ---
 
