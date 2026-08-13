@@ -28,7 +28,7 @@ next release number has not yet been assigned.
 - presentation-independent Publication artefacts with Markdown rendering
 - SQLite article, extraction, evaluation, issue proposal, optimisation request, review, publication, and workflow event persistence
 - minimal editorial engine
-- CLI commands: `editorial ingest`, `editorial extract`, `editorial evaluate`, `editorial optimise`, `editorial list`, `editorial workflow`, `editorial optimisation-request`, `editorial review`, `editorial publication`, and `editorial publish`
+- CLI commands for the complete editorial workflow and a local read-only web workspace
 - tests
 
 ## Current Implementations
@@ -52,6 +52,7 @@ next release number has not yet been assigned.
 - [Review And Revision](docs/tutorials/review-and-revision.md)
 - [Publication Composition](docs/tutorials/publication-composition.md)
 - [Workflow Overview](docs/tutorials/workflow-overview.md)
+- [Read-only Editorial Workspace](docs/tutorials/read-only-editorial-workspace.md)
 
 ## Install
 
@@ -69,6 +70,7 @@ editorial extract --config examples/bis/publication.yaml --db editorial.sqlite
 editorial evaluate --config examples/bis/publication.yaml --db editorial.sqlite
 editorial optimise --config examples/bis/publication.yaml --db editorial.sqlite
 editorial list --db editorial.sqlite
+editorial web --config examples/bis/publication.yaml --db editorial.sqlite
 ```
 
 ## Extractors

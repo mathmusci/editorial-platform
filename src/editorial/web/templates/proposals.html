@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Issues{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div><p class="eyebrow">Issue proposals</p><h1>Editorial issues</h1></div>
+  <span class="count">{{ proposals|length }} stored</span>
+</header>
+
+{% if proposals|length > 1 %}
+<section class="tool-band" aria-labelledby="compare-title">
+  <div><h2 id="compare-title">Compare proposals</h2><p>Inspect changes in selection, order, evidence, and constraints.</p></div>
+  <form class="compare-form" action="/proposals/compare" method="get">
+    <label>Base<select name="base" required>{% for item in proposals %}<option value="{{ item.proposal_id }}">{{ item.created_at.strftime('%d %b %Y %H:%M') }} · {{ item.proposal_id|short_id }}</option>{% endfor %}</select></label>
+    <label>Candidate<select name="candidate" required>{% for item in proposals %}<option value="{{ item.proposal_id }}" {% if loop.index == 2 %}selected{% endif %}>{{ item.created_at.strftime('%d %b %Y %H:%M') }} · {{ item.proposal_id|short_id }}</option>{% endfor %}</select></label>
+    <button type="submit">Compare</button>
+  </form>
+</section>
+{% endif %}
+
+{% if proposals %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Created</th><th>Proposal</th><th class="num">Articles</th><th class="num">Objective</th><th class="num">Reviews</th><th class="num">Publications</th></tr></thead>
+  <tbody>{% for item in proposals %}<tr>
+    <td><time datetime="{{ item.created_at.isoformat() }}">{{ item.created_at.strftime('%d %b %Y, %H:%M') }}</time></td>
+    <td><a class="primary-link" href="/proposals/{{ item.proposal_id }}">{{ item.publication_name or 'Untitled issue' }}</a><small class="id">{{ item.proposal_id }}</small></td>
+    <td class="num">{{ item.selected_article_count }}</td><td class="num">{{ item.objective_value }}</td><td class="num">{{ item.review_count }}</td><td class="num">{{ item.publication_count }}</td>
+  </tr>{% endfor %}</tbody>
+</table>
+</div>
+{% else %}<div class="empty"><h2>No issue proposals</h2><p>Proposals will appear here after optimisation has run.</p></div>{% endif %}
+{% endblock %}

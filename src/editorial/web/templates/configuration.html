@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Configuration{% endblock %}
+{% block content %}
+<header class="page-header detail-header">
+  <div><p class="eyebrow">Active configuration</p><h1>{{ config.publication.name }}</h1>{% if config.publication.description %}<p class="lede">{{ config.publication.description }}</p>{% endif %}</div>
+  <span class="status status-complete">Loaded</span>
+</header>
+
+<aside class="notice" aria-label="Configuration provenance limitation">
+  <strong>Current server configuration</strong>
+  <p>This is the configuration loaded when the workspace started. It is not historical proof that every stored artefact was produced with this exact configuration.</p>
+</aside>
+
+<section class="section-block">
+  <div class="section-heading"><div><p class="eyebrow">Workspace</p><h2>Loaded files</h2></div></div>
+  <dl class="data-list wide path-list">
+    <div><dt>Configuration</dt><dd>{{ config_path }}</dd></div>
+    <div><dt>Database</dt><dd>{{ db_path }}</dd></div>
+  </dl>
+</section>
+
+{% for label, group, processors in processor_groups %}
+<section class="section-block" id="{{ group }}">
+  <div class="section-heading"><div><p class="eyebrow">Processors</p><h2>{{ label }}</h2></div><span class="count">{{ processors|length }}</span></div>
+  {% if processors %}
+  <div class="processor-list">
+    {% for item in processors %}
+    <article id="{{ group }}-{{ item.key or item.type }}">
+      <div class="processor-main">
+        <div><h3>{{ item.name or item.key or item.type }}</h3><p>{{ item.type|replace('_', ' ') }}</p></div>
+        <span class="status {% if item.enabled %}status-complete{% else %}status-not-configured{% endif %}">{{ 'Enabled' if item.enabled else 'Disabled' }}</span>
+      </div>
+      <dl class="processor-identity">
+        <div><dt>Key</dt><dd>{{ item.key or item.type }}</dd></div>
+        <div><dt>Type</dt><dd>{{ item.type }}</dd></div>
+      </dl>
+      {% if safe_settings[group][loop.index0] %}<details><summary>Settings</summary><pre>{{ safe_settings[group][loop.index0]|json_pretty }}</pre></details>{% else %}<p class="muted processor-empty">No additional settings.</p>{% endif %}
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}<p class="muted empty-row">No {{ label|lower }} configured.</p>{% endif %}
+</section>
+{% endfor %}
+
+<div class="split-sections config-columns">
+  <section class="section-block">
+    <div class="section-heading"><div><p class="eyebrow">Selection policy</p><h2>Editorial policy</h2></div></div>
+    <dl class="data-list wide">
+      <div><dt>Maximum age</dt><dd>{{ (config.editorial_policy.maximum_age_days ~ ' days') if config.editorial_policy.maximum_age_days is not none else 'Not set' }}</dd></div>
+      <div><dt>Maximum articles</dt><dd>{{ config.editorial_policy.maximum_articles if config.editorial_policy.maximum_articles is not none else 'Not set' }}</dd></div>
+      <div><dt>Maximum reading time</dt><dd>{{ (config.editorial_policy.maximum_reading_minutes ~ ' min') if config.editorial_policy.maximum_reading_minutes is not none else 'Not set' }}</dd></div>
+      <div><dt>Eligible statuses</dt><dd>{{ config.editorial_policy.statuses_eligible_for_issue|join(', ') }}</dd></div>
+    </dl>
+  </section>
+  <section class="section-block">
+    <div class="section-heading"><div><p class="eyebrow">Issue construction</p><h2>Optimisation</h2></div></div>
+    <dl class="data-list wide"><div><dt>Strategy</dt><dd>{{ config.optimisation.strategy }}</dd></div></dl>
+    {% if config.optimisation.settings %}<details open><summary>Settings</summary><pre>{{ config.optimisation.settings|json_pretty }}</pre></details>{% endif %}
+    {% if config.optimisation.maximise %}<details><summary>Maximise</summary><pre>{{ config.optimisation.maximise|json_pretty }}</pre></details>{% endif %}
+    {% if config.optimisation.constraints %}<details><summary>Constraints</summary><pre>{{ config.optimisation.constraints|json_pretty }}</pre></details>{% endif %}
+  </section>
+</div>
+
+<section class="section-block">
+  <div class="section-heading"><div><p class="eyebrow">Diagnostic view</p><h2>Normalized loaded YAML</h2></div></div>
+  <p class="muted config-note">Comments and shorthand processor fields are normalized for display. Secret-like values are redacted; environment-variable names remain visible.</p>
+  <details><summary>Show YAML</summary><pre class="yaml-view">{{ normalized_yaml }}</pre></details>
+</section>
+{% endblock %}
