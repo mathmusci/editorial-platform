@@ -191,6 +191,24 @@ Common explainability concepts include:
 This separation keeps inspection factual and explainability interpretive while preserving
 the same audit boundary: both layers only use recorded platform artefacts.
 
+### Web workspace
+
+The read-only web workspace is a presentation layer over the existing inspection services:
+
+```text
+Browser -> FastAPI routes -> inspection services -> SQLite repositories
+```
+
+It can browse IssueProposals, Articles, Reviews and Publications, display issue workflow
+coverage and compare stored proposals. It does not shell out to the CLI and it defines no
+write endpoints. The CLI and web workspace therefore present the same persisted editorial
+facts through different interfaces.
+
+Later web operations must preserve this boundary. Long-running ingestion, extraction and
+evaluation will use a durable processing-run application service; review and composition
+actions will use the same domain services and create the same immutable artefacts and
+WorkflowEvents as their CLI equivalents.
+
 ## Editorial Workflow
 
 The editorial lifecycle describes the human/editorial sequence of work:

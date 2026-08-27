@@ -710,6 +710,27 @@ editorial publication show <publication-id> --db bis-getting-started.sqlite
 These commands are enough to confirm that the first workflow completed. They are
 not the full CLI reference.
 
+## Browse the editorial workspace
+
+Start the local read-only workspace against the same configuration and database:
+
+```bash
+editorial web \
+  --config examples/bis/publication.yaml \
+  --db bis-getting-started.sqlite
+```
+
+Open `http://127.0.0.1:8000`. The Issues view brings the workflow together in one place:
+proposal state, extraction and evaluation coverage, selected Articles, Reviews and composed
+Publications. Article pages expose stored extraction payloads, evaluation rationale and AI
+provenance. The Configuration view shows the loaded processors, policy, optimisation
+settings and normalized YAML, with secret-like values redacted. The interface does not
+alter the database or run processors.
+
+Use `--host` and `--port` to change the local address. The workspace is intended for local,
+single-editor use at this stage and does not provide authentication; do not bind it to a
+public network interface.
+
 ## What happened?
 
 The BIS sources were ingested into Article records. Extractions were created
@@ -747,6 +768,9 @@ explicit introductions, editorial text, exclusions, and provenance.
 Read [tutorials/workflow-overview.md](tutorials/workflow-overview.md) to inspect
 evidence coverage, editorial state, linked artefacts, and outstanding actions
 for one IssueProposal in a single command.
+
+Read [tutorials/read-only-editorial-workspace.md](tutorials/read-only-editorial-workspace.md)
+for a guided tour of the same evidence and lineage in the local web interface.
 
 Read [developer-notes.md](developer-notes.md) for observations from the first
 end-to-end BIS validation run and known areas for improvement.

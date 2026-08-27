@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Issue {{ inspection.proposal.id|short_id }}{% endblock %}
+{% block content %}
+<nav class="breadcrumb"><a href="/proposals">Issues</a><span>/</span><span>{{ inspection.proposal.id|short_id }}</span></nav>
+<header class="page-header detail-header">
+  <div><p class="eyebrow">Issue overview</p><h1>{{ inspection.publication_name or publication_name }}</h1><p class="lede">Proposal {{ inspection.proposal.id }}</p></div>
+  <span class="status status-{{ workflow.overall_status|replace('_', '-') }}">{{ workflow.overall_status|replace('_', ' ') }}</span>
+</header>
+
+<dl class="metric-strip">
+  <div><dt>Selected articles</dt><dd>{{ workflow.article_count }}</dd></div>
+  <div><dt>Objective</dt><dd>{{ inspection.proposal.objective_value }}</dd></div>
+  <div><dt>Proposal state</dt><dd>{{ workflow.proposal_event_state|replace('_', ' ') }}</dd></div>
+  <div><dt>Created</dt><dd>{{ inspection.proposal.created_at.strftime('%d %b %Y') }}</dd></div>
+</dl>
+
+<section class="section-block"><div class="section-heading"><div><p class="eyebrow">Pipeline</p><h2>Workflow status</h2></div></div>
+<div class="stage-grid">{% for stage in workflow.stages %}<article class="stage"><div><span class="stage-index">{{ loop.index }}</span><h3>{{ stage.name }}</h3></div><span class="status status-{{ stage.status|replace('_', '-') }}">{{ stage.status|replace('_', ' ') }}</span><p>{{ stage.summary }}</p></article>{% endfor %}</div>
+</section>
+
+<section class="section-block"><div class="section-heading"><div><p class="eyebrow">Evidence</p><h2>Processor coverage</h2></div></div>
+<div class="coverage-columns">
+  {% for label, coverage in [('Extraction', workflow.extraction_coverage), ('Evaluation', workflow.evaluation_coverage)] %}<div>
+    <div class="coverage-summary"><h3>{{ label }}</h3><strong>{{ coverage.present }} / {{ coverage.expected_operations }}</strong></div>
+    <div class="coverage-track"><span style="width: {{ (coverage.present / coverage.expected_operations * 100) if coverage.expected_operations else 100 }}%"></span></div>
+    <div class="table-wrap compact"><table><thead><tr><th>Processor</th><th>Kind</th><th class="num">Present</th><th class="num">Missing</th></tr></thead><tbody>{% for item in coverage.by_processor %}<tr><td><a href="/configuration#{% if label == 'Extraction' %}extractors{% else %}evaluators{% endif %}-{{ item.key }}">{{ item.display_name }}</a></td><td>{{ item.kind|replace('_', ' ') }}</td><td class="num">{{ item.present }}</td><td class="num {% if item.missing %}attention{% endif %}">{{ item.missing }}</td></tr>{% endfor %}</tbody></table></div>
+  </div>{% endfor %}
+</div></section>
+
+{% if workflow.outstanding_actions %}<section class="section-block"><div class="section-heading"><div><p class="eyebrow">Attention</p><h2>Outstanding actions</h2></div></div><div class="action-list">{% for item in workflow.outstanding_actions %}<div><strong>{{ item.action }}</strong><p>{{ item.reason }}</p></div>{% endfor %}</div></section>{% endif %}
+
+<section class="section-block"><div class="section-heading"><div><p class="eyebrow">Selection</p><h2>Selected articles</h2></div><span class="count">{{ inspection.selected_articles|length }}</span></div>
+<div class="table-wrap"><table><thead><tr><th class="num">#</th><th>Article</th><th>Source</th><th class="num">Reading</th><th class="num">Relevance</th></tr></thead><tbody>{% for item in inspection.selected_articles %}<tr><td class="num">{{ loop.index }}</td><td><a class="primary-link" href="/articles/{{ item.article_id }}">{{ item.title }}</a>{% if item.relevance_rationale %}<small>{{ item.relevance_rationale }}</small>{% endif %}</td><td>{{ item.source or 'Not available' }}</td><td class="num">{% if item.reading_minutes is not none %}{{ item.reading_minutes }} min{% else %}<span class="missing">Missing</span>{% endif %}</td><td class="num">{% if item.relevance_score is not none %}{{ item.relevance_score }}{% else %}<span class="missing">Missing</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+</section>
+
+<div class="split-sections">
+<section class="section-block"><div class="section-heading"><h2>Reviews</h2></div>{% if inspection.reviews %}<div class="link-list">{% for item in inspection.reviews %}<a href="/reviews/{{ item.id }}"><span>{{ item.decision.value|replace('_', ' ')|title }} by {{ item.reviewer }}</span><small>{{ item.created_at.strftime('%d %b %Y') }}</small></a>{% endfor %}</div>{% else %}<p class="muted">No reviews recorded.</p>{% endif %}</section>
+<section class="section-block"><div class="section-heading"><h2>Publications</h2></div>{% if inspection.publications %}<div class="link-list">{% for item in inspection.publications %}<a href="/publications/{{ item.id }}"><span>{{ item.title }}</span><small>{{ item.created_at.strftime('%d %b %Y') }}</small></a>{% endfor %}</div>{% else %}<p class="muted">No publications composed.</p>{% endif %}</section>
+</div>
+{% endblock %}

@@ -126,6 +126,26 @@ app.add_typer(explain_app, name="explain")
 console = Console()
 
 
+@app.command("web")
+def web_workspace(
+    config: Path = typer.Option(..., "--config", "-c"),
+    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+    host: str = typer.Option("127.0.0.1", "--host"),
+    port: int = typer.Option(8000, "--port", min=1, max=65535),
+) -> None:
+    """Open the read-only editorial workspace."""
+    import uvicorn
+
+    from editorial.web import create_app
+
+    try:
+        workspace = create_app(config, db)
+    except (OSError, ValueError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    console.print(f"Editorial workspace: http://{host}:{port}")
+    uvicorn.run(workspace, host=host, port=port)
+
+
 def _proposal_inspection_service(db: Path) -> ProposalInspectionService:
     return ProposalInspectionService(
         proposals=SQLiteIssueProposalRepository(db),

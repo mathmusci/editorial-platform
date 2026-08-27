@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}Articles{% endblock %}
+{% block content %}
+<header class="page-header"><div><p class="eyebrow">Source material</p><h1>Articles</h1></div><span class="count">{{ articles|length }} stored</span></header>
+{% if articles %}<div class="table-wrap"><table><thead><tr><th>Published</th><th>Article</th><th>Source</th><th>Status</th><th class="num">Extractions</th><th class="num">Evaluations</th></tr></thead><tbody>{% for item in articles %}<tr><td>{{ item.published_at.strftime('%d %b %Y') if item.published_at else 'Not available' }}</td><td><a class="primary-link" href="/articles/{{ item.article_id }}">{{ item.title }}</a><small class="id">{{ item.article_id }}</small></td><td>{{ item.source or 'Not available' }}</td><td><span class="status status-{{ item.status }}">{{ item.status }}</span></td><td class="num">{{ item.extraction_count }}</td><td class="num">{{ item.evaluation_count }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="empty"><h2>No articles</h2><p>Articles will appear here after ingestion.</p></div>{% endif %}
+{% endblock %}

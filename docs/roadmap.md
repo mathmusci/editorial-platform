@@ -76,40 +76,85 @@ separate design and prioritisation.
 
 ## Current Phase
 
-### Post-v1.0 product validation
+### Read-only editorial workspace
 
-The current goal is to prove the complete architecture through real editorial operation,
-using the BIS newsletter as the reference scenario. A representative set of summaries
-should be assessed by an editor and used to calibrate the automated evaluator. The resulting
-configuration should then produce, review, compose, and render a complete issue using only
-the CLI.
+The first web-interface increment makes existing editorial state accessible without
+requiring operators to reconstruct it from individual CLI commands. It is deliberately
+read-only and uses the same inspection services and SQLite artefacts as the CLI.
 
-Friction found during this exercise should become focused usability or correctness work
-rather than new parallel feature areas.
+Current facilities:
 
-Validation success criteria:
+- Browse stored IssueProposals and see an issue-level workflow overview.
+- Inspect extraction and evaluation coverage by configured processor.
+- Follow selected Articles to extraction payloads, evaluation evidence and AI provenance.
+- Browse Reviews and Publications and follow lineage between related artefacts.
+- Compare two stored proposals without rerunning optimisation.
+- Inspect the active publication configuration, processor settings, editorial policy and
+  optimisation controls with secret-like values redacted.
+- Use a responsive local interface while preserving a strict no-write boundary.
 
-- A complete BIS newsletter can be produced using only the CLI.
-- The reference tutorial is complete and accurate.
-- Every workflow step is documented.
-- Friction points are recorded.
-- Architecture documentation matches the implementation.
+This phase does not start processors, submit reviews or edit publications. Those facilities
+belong to the explicitly sequenced phases below.
 
 ## Planned Functional Areas
 
 The following areas are agreed product direction but are not assigned to a release. Scope,
 acceptance criteria, and versioning must be agreed before implementation begins.
 
-### Web editor
+### Web editor: staged delivery
 
-- Web UI.
-- Proposal comparison and human review interface.
-- Workflow visualisation.
-- Publication browser.
-- Publication composition controls.
+The web editor is delivered in functional phases so that every write operation has a clear
+application-service boundary, durable artefact and auditable outcome.
 
-The web editor should use the same application services and create the same artefacts and
-WorkflowEvents as the CLI.
+#### 1. Read-only editorial workspace
+
+- Issue, Article, Review and Publication browsers.
+- Issue-level workflow visualisation and processor coverage.
+- Extraction and evaluation payload and provenance inspection.
+- Proposal comparison and artefact lineage navigation.
+- Active configuration inspection and processor links from workflow coverage.
+
+#### 2. Pipeline Operations
+
+Run and monitor configured processing from the workspace:
+
+- Start ingestion, extraction and evaluation using an explicit publication configuration
+  and database.
+- Preserve existing selection controls: limit, offset, one or more Article ids,
+  missing-only and force.
+- Show the current Article, processor, provider and model where available.
+- Report completed, stored, skipped and failed operations, elapsed time and estimated time
+  remaining.
+- Keep run status durable across browser refreshes and expose failure details and safe resume
+  controls.
+- Keep processing sequential initially. Introduce a background `ProcessingRun` abstraction
+  so request handling is separate from the long-running operation before considering
+  concurrency.
+
+Pipeline Operations must call shared application services rather than invoke CLI commands.
+Its stored run records and WorkflowEvents must make operator actions inspectable after the
+process has finished.
+
+#### 3. Review and revision workspace
+
+- Submit approve, reject, needs-changes and comment decisions.
+- Capture findings and recommendations as explicit Review data.
+- Create linked revision requests from needs-changes reviews.
+- Compare original and revised proposals before approval.
+- Preserve every original artefact and WorkflowEvent.
+
+#### 4. Publication composition workspace
+
+- Create a Publication from an approved proposal.
+- Edit publication title, subtitle, introduction and ordered sections.
+- Reorder and place selected Articles, add explicit editorial summaries and record
+  exclusions.
+- Preview stored publication structure and invoke supported renderers.
+- Preserve proposal, approval, Article and Extraction provenance.
+
+Across every phase, the web editor must use the same application services and create the
+same artefacts and WorkflowEvents as the CLI. Browser-specific state must not become a
+second source of editorial truth.
 
 ### Production readiness
 
