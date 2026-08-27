@@ -1,6 +1,7 @@
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
+from typer.main import get_command
 from typer.testing import CliRunner
 
 from editorial.cli import app as cli_app
@@ -290,8 +291,12 @@ extractors:
 
 def test_web_command_is_available():
     result = CliRunner().invoke(cli_app, ["web", "--help"])
+    command = get_command(cli_app).commands["web"]
+    option_names = {
+        option
+        for parameter in command.params
+        for option in getattr(parameter, "opts", [])
+    }
 
     assert result.exit_code == 0
-    assert "--config" in result.stdout
-    assert "--host" in result.stdout
-    assert "--port" in result.stdout
+    assert {"--config", "--host", "--port"} <= option_names
