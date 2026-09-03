@@ -2,7 +2,7 @@ import re
 
 from typer.testing import CliRunner
 
-import editorial.cli as cli
+import editorial.processing as processing
 from editorial.cli import app
 from editorial.models import Evaluation
 from editorial.storage import SQLiteArticleRepository, SQLiteEvaluationRepository
@@ -217,7 +217,7 @@ def test_cli_evaluate_progress_displays_provider_model_and_evaluator(
     runner = CliRunner()
     _prepare_database(runner, db_path)
     monkeypatch.setattr(
-        cli, "build_evaluator", lambda config: OllamaMetadataEvaluator()
+        processing, "build_evaluator", lambda config: OllamaMetadataEvaluator()
     )
 
     result = runner.invoke(

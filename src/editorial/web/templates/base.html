@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Workspace{% endblock %} · {{ publication_name }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', path='/workspace.css') }}?v=1">
+  <link rel="stylesheet" href="{{ url_for('static', path='/workspace.css') }}?v=2">
+  {% block head %}{% endblock %}
 </head>
 <body>
   <header class="app-header">
@@ -12,11 +13,12 @@
       <span class="brand-mark" aria-hidden="true"></span>
       <span><strong>{{ publication_name }}</strong><small>Editorial workspace</small></span>
     </a>
-    <span class="mode-label">Read only</span>
+    <span class="mode-label">Local workspace</span>
   </header>
   <div class="app-shell">
     <nav class="primary-nav" aria-label="Workspace">
       <a href="/proposals" {% if current_path.startswith('/proposals') %}aria-current="page"{% endif %}>Issues</a>
+      <a href="/operations" {% if current_path.startswith('/operations') %}aria-current="page"{% endif %}>Operations</a>
       <a href="/articles" {% if current_path.startswith('/articles') %}aria-current="page"{% endif %}>Articles</a>
       <a href="/reviews" {% if current_path.startswith('/reviews') %}aria-current="page"{% endif %}>Reviews</a>
       <a href="/publications" {% if current_path.startswith('/publications') %}aria-current="page"{% endif %}>Publications</a>

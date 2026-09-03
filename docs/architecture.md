@@ -193,20 +193,35 @@ the same audit boundary: both layers only use recorded platform artefacts.
 
 ### Web workspace
 
-The read-only web workspace is a presentation layer over the existing inspection services:
+The workspace presents stored editorial state through the existing inspection services:
 
 ```text
 Browser -> FastAPI routes -> inspection services -> SQLite repositories
 ```
 
 It can browse IssueProposals, Articles, Reviews and Publications, display issue workflow
-coverage and compare stored proposals. It does not shell out to the CLI and it defines no
-write endpoints. The CLI and web workspace therefore present the same persisted editorial
-facts through different interfaces.
+coverage and compare stored proposals. These inspection routes remain read-only. The CLI
+and web workspace therefore present the same persisted editorial facts through different
+interfaces.
 
-Later web operations must preserve this boundary. Long-running ingestion, extraction and
-evaluation will use a durable processing-run application service; review and composition
-actions will use the same domain services and create the same immutable artefacts and
+Pipeline write operations use a separate application path:
+
+```text
+Browser -> FastAPI start route -> ProcessingRunCoordinator
+        -> ProcessingRunService -> EditorialEngine -> SQLite repositories
+```
+
+The coordinator accepts one local background run at a time. The service is shared by the
+CLI, persists selection options and progress in a ProcessingRun, and records lifecycle
+WorkflowEvents. Extraction and evaluation reuse the engine's operation-level progress;
+they do not duplicate processor logic in the web layer. A configuration digest ties the
+run to the bytes loaded when it was queued, and execution fails clearly if those bytes
+change before work begins.
+
+ProcessingRun status is durable across browser refreshes. It is not a distributed job
+queue: a server restart marks queued or running work interrupted, after which a new
+missing-only run can safely resume extraction or evaluation. Review and composition
+actions must use their domain services and create the same immutable artefacts and
 WorkflowEvents as their CLI equivalents.
 
 ## Editorial Workflow

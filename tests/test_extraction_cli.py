@@ -2,7 +2,7 @@ import re
 
 from typer.testing import CliRunner
 
-import editorial.cli as cli
+import editorial.processing as processing
 from editorial.cli import app
 from editorial.models import Article, Extraction
 from editorial.storage import SQLiteArticleRepository
@@ -123,7 +123,7 @@ extractors:
     )
     SQLiteArticleRepository(db_path).upsert(Article(title="Slow local inference"))
     monkeypatch.setattr(
-        cli, "build_extractor", lambda config: OllamaMetadataExtractor()
+        processing, "build_extractor", lambda config: OllamaMetadataExtractor()
     )
 
     result = CliRunner().invoke(

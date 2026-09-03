@@ -1,3 +1,4 @@
+import time
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -287,6 +288,72 @@ extractors:
     assert "do-not-display" not in response.text
     assert "*** redacted ***" in response.text
     assert "LOCAL_API_KEY" in response.text
+
+
+def test_workspace_starts_and_inspects_durable_pipeline_operation(tmp_path):
+    client, _articles, _proposal, _review, _publication = _workspace(tmp_path)
+
+    operation_list = client.get("/operations")
+    response = client.post(
+        "/operations",
+        data={
+            "csrf_token": client.app.state.csrf_token,
+            "kind": "extract",
+            "limit": "1",
+            "offset": "1",
+            "missing_only": "on",
+        },
+        follow_redirects=False,
+    )
+
+    assert operation_list.status_code == 200
+    assert "Pipeline operations" in operation_list.text
+    assert "Start ingestion" in operation_list.text
+    assert response.status_code == 303
+    run_id = response.headers["location"].rsplit("/", 1)[-1]
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        run = client.app.state.workspace.processing.runs.get(run_id)
+        if run is not None and not run.active:
+            break
+        time.sleep(0.01)
+    else:
+        raise AssertionError("Pipeline operation did not finish")
+
+    detail = client.get(response.headers["location"])
+    history = client.get("/operations")
+    assert run.status == "completed"
+    assert run.options.limit == 1
+    assert run.options.offset == 1
+    assert run.options.missing_only is True
+    assert detail.status_code == 200
+    assert "Run options" in detail.text
+    assert "Execution context" in detail.text
+    assert run_id in detail.text
+    assert run_id[:8] in history.text
+
+
+def test_workspace_guards_pipeline_operation_forms(tmp_path):
+    client, _articles, _proposal, _review, _publication = _workspace(tmp_path)
+
+    missing_token = client.post(
+        "/operations", data={"kind": "extract"}, follow_redirects=False
+    )
+    incompatible = client.post(
+        "/operations",
+        data={
+            "csrf_token": client.app.state.csrf_token,
+            "kind": "extract",
+            "missing_only": "on",
+            "force": "on",
+        },
+        follow_redirects=False,
+    )
+
+    assert missing_token.status_code == 403
+    assert "Invalid form token" in missing_token.text
+    assert incompatible.status_code == 400
+    assert "missing_only and force cannot be used together" in incompatible.text
 
 
 def test_web_command_is_available():

@@ -17,6 +17,7 @@ from editorial.models import (
     Publication,
     PublicationExclusion,
     PublicationSection,
+    ProcessingRun,
     Review,
     WorkflowEvent,
 )
@@ -50,6 +51,160 @@ def ensure_columns(
 class ArticleInsertOutcome(StrEnum):
     INSERTED = "inserted"
     ALREADY_EXISTS = "already_exists"
+
+
+class SQLiteProcessingRunRepository:
+    def __init__(self, path: str | Path):
+        self.path = Path(path)
+        self._initialise()
+
+    def _connect(self) -> sqlite3.Connection:
+        return connect_sqlite(self.path)
+
+    def _initialise(self) -> None:
+        with self._connect() as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS processing_runs (
+                id TEXT PRIMARY KEY, kind TEXT NOT NULL, status TEXT NOT NULL,
+                publication_name TEXT NOT NULL, config_path TEXT NOT NULL,
+                database_path TEXT NOT NULL, config_digest TEXT NOT NULL,
+                options_json TEXT NOT NULL, article_count INTEGER NOT NULL,
+                processor_count INTEGER NOT NULL, total_operations INTEGER NOT NULL,
+                completed_operations INTEGER NOT NULL, stored_operations INTEGER NOT NULL,
+                skipped_operations INTEGER NOT NULL, failed_operations INTEGER NOT NULL,
+                current_article_id TEXT, current_article_title TEXT,
+                current_processor TEXT, current_provider TEXT, current_model TEXT,
+                error_message TEXT, result_json TEXT NOT NULL,
+                created_at TEXT NOT NULL, started_at TEXT, finished_at TEXT,
+                updated_at TEXT NOT NULL)""")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_processing_runs_created_at "
+                "ON processing_runs(created_at)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_processing_runs_status "
+                "ON processing_runs(status)"
+            )
+
+    def insert(self, run: ProcessingRun) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """INSERT INTO processing_runs (
+                    id, kind, status, publication_name, config_path, database_path,
+                    config_digest, options_json, article_count, processor_count,
+                    total_operations, completed_operations, stored_operations,
+                    skipped_operations, failed_operations, current_article_id,
+                    current_article_title, current_processor, current_provider,
+                    current_model, error_message, result_json, created_at, started_at,
+                    finished_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                self._values(run),
+            )
+
+    def update(self, run: ProcessingRun) -> None:
+        values = self._values(run)
+        with self._connect() as conn:
+            cursor = conn.execute(
+                """UPDATE processing_runs SET
+                    kind = ?, status = ?, publication_name = ?, config_path = ?,
+                    database_path = ?, config_digest = ?, options_json = ?,
+                    article_count = ?, processor_count = ?, total_operations = ?,
+                    completed_operations = ?, stored_operations = ?,
+                    skipped_operations = ?, failed_operations = ?,
+                    current_article_id = ?, current_article_title = ?,
+                    current_processor = ?, current_provider = ?, current_model = ?,
+                    error_message = ?, result_json = ?, created_at = ?, started_at = ?,
+                    finished_at = ?, updated_at = ? WHERE id = ?""",
+                (*values[1:], values[0]),
+            )
+        if cursor.rowcount != 1:
+            raise ValueError(f"Processing run not found: {run.id}")
+
+    def get(self, run_id: UUID) -> ProcessingRun | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM processing_runs WHERE id = ?", (str(run_id),)
+            ).fetchone()
+        return self._row_to_run(row) if row else None
+
+    def list(self, limit: int | None = None) -> list[ProcessingRun]:
+        query = "SELECT * FROM processing_runs ORDER BY created_at DESC, id ASC"
+        params: list[object] = []
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [self._row_to_run(row) for row in rows]
+
+    def active(self) -> list[ProcessingRun]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM processing_runs WHERE status IN ('queued', 'running') "
+                "ORDER BY created_at ASC"
+            ).fetchall()
+        return [self._row_to_run(row) for row in rows]
+
+    def _values(self, run: ProcessingRun) -> tuple[object, ...]:
+        return (
+            str(run.id),
+            run.kind,
+            run.status,
+            run.publication_name,
+            run.config_path,
+            run.database_path,
+            run.config_digest,
+            dump_json(run.options.model_dump(mode="json")),
+            run.article_count,
+            run.processor_count,
+            run.total_operations,
+            run.completed_operations,
+            run.stored_operations,
+            run.skipped_operations,
+            run.failed_operations,
+            str(run.current_article_id) if run.current_article_id else None,
+            run.current_article_title,
+            run.current_processor,
+            run.current_provider,
+            run.current_model,
+            run.error_message,
+            dump_json(run.result),
+            run.created_at.isoformat(),
+            run.started_at.isoformat() if run.started_at else None,
+            run.finished_at.isoformat() if run.finished_at else None,
+            run.updated_at.isoformat(),
+        )
+
+    def _row_to_run(self, row: sqlite3.Row) -> ProcessingRun:
+        return ProcessingRun.model_validate(
+            {
+                "id": row["id"],
+                "kind": row["kind"],
+                "status": row["status"],
+                "publication_name": row["publication_name"],
+                "config_path": row["config_path"],
+                "database_path": row["database_path"],
+                "config_digest": row["config_digest"],
+                "options": load_json(row["options_json"]),
+                "article_count": row["article_count"],
+                "processor_count": row["processor_count"],
+                "total_operations": row["total_operations"],
+                "completed_operations": row["completed_operations"],
+                "stored_operations": row["stored_operations"],
+                "skipped_operations": row["skipped_operations"],
+                "failed_operations": row["failed_operations"],
+                "current_article_id": row["current_article_id"],
+                "current_article_title": row["current_article_title"],
+                "current_processor": row["current_processor"],
+                "current_provider": row["current_provider"],
+                "current_model": row["current_model"],
+                "error_message": row["error_message"],
+                "result": load_json(row["result_json"]),
+                "created_at": row["created_at"],
+                "started_at": row["started_at"],
+                "finished_at": row["finished_at"],
+                "updated_at": row["updated_at"],
+            }
+        )
 
 
 class SQLiteArticleRepository:

@@ -4,8 +4,9 @@ The editorial workspace turns the platform's stored evidence and lineage into a 
 local interface. It is useful when reviewing an issue, investigating missing reading times
 or evaluations, comparing proposals, and checking what reached a composed publication.
 
-The workspace is read-only. It does not run ingestion, extraction or evaluation, submit a
-Review, change a Publication, or write to the database.
+The inspection areas described here are read-only. The separate **Operations** area can run
+ingestion, extraction and evaluation and therefore writes processing and evidence records.
+The workspace does not yet submit a Review or change a Publication.
 
 ## Start the workspace
 
@@ -61,8 +62,8 @@ Open one of those Articles. Its Extractions section shows every stored extractio
 and processor. If no `reading_time` artefact appears, the problem is missing extraction
 coverage, not publication rendering.
 
-The read-only workspace stops at that diagnosis. Until Pipeline Operations is implemented,
-resume the missing work through the existing CLI:
+To resolve that diagnosis in the workspace, open **Operations**, start Extraction and
+select **Missing only**. The equivalent CLI command remains:
 
 ```bash
 editorial extract \
@@ -128,15 +129,15 @@ the source file. Comments and shorthand processor fields are normalized, and sec
 values are redacted. Names of environment variables remain visible because they identify
 configuration without revealing the values held in those variables.
 
-The page describes the **active configuration**, not historical configuration provenance.
-An artefact in the database may have been created before the file changed. A later
-ProcessingRun design will need immutable configuration snapshots to make that historical
-claim safely.
+The page describes the **active configuration**, not the full historical configuration for
+every artefact. ProcessingRun records retain the configuration path and a digest of the
+bytes used for each run, which proves whether two runs used the same file contents but does
+not reconstruct an old file after it changes.
 
-## Scope and next phase
+## Scope and operating actions
 
-The next planned UI phase is **Pipeline Operations**. It will add durable, sequential runs
-for ingestion, extraction and evaluation, with article selection, missing-only resume,
-force, progress, failures and status across browser refreshes. Review submission and
-Publication editing follow as separate phases so every write remains explicit and
-auditable. See [the roadmap](../roadmap.md) for the full staged scope.
+Pipeline Operations now provides durable, sequential ingestion, extraction and evaluation
+runs while keeping these evidence views read-only. Review submission and Publication
+editing follow as separate phases so every write remains explicit and auditable. See the
+[Pipeline Operations tutorial](pipeline-operations.md) for the operating workflow and the
+[roadmap](../roadmap.md) for the full staged scope.

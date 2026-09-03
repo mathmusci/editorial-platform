@@ -712,7 +712,7 @@ not the full CLI reference.
 
 ## Browse the editorial workspace
 
-Start the local read-only workspace against the same configuration and database:
+Start the local workspace against the same configuration and database:
 
 ```bash
 editorial web \
@@ -724,8 +724,13 @@ Open `http://127.0.0.1:8000`. The Issues view brings the workflow together in on
 proposal state, extraction and evaluation coverage, selected Articles, Reviews and composed
 Publications. Article pages expose stored extraction payloads, evaluation rationale and AI
 provenance. The Configuration view shows the loaded processors, policy, optimisation
-settings and normalized YAML, with secret-like values redacted. The interface does not
-alter the database or run processors.
+settings and normalized YAML, with secret-like values redacted.
+
+The **Operations** view can run ingestion, extraction and evaluation using this active
+configuration. It executes one run at a time and stores progress in the database, so a page
+refresh does not lose the status. For a quick extraction test, set Limit to `10`; for a
+safe continuation, select Missing only. Failed or interrupted extraction and evaluation
+runs also offer a resume action on their detail page.
 
 Use `--host` and `--port` to change the local address. The workspace is intended for local,
 single-editor use at this stage and does not provide authentication; do not bind it to a
@@ -771,6 +776,9 @@ for one IssueProposal in a single command.
 
 Read [tutorials/read-only-editorial-workspace.md](tutorials/read-only-editorial-workspace.md)
 for a guided tour of the same evidence and lineage in the local web interface.
+
+Read [tutorials/pipeline-operations.md](tutorials/pipeline-operations.md) to run, monitor and
+resume ingestion, extraction and evaluation from the workspace.
 
 Read [developer-notes.md](developer-notes.md) for observations from the first
 end-to-end BIS validation run and known areas for improvement.
