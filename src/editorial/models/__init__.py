@@ -18,6 +18,12 @@ from editorial.models.publication import (
     PublicationExclusion,
     PublicationSection,
 )
+from editorial.models.processing import (
+    ProcessingKind,
+    ProcessingRun,
+    ProcessingRunOptions,
+    ProcessingStatus,
+)
 from editorial.models.review import Review, ReviewDecision
 from editorial.models.workflow import WorkflowEvent
 
@@ -36,6 +42,10 @@ __all__ = [
     "PublicationArticle",
     "PublicationExclusion",
     "PublicationSection",
+    "ProcessingKind",
+    "ProcessingRun",
+    "ProcessingRunOptions",
+    "ProcessingStatus",
     "EditorialStatus",
     "WorkflowEvent",
     "utc_now",

@@ -74,27 +74,36 @@ separate design and prioritisation.
 - Link each status to the existing inspection and explanation commands.
 - Derive state from stored artefacts and WorkflowEvents rather than hidden mutable flags.
 
+#### Read-only editorial workspace
+
+- Browse IssueProposals, Articles, Reviews and Publications in a connected local interface.
+- Inspect processor coverage, evidence, provenance, active configuration and artefact lineage.
+- Compare stored proposals without rerunning optimisation.
+- Keep every inspection view derived from the same SQLite artefacts as the CLI.
+
 ## Current Phase
 
-### Read-only editorial workspace
+### Pipeline Operations
 
-The first web-interface increment makes existing editorial state accessible without
-requiring operators to reconstruct it from individual CLI commands. It is deliberately
-read-only and uses the same inspection services and SQLite artefacts as the CLI.
+The workspace can now run the three configured processing stages while keeping the
+inspection views read-only. Web and CLI execution share one application service and create
+durable ProcessingRun records in the selected SQLite database.
 
 Current facilities:
 
-- Browse stored IssueProposals and see an issue-level workflow overview.
-- Inspect extraction and evaluation coverage by configured processor.
-- Follow selected Articles to extraction payloads, evaluation evidence and AI provenance.
-- Browse Reviews and Publications and follow lineage between related artefacts.
-- Compare two stored proposals without rerunning optimisation.
-- Inspect the active publication configuration, processor settings, editorial policy and
-  optimisation controls with secret-like values redacted.
-- Use a responsive local interface while preserving a strict no-write boundary.
+- Start configured ingestion, extraction and evaluation from the Operations view.
+- Preserve limit, offset, Article ID, missing-only and force controls.
+- Execute one background run at a time, without tying work to an HTTP request.
+- Persist status, counts, current Article and processor identity, elapsed time, estimated
+  remaining time, errors, configuration digest and run options across browser refreshes.
+- Record queued, started, completed, failed and interrupted run events.
+- Resume failed or interrupted extraction and evaluation by creating a new missing-only run.
+- Run CLI commands through the same ProcessingRun service and persistence model.
 
-This phase does not start processors, submit reviews or edit publications. Those facilities
-belong to the explicitly sequenced phases below.
+The current implementation is local and single-process. It does not run operations
+concurrently, cancel active work, authenticate users, distribute work to another process,
+or edit Reviews and Publications. A server restart marks an unfinished run interrupted;
+the editor can then resume its missing work explicitly.
 
 ## Planned Functional Areas
 
@@ -106,7 +115,7 @@ acceptance criteria, and versioning must be agreed before implementation begins.
 The web editor is delivered in functional phases so that every write operation has a clear
 application-service boundary, durable artefact and auditable outcome.
 
-#### 1. Read-only editorial workspace
+#### 1. Read-only editorial workspace (delivered)
 
 - Issue, Article, Review and Publication browsers.
 - Issue-level workflow visualisation and processor coverage.
@@ -114,7 +123,7 @@ application-service boundary, durable artefact and auditable outcome.
 - Proposal comparison and artefact lineage navigation.
 - Active configuration inspection and processor links from workflow coverage.
 
-#### 2. Pipeline Operations
+#### 2. Pipeline Operations (current)
 
 Run and monitor configured processing from the workspace:
 
@@ -131,8 +140,8 @@ Run and monitor configured processing from the workspace:
   so request handling is separate from the long-running operation before considering
   concurrency.
 
-Pipeline Operations must call shared application services rather than invoke CLI commands.
-Its stored run records and WorkflowEvents must make operator actions inspectable after the
+Pipeline Operations calls shared application services rather than invoking CLI commands.
+Its stored run records and WorkflowEvents make operator actions inspectable after the
 process has finished.
 
 #### 3. Review and revision workspace

@@ -28,7 +28,7 @@ next release number has not yet been assigned.
 - presentation-independent Publication artefacts with Markdown rendering
 - SQLite article, extraction, evaluation, issue proposal, optimisation request, review, publication, and workflow event persistence
 - minimal editorial engine
-- CLI commands for the complete editorial workflow and a local read-only web workspace
+- CLI commands for the complete editorial workflow and a local operations workspace
 - tests
 
 ## Current Implementations
@@ -53,6 +53,7 @@ next release number has not yet been assigned.
 - [Publication Composition](docs/tutorials/publication-composition.md)
 - [Workflow Overview](docs/tutorials/workflow-overview.md)
 - [Read-only Editorial Workspace](docs/tutorials/read-only-editorial-workspace.md)
+- [Pipeline Operations](docs/tutorials/pipeline-operations.md)
 
 ## Install
 

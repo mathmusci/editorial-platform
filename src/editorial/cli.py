@@ -35,8 +35,8 @@ from editorial.composition import (
     load_publication_composition,
 )
 from editorial.config import load_publication_config
-from editorial.engine import EditorialEngine, EvaluationProgress, ExtractionProgress
-from editorial.evaluators import build_evaluator, describe_evaluator
+from editorial.engine import EvaluationProgress, ExtractionProgress
+from editorial.evaluators import describe_evaluator
 from editorial.explain import (
     ArticleSelectionArticleNotFound,
     ArticleSelectionExplanation,
@@ -50,7 +50,7 @@ from editorial.explain import (
     ProposalExplanation,
     ProposalExplanationService,
 )
-from editorial.extractors import build_extractor, describe_extractor
+from editorial.extractors import describe_extractor
 from editorial.inspection import (
     ArticleInspection,
     ArticleInspectionService,
@@ -83,12 +83,13 @@ from editorial.inspection import (
 from editorial.models import (
     ConstraintResult,
     EditorialStatus,
+    ProcessingRunOptions,
     Review,
     ReviewDecision,
     WorkflowEvent,
 )
 from editorial.publishing import MarkdownPublisher, PublicationBuilder
-from editorial.providers import build_provider
+from editorial.processing import ProcessingRunService
 from editorial.revisions import ReviewRevisionService
 from editorial.storage import (
     SQLiteArticleRepository,
@@ -467,12 +468,10 @@ def ingest(
     config: Path = typer.Option(..., "--config", "-c"),
     db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
 ) -> None:
-    cfg = load_publication_config(config)
-    providers = [
-        build_provider(p, base_path=cfg.base_path) for p in cfg.providers if p.enabled
-    ]
-    result = EditorialEngine(SQLiteArticleRepository(db)).ingest(providers)
-    console.print(f"[bold]Publication:[/bold] {cfg.publication.name}")
+    processing = ProcessingRunService(db)
+    run = processing.create_run("ingest", config)
+    result = processing.execute(run.id)
+    console.print(f"[bold]Publication:[/bold] {run.publication_name}")
     console.print(f"Fetched: {result.fetched}")
     console.print(f"Added: {result.added}")
     console.print(f"Duplicates in source: {result.duplicates_in_source}")
@@ -515,10 +514,17 @@ def extract(
     ),
 ) -> None:
     _validate_processing_options(limit, offset, missing_only, force)
-    cfg = load_publication_config(config)
-    extractors = [build_extractor(e) for e in cfg.extractors if e.enabled]
-    engine = EditorialEngine(
-        SQLiteArticleRepository(db), SQLiteExtractionRepository(db)
+    processing = ProcessingRunService(db)
+    run = processing.create_run(
+        "extract",
+        config,
+        ProcessingRunOptions(
+            limit=limit,
+            offset=offset,
+            article_ids=article_ids or [],
+            missing_only=missing_only,
+            force=force,
+        ),
     )
     show_progress = _should_show_progress(progress)
     renderer = _RichExtractionProgressRenderer(console) if show_progress else None
@@ -526,25 +532,15 @@ def extract(
     started_at = time.monotonic()
     try:
         if renderer is None:
-            result = engine.extract(
-                extractors,
+            result = processing.execute(
+                run.id,
                 progress=observer,
-                limit=limit,
-                offset=offset,
-                article_ids=article_ids,
-                missing_only=missing_only,
-                force=force,
             )
         else:
             with renderer:
-                result = engine.extract(
-                    extractors,
+                result = processing.execute(
+                    run.id,
                     progress=observer,
-                    limit=limit,
-                    offset=offset,
-                    article_ids=article_ids,
-                    missing_only=missing_only,
-                    force=force,
                 )
             console.print()
     except Exception as exc:
@@ -552,12 +548,12 @@ def extract(
         if renderer is not None:
             console.print()
         console.print(f"[red]Extraction failed:[/red] {exc}")
-        _render_extract_result(cfg.publication.name, None, observer, elapsed)
+        _render_extract_result(run.publication_name, None, observer, elapsed)
         _render_failed_extractions(observer)
         raise typer.Exit(code=1) from exc
 
     elapsed = time.monotonic() - started_at
-    _render_extract_result(cfg.publication.name, result, observer, elapsed)
+    _render_extract_result(run.publication_name, result, observer, elapsed)
 
 
 def _should_show_progress(progress: bool | None) -> bool:
@@ -748,12 +744,17 @@ def evaluate(
     ),
 ) -> None:
     _validate_processing_options(limit, offset, missing_only, force)
-    cfg = load_publication_config(config)
-    evaluators = [build_evaluator(e) for e in cfg.evaluators if e.enabled]
-    engine = EditorialEngine(
-        SQLiteArticleRepository(db),
-        SQLiteExtractionRepository(db),
-        SQLiteEvaluationRepository(db),
+    processing = ProcessingRunService(db)
+    run = processing.create_run(
+        "evaluate",
+        config,
+        ProcessingRunOptions(
+            limit=limit,
+            offset=offset,
+            article_ids=article_ids or [],
+            missing_only=missing_only,
+            force=force,
+        ),
     )
     show_progress = _should_show_progress(progress)
     renderer = _RichEvaluationProgressRenderer(console) if show_progress else None
@@ -761,25 +762,15 @@ def evaluate(
     started_at = time.monotonic()
     try:
         if renderer is None:
-            result = engine.evaluate(
-                evaluators,
+            result = processing.execute(
+                run.id,
                 progress=observer,
-                limit=limit,
-                offset=offset,
-                article_ids=article_ids,
-                missing_only=missing_only,
-                force=force,
             )
         else:
             with renderer:
-                result = engine.evaluate(
-                    evaluators,
+                result = processing.execute(
+                    run.id,
                     progress=observer,
-                    limit=limit,
-                    offset=offset,
-                    article_ids=article_ids,
-                    missing_only=missing_only,
-                    force=force,
                 )
             console.print()
     except Exception as exc:
@@ -787,12 +778,12 @@ def evaluate(
         if renderer is not None:
             console.print()
         console.print(f"[red]Evaluation failed:[/red] {exc}")
-        _render_evaluation_result(cfg.publication.name, None, observer, elapsed)
+        _render_evaluation_result(run.publication_name, None, observer, elapsed)
         _render_failed_evaluations(observer)
         raise typer.Exit(code=1) from exc
 
     elapsed = time.monotonic() - started_at
-    _render_evaluation_result(cfg.publication.name, result, observer, elapsed)
+    _render_evaluation_result(run.publication_name, result, observer, elapsed)
 
 
 class _EvaluationProgressObserver:

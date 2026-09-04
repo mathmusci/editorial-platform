@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}{{ run.record.kind|capitalize }} run{% endblock %}
+{% block head %}{% if run.record.active %}<meta http-equiv="refresh" content="2">{% endif %}{% endblock %}
+{% block content %}{% set record = run.record %}
+<div class="breadcrumb"><a href="/operations">Pipeline operations</a><span>/</span><span>{{ record.id }}</span></div>
+<header class="page-header detail-header">
+  <div>
+    <p class="eyebrow">{{ record.kind }} run</p>
+    <h1>{{ record.kind|capitalize }} details</h1>
+    <p class="id">{{ record.id }}</p>
+  </div>
+  <span class="status status-{{ record.status }}">{{ record.status }}</span>
+</header>
+
+{% if record.error_message %}
+<div class="notice failure-notice"><strong>{{ record.status|capitalize }}</strong><p>{{ record.error_message }}</p></div>
+{% endif %}
+
+<section class="operation-progress section-block">
+  <div class="section-heading"><div><p class="eyebrow">Completion</p><h2>{{ record.completed_operations }} of {{ record.total_operations }} operations</h2></div><strong>{{ record.progress_percent }}%</strong></div>
+  <div class="progress-track" role="progressbar" aria-valuenow="{{ record.progress_percent }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ record.progress_percent }}%"></span></div>
+  {% if record.active %}<p class="refresh-note">This page refreshes while the run is active.</p>{% endif %}
+</section>
+
+<dl class="metric-strip operation-metrics">
+  <div><dt>Stored</dt><dd>{{ record.stored_operations }}</dd></div>
+  <div><dt>Skipped</dt><dd>{{ record.skipped_operations }}</dd></div>
+  <div><dt>Failed</dt><dd class="{% if record.failed_operations %}attention{% endif %}">{{ record.failed_operations }}</dd></div>
+  <div><dt>Elapsed</dt><dd>{{ run.elapsed_seconds|duration }}</dd></div>
+  <div><dt>Articles</dt><dd>{{ record.article_count or 'Pending' }}</dd></div>
+  <div><dt>Processors</dt><dd>{{ record.processor_count or 'Pending' }}</dd></div>
+  <div><dt>Started</dt><dd>{{ record.started_at.strftime('%d %b, %H:%M:%S') if record.started_at else 'Queued' }}</dd></div>
+  <div><dt>Estimated remaining</dt><dd>{{ run.remaining_seconds|duration }}</dd></div>
+</dl>
+
+{% if record.current_article_title or record.current_processor %}
+<section class="section-block current-operation">
+  <div class="section-heading"><div><p class="eyebrow">{{ 'Current' if record.active else 'Last' }} operation</p><h2>{{ record.current_article_title or 'Preparing article' }}</h2></div></div>
+  <dl class="data-list wide">
+    {% if record.current_article_id %}<div><dt>Article</dt><dd><a href="/articles/{{ record.current_article_id }}">{{ record.current_article_id }}</a></dd></div>{% endif %}
+    {% if record.current_processor %}<div><dt>Processor</dt><dd>{{ record.current_processor }}</dd></div>{% endif %}
+    {% if record.current_provider %}<div><dt>Provider</dt><dd>{{ record.current_provider }}</dd></div>{% endif %}
+    {% if record.current_model %}<div><dt>Model</dt><dd>{{ record.current_model }}</dd></div>{% endif %}
+  </dl>
+</section>
+{% endif %}
+
+<section class="split-sections section-block">
+  <div>
+    <div class="section-heading"><div><p class="eyebrow">Selection</p><h2>Run options</h2></div></div>
+    <dl class="data-list wide">
+      <div><dt>Limit</dt><dd>{{ record.options.limit or 'All articles' }}</dd></div>
+      <div><dt>Offset</dt><dd>{{ record.options.offset }}</dd></div>
+      <div><dt>Article IDs</dt><dd>{{ record.options.article_ids|join(', ') if record.options.article_ids else 'Any article' }}</dd></div>
+      <div><dt>Missing only</dt><dd>{{ 'Yes' if record.options.missing_only else 'No' }}</dd></div>
+      <div><dt>Replace existing</dt><dd>{{ 'Yes' if record.options.force else 'No' }}</dd></div>
+    </dl>
+  </div>
+  <div>
+    <div class="section-heading"><div><p class="eyebrow">Provenance</p><h2>Execution context</h2></div></div>
+    <dl class="data-list wide path-list">
+      <div><dt>Configuration</dt><dd>{{ record.config_path }}</dd></div>
+      <div><dt>Database</dt><dd>{{ record.database_path }}</dd></div>
+      <div><dt>Config digest</dt><dd>{{ record.config_digest }}</dd></div>
+    </dl>
+  </div>
+</section>
+
+{% if record.status in ['failed', 'interrupted'] and record.kind in ['extract', 'evaluate'] %}
+<section class="resume-band">
+  <div><p class="eyebrow">Continue safely</p><h2>Resume unfinished work</h2><p>Start a new run with the same article selection and process only missing artefacts.</p></div>
+  <form method="post" action="/operations">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="kind" value="{{ record.kind }}">
+    {% if record.options.limit %}<input type="hidden" name="limit" value="{{ record.options.limit }}">{% endif %}
+    <input type="hidden" name="offset" value="{{ record.options.offset }}">
+    <input type="hidden" name="article_ids" value="{{ record.options.article_ids|join(',') }}">
+    <input type="hidden" name="missing_only" value="on">
+    <button type="submit">Resume missing work</button>
+  </form>
+</section>
+{% endif %}
+
+{% if record.result %}
+<details><summary>Stored result</summary><pre>{{ record.result|json_pretty }}</pre></details>
+{% endif %}
+{% endblock %}

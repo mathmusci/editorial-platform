@@ -164,7 +164,10 @@ def test_cli_optimisation_request_create_list_show_and_run(tmp_path):
     assert run.exit_code == 0
     assert "Created issue proposal" in run.stdout
     assert SQLiteIssueProposalRepository(db_path).count() == 1
-    assert SQLiteWorkflowEventRepository(db_path).count() == 1
+    assert (
+        len(SQLiteWorkflowEventRepository(db_path).list(artefact_type="issue_proposal"))
+        == 1
+    )
 
 
 def test_existing_optimise_command_creates_request_and_workflow_event(tmp_path):
@@ -193,7 +196,10 @@ def test_existing_optimise_command_creates_request_and_workflow_event(tmp_path):
     proposal = SQLiteIssueProposalRepository(db_path).list()[0]
     assert "optimisation_request_id" in proposal.metadata
     assert SQLiteOptimisationRequestRepository(db_path).count() == 1
-    assert SQLiteWorkflowEventRepository(db_path).count() == 1
+    assert (
+        len(SQLiteWorkflowEventRepository(db_path).list(artefact_type="issue_proposal"))
+        == 1
+    )
 
 
 def test_cli_optimisation_request_accepts_parent_ids(tmp_path):

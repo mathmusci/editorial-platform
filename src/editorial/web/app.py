@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import json
 import re
+import secrets
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs
 from uuid import UUID
 
 import yaml
@@ -24,6 +27,13 @@ from editorial.inspection import (
     ReviewInspectionService,
     WorkflowOverviewService,
 )
+from editorial.models import (
+    ProcessingKind,
+    ProcessingRun,
+    ProcessingRunOptions,
+    utc_now,
+)
+from editorial.processing import ProcessingRunCoordinator, ProcessingRunService
 from editorial.storage import (
     SQLiteArticleRepository,
     SQLiteEvaluationRepository,
@@ -49,6 +59,8 @@ class WorkspaceServices:
     reviews: ReviewInspectionService
     publications: PublicationInspectionService
     workflows: WorkflowOverviewService
+    processing: ProcessingRunService
+    coordinator: ProcessingRunCoordinator
 
     @classmethod
     def build(cls, config_path: Path, db_path: Path) -> WorkspaceServices:
@@ -72,6 +84,7 @@ class WorkspaceServices:
             reviews=review_repository,
             publications=publication_repository,
         )
+        processing = ProcessingRunService(db_path)
         return cls(
             config=config,
             config_path=config_path,
@@ -113,6 +126,8 @@ class WorkspaceServices:
                 publications=publication_repository,
                 workflow_events=event_repository,
             ),
+            processing=processing,
+            coordinator=ProcessingRunCoordinator(processing),
         )
 
     def workflow_for(self, proposal_id: UUID):
@@ -141,12 +156,21 @@ def create_app(config_path: str | Path, db_path: str | Path) -> FastAPI:
     templates = Jinja2Templates(directory=PACKAGE_DIR / "templates")
     templates.env.filters["json_pretty"] = _json_pretty
     templates.env.filters["short_id"] = lambda value: str(value)[:8]
+    templates.env.filters["duration"] = _format_duration
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        yield
+        services.coordinator.shutdown()
+
     app = FastAPI(
         title=f"{services.config.publication.name} editorial workspace",
         docs_url=None,
         redoc_url=None,
+        lifespan=lifespan,
     )
     app.state.workspace = services
+    app.state.csrf_token = secrets.token_urlsafe(32)
     app.mount("/static", StaticFiles(directory=PACKAGE_DIR / "static"), name="static")
 
     def render(
@@ -164,6 +188,7 @@ def create_app(config_path: str | Path, db_path: str | Path) -> FastAPI:
                 "publication_name": services.config.publication.name,
                 "current_path": request.url.path,
                 "status_code": status_code,
+                "csrf_token": app.state.csrf_token,
                 **context,
             },
         )
@@ -202,6 +227,40 @@ def create_app(config_path: str | Path, db_path: str | Path) -> FastAPI:
                 sort_keys=False,
                 allow_unicode=True,
             ),
+        )
+
+    @app.get("/operations", response_class=HTMLResponse)
+    def operation_list(request: Request) -> HTMLResponse:
+        runs = services.processing.runs.list(limit=50)
+        return render(
+            request,
+            "operations.html",
+            runs=[_run_view(run) for run in runs],
+            active_run=next((run for run in runs if run.active), None),
+        )
+
+    @app.post("/operations")
+    async def start_operation(request: Request) -> RedirectResponse:
+        form = _parse_form(await request.body())
+        if not secrets.compare_digest(form.get("csrf_token", ""), app.state.csrf_token):
+            raise HTTPException(status_code=403, detail="Invalid form token")
+        try:
+            kind = _processing_kind(form.get("kind"))
+            options = _processing_options(form) if kind != "ingest" else None
+            run = services.coordinator.start(kind, services.config_path, options)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return RedirectResponse(f"/operations/{run.id}", status_code=303)
+
+    @app.get("/operations/{run_id}", response_class=HTMLResponse)
+    def operation_detail(request: Request, run_id: UUID) -> HTMLResponse:
+        run = services.processing.runs.get(run_id)
+        if run is None:
+            raise HTTPException(status_code=404, detail="Processing run not found")
+        return render(
+            request,
+            "operation.html",
+            run=_run_view(run),
         )
 
     @app.get("/proposals", response_class=HTMLResponse)
@@ -299,6 +358,71 @@ def _json_pretty(value: Any) -> str:
     if hasattr(value, "model_dump"):
         value = value.model_dump(mode="json")
     return json.dumps(value, indent=2, default=str, sort_keys=True)
+
+
+def _parse_form(body: bytes) -> dict[str, str]:
+    return {
+        key: values[-1]
+        for key, values in parse_qs(
+            body.decode("utf-8"), keep_blank_values=True
+        ).items()
+    }
+
+
+def _processing_kind(value: str | None) -> ProcessingKind:
+    if value not in {"ingest", "extract", "evaluate"}:
+        raise ValueError("Unknown processing operation")
+    return value
+
+
+def _processing_options(form: dict[str, str]) -> ProcessingRunOptions:
+    raw_article_ids = re.split(r"[\s,]+", form.get("article_ids", "").strip())
+    return ProcessingRunOptions(
+        limit=_optional_integer(form.get("limit"), "limit"),
+        offset=_optional_integer(form.get("offset"), "offset") or 0,
+        article_ids=[UUID(value) for value in raw_article_ids if value],
+        missing_only=form.get("missing_only") == "on",
+        force=form.get("force") == "on",
+    )
+
+
+def _optional_integer(value: str | None, name: str) -> int | None:
+    if value is None or not value.strip():
+        return None
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an integer") from exc
+
+
+def _run_view(run: ProcessingRun) -> dict[str, Any]:
+    end = run.finished_at or utc_now()
+    elapsed = max((end - (run.started_at or run.created_at)).total_seconds(), 0)
+    remaining = None
+    if run.active and run.completed_operations and run.total_operations:
+        remaining_operations = run.total_operations - run.completed_operations
+        remaining = max(
+            elapsed / run.completed_operations * remaining_operations,
+            0,
+        )
+    return {
+        "record": run,
+        "elapsed_seconds": elapsed,
+        "remaining_seconds": remaining,
+    }
+
+
+def _format_duration(value: float | int | None) -> str:
+    if value is None:
+        return "Not available"
+    seconds = max(round(value), 0)
+    minutes, seconds = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f"{hours}h {minutes}m"
+    if minutes:
+        return f"{minutes}m {seconds}s"
+    return f"{seconds}s"
 
 
 def _redact_sensitive(value: Any) -> Any:

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Pipeline operations{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Configured processing</p>
+    <h1>Pipeline operations</h1>
+    <p class="lede">Run ingestion, extraction and evaluation against the active configuration and database. Operations execute one at a time.</p>
+  </div>
+  {% if active_run %}
+    <a class="command-link" href="/operations/{{ active_run.id }}">View active run</a>
+  {% endif %}
+</header>
+
+{% if active_run %}
+<div class="notice operation-notice">
+  <strong>{{ active_run.kind|capitalize }} is {{ active_run.status }}</strong>
+  <p>Run {{ active_run.id|string|truncate(18, True, '…') }} must finish before another operation can start.</p>
+</div>
+{% endif %}
+
+<section class="section-block">
+  <div class="section-heading"><div><p class="eyebrow">Start a run</p><h2>Configured stages</h2></div></div>
+  <div class="operation-launchers">
+    <article class="operation-launcher">
+      <div><p class="eyebrow">Content collection</p><h3>Ingest</h3></div>
+      <p>Fetch articles from every enabled content provider. Existing article URLs remain duplicates rather than new records.</p>
+      <form method="post" action="/operations">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="kind" value="ingest">
+        <button type="submit" {% if active_run %}disabled{% endif %}>Start ingestion</button>
+      </form>
+    </article>
+
+    {% for kind, label, noun in [('extract', 'Extraction', 'extractor'), ('evaluate', 'Evaluation', 'evaluator')] %}
+    <article class="operation-launcher">
+      <div><p class="eyebrow">Article processing</p><h3>{{ label }}</h3></div>
+      <p>Run every enabled {{ noun }} over a deterministic article selection. Articles are ordered by publication date, then creation time and ID.</p>
+      <form class="operation-form" method="post" action="/operations">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="kind" value="{{ kind }}">
+        <div class="number-fields">
+          <label>Limit<input type="number" name="limit" min="1" placeholder="All"></label>
+          <label>Offset<input type="number" name="offset" min="0" value="0"></label>
+        </div>
+        <label>Article IDs<textarea name="article_ids" rows="2" placeholder="Optional UUIDs, separated by spaces or commas"></textarea></label>
+        <div class="option-checks">
+          <label><input type="checkbox" name="missing_only"> Missing only</label>
+          <label><input type="checkbox" name="force"> Replace existing</label>
+        </div>
+        <button type="submit" {% if active_run %}disabled{% endif %}>Start {{ label|lower }}</button>
+      </form>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="section-block">
+  <div class="section-heading"><div><p class="eyebrow">Durable history</p><h2>Recent runs</h2></div><span class="count">{{ runs|length }}</span></div>
+  {% if runs %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Operation</th><th>Status</th><th>Progress</th><th>Stored</th><th>Skipped</th><th>Failed</th><th>Started</th></tr></thead>
+      <tbody>
+      {% for view in runs %}{% set run = view.record %}
+        <tr>
+          <td><a class="primary-link" href="/operations/{{ run.id }}">{{ run.kind|capitalize }}</a><small>{{ run.id|short_id }}</small></td>
+          <td><span class="status status-{{ run.status }}">{{ run.status }}</span></td>
+          <td>{{ run.completed_operations }} / {{ run.total_operations }}</td>
+          <td>{{ run.stored_operations }}</td>
+          <td>{{ run.skipped_operations }}</td>
+          <td class="{% if run.failed_operations %}attention{% endif %}">{{ run.failed_operations }}</td>
+          <td>{{ (run.started_at or run.created_at).strftime('%d %b %Y, %H:%M') }}<small>{{ view.elapsed_seconds|duration }}</small></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="empty"><h3>No processing runs yet</h3><p>Start a configured stage above. Its progress and outcome will remain available here.</p></div>
+  {% endif %}
+</section>
+{% endblock %}
