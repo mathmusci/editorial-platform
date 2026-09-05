@@ -34,6 +34,15 @@ from editorial.models import (
     utc_now,
 )
 from editorial.processing import ProcessingRunCoordinator, ProcessingRunService
+from editorial.models import Review, ReviewDecision
+from editorial.reviews import ReviewSubmissionService
+from editorial.revisions import ReviewRevisionService
+from editorial.optimisation_service import (
+    generate_proposal,
+    template_from_config,
+    run_optimisation_request,
+)
+from starlette.concurrency import run_in_threadpool
 from editorial.storage import (
     SQLiteArticleRepository,
     SQLiteEvaluationRepository,
@@ -271,6 +280,26 @@ def create_app(config_path: str | Path, db_path: str | Path) -> FastAPI:
             proposals=services.proposals.list(),
         )
 
+    @app.post("/proposals/generate")
+    async def generate_issue(request: Request):
+        await review_form(request)
+        try:
+            result, _proposal = await run_in_threadpool(
+                generate_proposal,
+                services.config,
+                services.config_path,
+                services.db_path,
+            )
+        except (ValueError, RuntimeError) as exc:
+            return render(
+                request,
+                "proposals.html",
+                status_code=400,
+                proposals=services.proposals.list(),
+                error=f"Proposal generation failed: {exc}",
+            )
+        return RedirectResponse(f"/proposals/{result.proposal_id}", status_code=303)
+
     @app.get("/proposals/compare", response_class=HTMLResponse)
     def compare_proposals(
         request: Request,
@@ -315,12 +344,132 @@ def create_app(config_path: str | Path, db_path: str | Path) -> FastAPI:
     def review_list(request: Request) -> HTMLResponse:
         return render(request, "reviews.html", reviews=services.reviews.list())
 
+    async def review_form(request: Request) -> dict[str, str]:
+        form = _parse_form(await request.body())
+        if not secrets.compare_digest(form.get("csrf_token", ""), app.state.csrf_token):
+            raise HTTPException(403, "Invalid form token")
+        return form
+
+    @app.get("/proposals/{proposal_id}/review", response_class=HTMLResponse)
+    def new_review(request: Request, proposal_id: UUID):
+        inspection = services.proposals.get(proposal_id)
+        if inspection is None:
+            raise HTTPException(404, "Issue proposal not found")
+        return render(
+            request, "review_form.html", inspection=inspection, values={}, error=None
+        )
+
+    @app.post("/proposals/{proposal_id}/review")
+    async def submit_review(request: Request, proposal_id: UUID):
+        form = await review_form(request)
+        inspection = services.proposals.get(proposal_id)
+        if inspection is None:
+            raise HTTPException(404, "Issue proposal not found")
+        try:
+            review = Review(
+                artefact_type="issue_proposal",
+                artefact_id=proposal_id,
+                reviewer=form.get("reviewer", "").strip(),
+                decision=ReviewDecision(form.get("decision", "")),
+                comments=form.get("comments", "").strip() or None,
+                findings={"notes": form["findings"].strip()}
+                if form.get("findings", "").strip()
+                else {},
+                recommendations={"notes": form["recommendations"].strip()}
+                if form.get("recommendations", "").strip()
+                else {},
+            )
+        except ValueError:
+            return render(
+                request,
+                "review_form.html",
+                status_code=400,
+                inspection=inspection,
+                values=form,
+                error="Enter a reviewer name and select a valid decision.",
+            )
+        await run_in_threadpool(
+            ReviewSubmissionService(services.db_path).submit, review
+        )
+        return RedirectResponse(f"/reviews/{review.id}", status_code=303)
+
+    @app.post("/reviews/{review_id}/revise")
+    async def revise_review(request: Request, review_id: UUID):
+        form = await review_form(request)
+        inspection = services.reviews.get(review_id)
+        if inspection is None:
+            raise HTTPException(404, "Review not found")
+        try:
+            overrides = {}
+            for field in ("settings", "constraints", "goals", "preferences"):
+                value = json.loads(form.get(field) or "{}")
+                if not isinstance(value, dict):
+                    raise ValueError(f"{field.capitalize()} must be a JSON object")
+                overrides[field] = value
+            revision_service = ReviewRevisionService(
+                services.reviews.reviews,
+                services.reviews.proposals,
+                services.reviews.optimisation_requests,
+                services.reviews.workflow_events,
+            )
+            revision = await run_in_threadpool(
+                revision_service.create,
+                review_id,
+                template_from_config(services.config),
+                created_by=form.get("created_by", "").strip() or None,
+                **overrides,
+            )
+        except ValueError as exc:
+            return render(
+                request,
+                "review.html",
+                status_code=400,
+                inspection=inspection,
+                values=form,
+                error=str(exc),
+            )
+        return RedirectResponse(
+            f"/revision-requests/{revision.request.id}", status_code=303
+        )
+
+    def required_revision(request_id: UUID):
+        revision = services.reviews.optimisation_requests.get(request_id)
+        if revision is None or not revision.metadata.get("source_review_id"):
+            raise HTTPException(404, "Revision request not found")
+        return revision
+
+    @app.get("/revision-requests/{request_id}", response_class=HTMLResponse)
+    def revision_detail(request: Request, request_id: UUID):
+        revision = required_revision(request_id)
+        candidates = [
+            p
+            for p in services.reviews.proposals.list()
+            if p.metadata.get("optimisation_request_id") == str(request_id)
+        ]
+        return render(
+            request, "revision.html", revision=revision, candidates=candidates
+        )
+
+    @app.post("/revision-requests/{request_id}/run")
+    async def run_revision(request: Request, request_id: UUID):
+        await review_form(request)
+        revision = required_revision(request_id)
+        try:
+            await run_in_threadpool(
+                run_optimisation_request, revision, services.db_path
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return RedirectResponse(f"/revision-requests/{request_id}", status_code=303)
+
     @app.get("/reviews/{review_id}", response_class=HTMLResponse)
     def review_detail(request: Request, review_id: UUID) -> HTMLResponse:
         inspection = services.reviews.get(review_id)
         if inspection is None:
             raise HTTPException(status_code=404, detail="Review not found")
-        return render(request, "review.html", inspection=inspection)
+        return render(
+            request, "review.html", inspection=inspection, values={}, error=None
+        )
 
     @app.get("/publications", response_class=HTMLResponse)
     def publication_list(request: Request) -> HTMLResponse:

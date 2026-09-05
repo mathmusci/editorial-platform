@@ -1,4 +1,5 @@
 import time
+import pytest
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -32,6 +33,160 @@ from editorial.storage import (
 from editorial.web import create_app
 
 CONFIG = "tests/fixtures/bis/publication.yaml"
+
+
+def test_generate_first_issue_from_workspace(tmp_path):
+    db = tmp_path / "first-issue.sqlite"
+    client = TestClient(create_app(CONFIG, db))
+    article = Article(title="Industrial statistics", source="BIS")
+    SQLiteArticleRepository(db).insert(article)
+    SQLiteEvaluationRepository(db).insert(
+        Evaluation(
+            article_id=article.id,
+            evaluator="rule_relevance",
+            kind="relevance",
+            score=90,
+            confidence=1,
+        )
+    )
+    empty = client.get("/proposals")
+    assert "No issue proposals" in empty.text
+    assert "Generate issue proposal" in empty.text
+    assert client.post("/proposals/generate").status_code == 403
+    assert SQLiteOptimisationRequestRepository(db).count() == 0
+    response = client.post(
+        "/proposals/generate",
+        data={
+            "csrf_token": client.app.state.csrf_token,
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    proposal = SQLiteIssueProposalRepository(db).list()[0]
+    assert response.headers["location"] == f"/proposals/{proposal.id}"
+    assert article.id in proposal.article_ids
+    saved = SQLiteOptimisationRequestRepository(db).list()[0]
+    assert saved.settings == client.app.state.workspace.config.optimisation.settings
+    assert proposal.metadata["optimisation_request_id"] == str(saved.id)
+    assert client.get(response.headers["location"]).status_code == 200
+    assert "Generate issue proposal" in client.get("/proposals").text
+
+
+def test_generation_failure_is_visible_and_retains_request(tmp_path, monkeypatch):
+    import editorial.optimisation_service as optimisation
+
+    def fail(request, db):
+        raise ValueError("Unsupported optimisation strategy")
+
+    monkeypatch.setattr(optimisation, "run_optimisation_request", fail)
+    db = tmp_path / "failure.sqlite"
+    client = TestClient(create_app(CONFIG, db))
+    response = client.post(
+        "/proposals/generate",
+        data={
+            "csrf_token": client.app.state.csrf_token,
+        },
+    )
+    assert response.status_code == 400
+    assert (
+        "Proposal generation failed: Unsupported optimisation strategy" in response.text
+    )
+    assert "Traceback" not in response.text
+    assert SQLiteOptimisationRequestRepository(db).count() == 1
+    assert SQLiteIssueProposalRepository(db).count() == 0
+
+
+@pytest.mark.parametrize("decision", ["approve", "reject", "needs_changes", "comment"])
+def test_submit_editorial_review(tmp_path, decision):
+    client, _, proposal, _, _ = _workspace(tmp_path)
+    before = client.app.state.workspace.reviews.proposals.get(proposal.id)
+    response = client.post(
+        f"/proposals/{proposal.id}/review",
+        data={
+            "csrf_token": client.app.state.csrf_token,
+            "reviewer": "Morgan",
+            "decision": decision,
+            "comments": "Editorial assessment",
+            "findings": "Coverage is narrow",
+            "recommendations": "Broaden sources",
+        },
+    )
+    assert response.status_code == 200
+    assert "Coverage is narrow" in response.text
+    assert "Broaden sources" in response.text
+    repository = client.app.state.workspace.reviews
+    stored = repository.reviews.list(artefact_id=proposal.id)[-1]
+    assert stored.decision.value == decision
+    assert stored.findings == {"notes": "Coverage is narrow"}
+    assert repository.proposals.get(proposal.id) == before
+    events = repository.workflow_events.list(artefact_id=proposal.id)
+    assert any(e.payload.get("review_id") == str(stored.id) for e in events)
+
+
+def test_review_revision_candidate_and_comparison(tmp_path):
+    client, _, proposal, _, _ = _workspace(tmp_path)
+    token = client.app.state.csrf_token
+    response = client.post(
+        f"/proposals/{proposal.id}/review",
+        data={
+            "csrf_token": token,
+            "reviewer": "Morgan",
+            "decision": "needs_changes",
+        },
+        follow_redirects=False,
+    )
+    review_url = response.headers["location"]
+    revision = client.post(
+        f"{review_url}/revise",
+        data={
+            "csrf_token": token,
+            "settings": '{"max_articles": 1}',
+        },
+        follow_redirects=False,
+    )
+    assert revision.status_code == 303
+    revision_url = revision.headers["location"]
+    detail = client.get(revision_url)
+    assert "Generate candidate proposal" in detail.text
+    generated = client.post(f"{revision_url}/run", data={"csrf_token": token})
+    assert generated.status_code == 200
+    assert "Compare with original" in generated.text
+    repository = client.app.state.workspace.reviews
+    candidates = [p for p in repository.proposals.list() if p.id != proposal.id]
+    assert len(candidates) == 1
+    compare = client.get(
+        f"/proposals/compare?base={proposal.id}&candidate={candidates[0].id}"
+    )
+    assert compare.status_code == 200
+    assert "Selection changes" in compare.text
+    saved = repository.optimisation_requests.get(revision_url.rsplit("/", 1)[-1])
+    assert saved.parent_proposal_id == proposal.id
+    assert saved.settings["max_articles"] == 1
+
+
+def test_review_forms_reject_invalid_input_and_preserve_text(tmp_path):
+    client, _, proposal, review, _ = _workspace(tmp_path)
+    url = f"/proposals/{proposal.id}/review"
+    assert client.post(url).status_code == 403
+    response = client.post(
+        url,
+        data={
+            "csrf_token": client.app.state.csrf_token,
+            "reviewer": "  ",
+            "decision": "approve",
+            "comments": "Keep my draft",
+        },
+    )
+    assert response.status_code == 400
+    assert "Keep my draft" in response.text
+    rejected = client.post(
+        f"/reviews/{review.id}/revise",
+        data={
+            "csrf_token": client.app.state.csrf_token,
+        },
+    )
+    assert rejected.status_code == 400
+    assert client.post(f"/revision-requests/{uuid4()}/run").status_code == 403
 
 
 def _workspace(tmp_path):

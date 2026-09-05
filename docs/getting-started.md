@@ -738,6 +738,12 @@ public network interface.
 
 ## What happened?
 
+In the web workspace, choose **Generate issue proposal** under **Issues** to run optimisation
+using the active configuration and database. Then choose **Submit review** to record an editorial
+decision. Needs-changes reviews can create revision requests, generate candidates and open
+proposal comparisons. See [Review and Revision Workspace](tutorials/review-revision-workspace.md)
+for a worked example.
+
 The BIS sources were ingested into Article records. Extractions were created
 from those Articles, then Evaluations scored their relevance to the BIS
 newsletter.

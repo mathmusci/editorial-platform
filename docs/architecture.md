@@ -193,6 +193,12 @@ the same audit boundary: both layers only use recorded platform artefacts.
 
 ### Web workspace
 
+Review writes use ReviewSubmissionService from both CLI and browser, persisting the Review
+and its review-submitted event. Browser revision actions call ReviewRevisionService and the
+shared optimisation runner. Revision request pages derive candidate links from stored
+proposal metadata, and comparisons reuse ProposalComparisonService. Candidate generation
+runs outside the async event loop but the HTTP request waits for completion.
+
 The workspace presents stored editorial state through the existing inspection services:
 
 ```text

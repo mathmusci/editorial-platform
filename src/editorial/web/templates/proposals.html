@@ -5,6 +5,11 @@
   <div><p class="eyebrow">Issue proposals</p><h1>Editorial issues</h1></div>
   <span class="count">{{ proposals|length }} stored</span>
 </header>
+{% if error %}<p class="notice" role="alert">{{ error }}</p>{% endif %}
+<form class="section-block" method="post" action="/proposals/generate">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <button type="submit">Generate issue proposal</button>
+</form>
 
 {% if proposals|length > 1 %}
 <section class="tool-band" aria-labelledby="compare-title">

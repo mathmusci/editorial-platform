@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Submit review{% endblock %}
+{% block content %}
+<nav class="breadcrumb"><a href="/proposals/{{ inspection.proposal.id }}">Issue proposal</a><span>/</span><span>Review</span></nav>
+<header class="page-header"><h1>Submit review</h1></header>
+{% if error %}<p class="notice" role="alert">{{ error }}</p>{% endif %}
+<form class="editorial-form" method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <label>Reviewer<input name="reviewer" required value="{{ values.get('reviewer', '') }}"></label>
+  <label>Decision<select name="decision" required>
+    <option value="">Select decision</option>
+    {% for value, label in [('approve', 'Approve'), ('reject', 'Reject'), ('needs_changes', 'Needs changes'), ('comment', 'Comment')] %}
+    <option value="{{ value }}" {% if values.get('decision') == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select></label>
+  <label>Comments<textarea name="comments" rows="4">{{ values.get('comments', '') }}</textarea></label>
+  <label>Findings<textarea name="findings" rows="4">{{ values.get('findings', '') }}</textarea></label>
+  <label>Recommendations<textarea name="recommendations" rows="4">{{ values.get('recommendations', '') }}</textarea></label>
+  <div><button type="submit">Submit review</button> <a href="/proposals/{{ inspection.proposal.id }}">Cancel</a></div>
+</form>
+{% endblock %}

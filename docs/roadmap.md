@@ -81,7 +81,7 @@ separate design and prioritisation.
 - Compare stored proposals without rerunning optimisation.
 - Keep every inspection view derived from the same SQLite artefacts as the CLI.
 
-## Current Phase
+## Delivered Pipeline Operations
 
 ### Pipeline Operations
 
@@ -102,8 +102,28 @@ Current facilities:
 
 The current implementation is local and single-process. It does not run operations
 concurrently, cancel active work, authenticate users, distribute work to another process,
-or edit Reviews and Publications. A server restart marks an unfinished run interrupted;
+or edit Publications. A server restart marks an unfinished run interrupted;
 the editor can then resume its missing work explicitly.
+
+## Current Phase
+
+### Review and revision workspace
+
+The Issues view can generate the first or a subsequent proposal using the active
+configuration and database, storing its OptimisationRequest before running the optimiser.
+It opens the resulting proposal or shows a generation error on the Issues page.
+
+Editors can submit approve, reject, needs-changes and comment decisions from an issue
+proposal. Findings and recommendations are stored with the immutable Review. A needs-changes
+review can create a linked revision request from the active configuration, with explicit
+settings, constraints, goals and preferences overrides. The saved request has its own page
+where the editor can inspect intent, generate candidates and compare each with the original.
+
+Web and CLI submission share ReviewSubmissionService; revision creation uses
+ReviewRevisionService and candidate generation uses the shared optimisation runner.
+Every original proposal, review and request remains available with its WorkflowEvents.
+Candidate generation currently waits for completion; it is not a background ProcessingRun.
+Publication composition in the browser remains the next phase.
 
 ## Planned Functional Areas
 
@@ -123,7 +143,7 @@ application-service boundary, durable artefact and auditable outcome.
 - Proposal comparison and artefact lineage navigation.
 - Active configuration inspection and processor links from workflow coverage.
 
-#### 2. Pipeline Operations (current)
+#### 2. Pipeline Operations (delivered)
 
 Run and monitor configured processing from the workspace:
 
@@ -144,8 +164,9 @@ Pipeline Operations calls shared application services rather than invoking CLI c
 Its stored run records and WorkflowEvents make operator actions inspectable after the
 process has finished.
 
-#### 3. Review and revision workspace
+#### 3. Review and revision workspace (current)
 
+- Generate initial issue proposals from the active configuration and database.
 - Submit approve, reject, needs-changes and comment decisions.
 - Capture findings and recommendations as explicit Review data.
 - Create linked revision requests from needs-changes reviews.

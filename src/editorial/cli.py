@@ -26,7 +26,6 @@ from editorial.cli_helpers import (
     parse_payload,
     record_publication_created,
     record_publication_rendered,
-    record_review_submitted,
     request_from_config,
     run_optimisation_request,
 )
@@ -91,6 +90,7 @@ from editorial.models import (
 from editorial.publishing import MarkdownPublisher, PublicationBuilder
 from editorial.processing import ProcessingRunService
 from editorial.revisions import ReviewRevisionService
+from editorial.reviews import ReviewSubmissionService
 from editorial.storage import (
     SQLiteArticleRepository,
     SQLiteEvaluationRepository,
@@ -3284,8 +3284,7 @@ def review_create(
         findings=parse_key_values(finding, "--finding"),
         recommendations=parse_key_values(recommendation, "--recommendation"),
     )
-    SQLiteReviewRepository(db).insert(review)
-    record_review_submitted(review, db)
+    ReviewSubmissionService(db).submit(review)
     console.print(f"Created review {review.id}")
 
 
