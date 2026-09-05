@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Revision request{% endblock %}
+{% block content %}
+<nav class="breadcrumb"><a href="/reviews/{{ revision.metadata.source_review_id }}">Source review</a><span>/</span><span>Revision request</span></nav>
+<header class="page-header"><div><h1>Revision request</h1><p class="lede">{{ revision.id }}</p></div></header>
+<dl class="data-list wide">
+  <div><dt>Original proposal</dt><dd><a href="/proposals/{{ revision.parent_proposal_id }}">{{ revision.parent_proposal_id }}</a></dd></div>
+  <div><dt>Created by</dt><dd>{{ revision.created_by }}</dd></div>
+  <div><dt>Strategy</dt><dd>{{ revision.strategy }}</dd></div>
+</dl>
+<section class="section-block"><h2>Request intent</h2>
+{% for name in ['settings', 'constraints', 'goals', 'preferences'] %}
+<details><summary>{{ name|capitalize }}</summary><pre>{{ revision[name]|json_pretty }}</pre></details>
+{% endfor %}</section>
+<section class="section-block"><div class="section-heading"><h2>Candidate proposals</h2></div>
+{% for candidate in candidates %}
+<div class="link-list"><a href="/proposals/{{ candidate.id }}">{{ candidate.id }}</a>
+<a href="/proposals/compare?base={{ revision.parent_proposal_id }}&candidate={{ candidate.id }}">Compare with original</a></div>
+{% else %}<p class="muted">No candidate generated.</p>{% endfor %}
+</section>
+<form method="post" action="/revision-requests/{{ revision.id }}/run">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+<button type="submit">Generate candidate proposal</button>
+</form>
+{% endblock %}

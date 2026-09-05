@@ -54,6 +54,7 @@ next release number has not yet been assigned.
 - [Workflow Overview](docs/tutorials/workflow-overview.md)
 - [Read-only Editorial Workspace](docs/tutorials/read-only-editorial-workspace.md)
 - [Pipeline Operations](docs/tutorials/pipeline-operations.md)
+- [Review and Revision Workspace](docs/tutorials/review-revision-workspace.md)
 
 ## Install
 

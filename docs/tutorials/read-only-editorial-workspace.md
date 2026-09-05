@@ -6,7 +6,7 @@ or evaluations, comparing proposals, and checking what reached a composed public
 
 The inspection areas described here are read-only. The separate **Operations** area can run
 ingestion, extraction and evaluation and therefore writes processing and evidence records.
-The workspace does not yet submit a Review or change a Publication.
+Review submission is available from issue pages; Publication editing is still planned.
 
 ## Start the workspace
 
@@ -137,7 +137,8 @@ not reconstruct an old file after it changes.
 ## Scope and operating actions
 
 Pipeline Operations now provides durable, sequential ingestion, extraction and evaluation
-runs while keeping these evidence views read-only. Review submission and Publication
-editing follow as separate phases so every write remains explicit and auditable. See the
+runs while keeping these evidence views read-only. The
+[Review and Revision workspace](review-revision-workspace.md) adds editorial decisions;
+Publication editing remains a later phase. See the
 [Pipeline Operations tutorial](pipeline-operations.md) for the operating workflow and the
 [roadmap](../roadmap.md) for the full staged scope.

@@ -8,14 +8,11 @@ from uuid import UUID
 import typer
 
 from editorial.config import load_publication_config
-from editorial.engine import EditorialEngine
 from editorial.models import OptimisationRequest, Publication, Review, WorkflowEvent
-from editorial.optimisers import build_optimiser_from_request
+from editorial.optimisation_service import (
+    run_optimisation_request as run_optimisation_request,
+)
 from editorial.storage import (
-    SQLiteArticleRepository,
-    SQLiteEvaluationRepository,
-    SQLiteExtractionRepository,
-    SQLiteIssueProposalRepository,
     SQLiteWorkflowEventRepository,
 )
 
@@ -64,21 +61,6 @@ def request_from_config(
         parent_proposal_id=parent_proposal_id,
         metadata={"config": str(config), **(metadata or {})},
     )
-
-
-def run_optimisation_request(
-    request: OptimisationRequest, db: Path
-) -> tuple[object, object]:
-    optimiser = build_optimiser_from_request(request)
-    result = EditorialEngine(
-        SQLiteArticleRepository(db),
-        SQLiteExtractionRepository(db),
-        SQLiteEvaluationRepository(db),
-        SQLiteIssueProposalRepository(db),
-        SQLiteWorkflowEventRepository(db),
-    ).optimise_request(optimiser, request)
-    proposal = SQLiteIssueProposalRepository(db).get(result.proposal_id)
-    return result, proposal
 
 
 def record_review_submitted(review: Review, db: Path) -> None:
