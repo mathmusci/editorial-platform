@@ -1,6 +1,28 @@
 {% extends "base.html" %}
 {% block title %}{{ inspection.publication.title }}{% endblock %}
-{% block content %}<nav class="breadcrumb"><a href="/publications">Publications</a><span>/</span><span>{{ inspection.publication.id|short_id }}</span></nav><header class="page-header detail-header"><div><p class="eyebrow">Publication</p><h1>{{ inspection.publication.title }}</h1>{% if inspection.publication.subtitle %}<p class="lede">{{ inspection.publication.subtitle }}</p>{% endif %}</div><span class="count">{{ inspection.sections|length }} sections</span></header>
-<dl class="metric-strip"><div><dt>Articles</dt><dd>{{ article_count }}</dd></div><div><dt>Created</dt><dd>{{ inspection.publication.created_at.strftime('%d %b %Y') }}</dd></div><div><dt>Proposal</dt><dd><a href="/proposals/{{ inspection.publication.proposal_id }}">{{ inspection.publication.proposal_id|short_id }}</a></dd></div><div><dt>Rendered outputs</dt><dd>{{ inspection.rendered_outputs|length }}</dd></div></dl>
-{% for group in inspection.sections %}<section class="section-block publication-section"><div class="section-heading"><div><p class="eyebrow">Section {{ group.order }}</p><h2>{{ group.section.heading }}</h2></div><span class="count">{{ group.articles|length }} articles</span></div>{% if group.section.introduction %}<p class="section-intro">{{ group.section.introduction }}</p>{% endif %}<div class="article-stack">{% for item in group.articles %}<article><span class="article-order">{{ loop.index }}</span><div><a class="primary-link" href="/articles/{{ item.article_id }}">{{ item.publication_article.title or (item.article.title if item.article else 'Missing article') }}</a>{% if item.publication_article.summary %}<p>{{ item.publication_article.summary }}</p>{% endif %}<div class="article-meta"><span>{{ item.article.source if item.article else 'Source unavailable' }}</span><span>{{ (item.reading_minutes ~ ' min') if item.reading_minutes is not none else 'Reading time missing' }}</span><span>{{ ('Relevance ' ~ item.relevance_score) if item.relevance_score is not none else 'Relevance missing' }}</span></div></div></article>{% endfor %}</div></section>{% endfor %}
-{% if inspection.rendered_outputs %}<section class="section-block"><div class="section-heading"><h2>Rendered outputs</h2></div><div class="link-list">{% for item in inspection.rendered_outputs %}<span><span>{{ item.format or 'Unknown format' }}</span><small>{{ item.output_path or 'Path not recorded' }}</small></span>{% endfor %}</div></section>{% endif %}{% endblock %}
+{% block content %}{% set publication = inspection.publication %}
+<nav class="breadcrumb"><a href="/publications">Publications</a><span>/</span><span>{{ publication.id|short_id }}</span></nav>
+<header class="page-header"><div><h1>{{ publication.title }}</h1>{% if publication.subtitle %}<p class="lede">{{ publication.subtitle }}</p>{% endif %}</div><span class="count">{{ inspection.sections|length }} sections</span></header>
+<div class="section-heading publication-actions">
+<a class="command-link" href="/proposals/{{ publication.proposal_id }}/compose?parent={{ publication.id }}">Edit as new version</a>
+<form method="post" action="/publications/{{ publication.id }}/markdown"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">Download Markdown</button></form>
+</div>
+<dl class="metric-strip"><div><dt>Articles</dt><dd>{{ article_count }}</dd></div><div><dt>Created</dt><dd>{{ publication.created_at.strftime('%d %b %Y') }}</dd></div><div><dt>Proposal</dt><dd><a href="/proposals/{{ publication.proposal_id }}">{{ publication.proposal_id|short_id }}</a></dd></div><div><dt>Rendered outputs</dt><dd>{{ inspection.rendered_outputs|length }}</dd></div></dl>
+{% if publication.introduction %}<section class="section-block prose-block"><p>{{ publication.introduction }}</p></section>{% endif %}
+<div class="provenance">
+{% if publication.approved_review_id %}<a href="/reviews/{{ publication.approved_review_id }}">Approval {{ publication.approved_review_id|short_id }}</a>{% endif %}
+{% if publication.parent_publication_id %}<a href="/publications/{{ publication.parent_publication_id }}">Previous version</a>{% endif %}
+{% for child in inspection.revised_publications %}<a href="/publications/{{ child.id }}">Newer version {{ child.id|short_id }}</a>{% endfor %}
+</div>
+{% for group in inspection.sections %}
+<section class="section-block publication-section"><div class="section-heading"><h2>{{ group.section.heading }}</h2><span class="count">{{ group.articles|length }} articles</span></div>
+{% if group.section.introduction %}<p class="section-intro">{{ group.section.introduction }}</p>{% endif %}
+<div class="article-stack">{% for item in group.articles %}<article><span class="article-order">{{ loop.index }}</span><div>
+<a class="primary-link" href="/articles/{{ item.article_id }}">{{ item.publication_article.title or (item.article.title if item.article else 'Missing article') }}</a>
+{% if item.publication_article.summary %}<p>{{ item.publication_article.summary }}</p>{% endif %}
+<div class="article-meta"><span>{{ item.publication_article.source or 'Source unavailable' }}</span><span>{{ (item.reading_minutes ~ ' min') if item.reading_minutes is not none else 'Reading time missing' }}</span><span>{{ ('Relevance ' ~ item.relevance_score) if item.relevance_score is not none else 'Relevance missing' }}</span>
+{% if item.publication_article.summary_extraction_id %}<span>Summary extraction {{ item.publication_article.summary_extraction_id|short_id }}</span>{% endif %}</div>
+</div></article>{% endfor %}</div></section>{% endfor %}
+{% if publication.exclusions %}<section class="section-block"><h2>Exclusions</h2><dl class="data-list">{% for item in publication.exclusions %}<div><dt><a href="/articles/{{ item.article_id }}">{{ item.article_id|short_id }}</a></dt><dd>{{ item.reason }}</dd></div>{% endfor %}</dl></section>{% endif %}
+{% if inspection.rendered_outputs %}<section class="section-block"><h2>Rendered outputs</h2><div class="link-list">{% for item in inspection.rendered_outputs %}<span><span>{{ item.format or 'Unknown format' }}</span><small>{{ item.output_path or 'Path not recorded' }}</small></span>{% endfor %}</div></section>{% endif %}
+{% endblock %}

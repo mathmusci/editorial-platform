@@ -105,7 +105,7 @@ concurrently, cancel active work, authenticate users, distribute work to another
 or edit Publications. A server restart marks an unfinished run interrupted;
 the editor can then resume its missing work explicitly.
 
-## Current Phase
+## Delivered Review Workspace
 
 ### Review and revision workspace
 
@@ -123,7 +123,25 @@ Web and CLI submission share ReviewSubmissionService; revision creation uses
 ReviewRevisionService and candidate generation uses the shared optimisation runner.
 Every original proposal, review and request remains available with its WorkflowEvents.
 Candidate generation currently waits for completion; it is not a background ProcessingRun.
-Publication composition in the browser remains the next phase.
+
+## Current Phase
+
+### Publication composition workspace
+
+- Compose from an issue proposal with a recorded approval.
+- Set publication title, subtitle, introduction and editor attribution.
+- Assign articles to sections, set section and article order, and edit editorial text.
+- Select stored summary extractions while preserving their provenance.
+- Exclude articles with explicit reasons; every proposal article must be accounted for.
+- Inspect the saved composition and download Markdown through the existing renderer.
+- Edit a publication as a linked new version without changing the original.
+
+Composition calls the existing PublicationCompositionService, with creation and rendering
+WorkflowEvents. The editor offers up to one section per proposal article, ignores unused
+section slots, and requires at least one included article. Browser rendering returns a
+download and records that delivery without inventing a local output path. Unsaved form
+changes are not durable drafts. Automatic grouping, AI-written introductions and additional
+rendering formats remain future candidates.
 
 ## Planned Functional Areas
 
@@ -164,7 +182,7 @@ Pipeline Operations calls shared application services rather than invoking CLI c
 Its stored run records and WorkflowEvents make operator actions inspectable after the
 process has finished.
 
-#### 3. Review and revision workspace (current)
+#### 3. Review and revision workspace (delivered)
 
 - Generate initial issue proposals from the active configuration and database.
 - Submit approve, reject, needs-changes and comment decisions.
@@ -173,7 +191,7 @@ process has finished.
 - Compare original and revised proposals before approval.
 - Preserve every original artefact and WorkflowEvent.
 
-#### 4. Publication composition workspace
+#### 4. Publication composition workspace (current)
 
 - Create a Publication from an approved proposal.
 - Edit publication title, subtitle, introduction and ordered sections.

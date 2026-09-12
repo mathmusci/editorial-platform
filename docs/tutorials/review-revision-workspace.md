@@ -66,4 +66,4 @@ same revision request. Requests also remain linked from their source review afte
 or server restart. There is no review-edit or review-delete action.
 
 The workspace remains intended for one local editor and has no authentication. Publication
-composition in the browser is a separate roadmap phase.
+composition is covered in [Publication Composition Workspace](publication-composition-workspace.md).

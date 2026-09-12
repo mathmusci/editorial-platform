@@ -34,6 +34,7 @@
 </section>
 
 <div class="section-heading"><a class="command-link" href="/proposals/{{ inspection.proposal.id }}/review">Submit review</a></div>
+<div class="section-heading"><a class="command-link" href="/proposals/{{ inspection.proposal.id }}/compose">Compose publication</a></div>
 <div class="split-sections">
 <section class="section-block"><div class="section-heading"><h2>Reviews</h2></div>{% if inspection.reviews %}<div class="link-list">{% for item in inspection.reviews %}<a href="/reviews/{{ item.id }}"><span>{{ item.decision.value|replace('_', ' ')|title }} by {{ item.reviewer }}</span><small>{{ item.created_at.strftime('%d %b %Y') }}</small></a>{% endfor %}</div>{% else %}<p class="muted">No reviews recorded.</p>{% endif %}</section>
 <section class="section-block"><div class="section-heading"><h2>Publications</h2></div>{% if inspection.publications %}<div class="link-list">{% for item in inspection.publications %}<a href="/publications/{{ item.id }}"><span>{{ item.title }}</span><small>{{ item.created_at.strftime('%d %b %Y') }}</small></a>{% endfor %}</div>{% else %}<p class="muted">No publications composed.</p>{% endif %}</section>

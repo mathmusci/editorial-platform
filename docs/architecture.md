@@ -193,6 +193,13 @@ the same audit boundary: both layers only use recorded platform artefacts.
 
 ### Web workspace
 
+Publication composition forms translate explicit section assignments, ordering and text
+into PublicationComposition values, then call PublicationCompositionService. Approval,
+coverage and extraction provenance checks remain in that shared domain service. Saving
+an edited publication creates a new artefact with parent_publication_id and a creation
+WorkflowEvent. Markdown downloads render the stored Publication using MarkdownPublisher;
+the rendering event records browser delivery, without claiming a server output file.
+
 Review writes use ReviewSubmissionService from both CLI and browser, persisting the Review
 and its review-submitted event. Browser revision actions call ReviewRevisionService and the
 shared optimisation runner. Revision request pages derive candidate links from stored
