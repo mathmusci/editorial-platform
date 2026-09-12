@@ -12,7 +12,7 @@ from uuid import UUID
 
 import yaml
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -53,6 +53,10 @@ from editorial.storage import (
     SQLiteReviewRepository,
     SQLiteWorkflowEventRepository,
 )
+
+from editorial.web.composition import CompositionWorkspace
+from editorial.publishing import MarkdownPublisher
+from editorial.models import WorkflowEvent
 
 PACKAGE_DIR = Path(__file__).parent
 
@@ -162,6 +166,7 @@ def create_app(config_path: str | Path, db_path: str | Path) -> FastAPI:
     config_path = Path(config_path)
     db_path = Path(db_path)
     services = WorkspaceServices.build(config_path, db_path)
+    composer = CompositionWorkspace(db_path)
     templates = Jinja2Templates(directory=PACKAGE_DIR / "templates")
     templates.env.filters["json_pretty"] = _json_pretty
     templates.env.filters["short_id"] = lambda value: str(value)[:8]
@@ -469,6 +474,60 @@ def create_app(config_path: str | Path, db_path: str | Path) -> FastAPI:
             raise HTTPException(status_code=404, detail="Review not found")
         return render(
             request, "review.html", inspection=inspection, values={}, error=None
+        )
+
+    @app.get("/proposals/{proposal_id}/compose", response_class=HTMLResponse)
+    def composition_form(
+        request: Request, proposal_id: UUID, parent: UUID | None = None
+    ):
+        try:
+            context = composer.context(
+                proposal_id, services.config.publication.name, parent
+            )
+        except ValueError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        return render(request, "composition.html", **context, error=None)
+
+    @app.post("/proposals/{proposal_id}/compose")
+    async def save_composition(request: Request, proposal_id: UUID):
+        form = await review_form(request)
+        try:
+            parent = UUID(form["parent_id"]) if form.get("parent_id") else None
+            context = composer.context(
+                proposal_id, services.config.publication.name, parent
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        try:
+            publication = await run_in_threadpool(composer.save, context, form)
+        except ValueError as exc:
+            context["values"] = form
+            return render(
+                request, "composition.html", status_code=400, **context, error=str(exc)
+            )
+        return RedirectResponse(f"/publications/{publication.id}", status_code=303)
+
+    @app.post("/publications/{publication_id}/markdown")
+    async def render_publication(request: Request, publication_id: UUID):
+        await review_form(request)
+        publication = composer.publications.get(publication_id)
+        if publication is None:
+            raise HTTPException(404, "Publication not found")
+        content = MarkdownPublisher(composer.articles.list()).render(publication)
+        composer.events.insert(
+            WorkflowEvent(
+                artefact_type="publication",
+                artefact_id=publication.id,
+                event_type="publication-published",
+                payload={"format": "markdown", "delivery": "browser-download"},
+            )
+        )
+        return Response(
+            content,
+            media_type="text/markdown",
+            headers={
+                "Content-Disposition": f'attachment; filename="publication-{publication.id}.md"',
+            },
         )
 
     @app.get("/publications", response_class=HTMLResponse)

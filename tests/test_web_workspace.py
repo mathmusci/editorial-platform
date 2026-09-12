@@ -35,6 +35,115 @@ from editorial.web import create_app
 CONFIG = "tests/fixtures/bis/publication.yaml"
 
 
+def _composition_form(client, proposal, review):
+    from editorial.web.composition import CompositionWorkspace
+
+    context = CompositionWorkspace(client.app.state.workspace.db_path).context(
+        proposal.id, "Test publication"
+    )
+    return {
+        **context["values"],
+        "csrf_token": client.app.state.csrf_token,
+        "approved_review_id": str(review.id),
+    }
+
+
+def test_web_composition_orders_sections_and_preserves_summary_provenance(tmp_path):
+    client, articles, proposal, review, _ = _workspace(tmp_path)
+    extraction = Extraction(
+        article_id=articles[0].id,
+        extractor="local",
+        kind="summary",
+        payload={"summary": "Extracted summary"},
+    )
+    SQLiteExtractionRepository(client.app.state.workspace.db_path).insert(extraction)
+    form = _composition_form(client, proposal, review)
+    form.update(
+        {
+            "section_0": "1",
+            "heading_1": "Analysis",
+            "section_order_1": "1",
+            "section_order_0": "2",
+            "source_0": str(extraction.id),
+            "title": "Editorial edition",
+            "introduction": "Opening note",
+        }
+    )
+    response = client.post(f"/proposals/{proposal.id}/compose", data=form)
+    assert response.status_code == 200
+    assert "Opening note" in response.text
+    assert "Extracted summary" in response.text
+    db = client.app.state.workspace.db_path
+    saved = SQLitePublicationRepository(db).list()[0]
+    assert saved.title == "Editorial edition"
+    assert saved.sections[0].heading == "Analysis"
+    assert saved.sections[0].articles[0].summary_extraction_id == extraction.id
+    assert saved.sections[1].articles[0].article_id == articles[1].id
+    assert (
+        SQLiteWorkflowEventRepository(db).list(artefact_id=saved.id)[0].event_type
+        == "publication-created"
+    )
+    download = client.post(
+        f"/publications/{saved.id}/markdown",
+        data={"csrf_token": client.app.state.csrf_token},
+    )
+    assert download.status_code == 200
+    assert download.text.startswith("# Editorial edition")
+    assert "attachment" in download.headers["content-disposition"]
+
+
+def test_web_composition_exclusions_versions_and_validation(tmp_path):
+    client, articles, proposal, review, original = _workspace(tmp_path)
+    db = client.app.state.workspace.db_path
+    form = _composition_form(client, proposal, review)
+    form.update(
+        {
+            "parent_id": str(original.id),
+            "section_1": "excluded",
+            "reason_1": "",
+            "title": "Keep my title",
+        }
+    )
+    url = f"/proposals/{proposal.id}/compose"
+    assert client.post(url).status_code == 403
+    invalid = client.post(url, data=form)
+    assert invalid.status_code == 400
+    assert "Keep my title" in invalid.text
+    assert SQLitePublicationRepository(db).count() == 1
+    form["reason_1"] = "Outside this edition's focus"
+    response = client.post(url, data=form)
+    assert response.status_code == 200
+    versions = SQLitePublicationRepository(db).list()
+    assert len(versions) == 2
+    saved = versions[0]
+    assert saved.parent_publication_id == original.id
+    assert saved.exclusions[0].article_id == articles[1].id
+    assert SQLitePublicationRepository(db).get(original.id) == original
+    edit = client.get(f"{url}?parent={saved.id}")
+    assert edit.status_code == 200
+    assert "Keep my title" in edit.text
+
+
+def test_web_composition_rejects_wrong_approval_and_foreign_summary(tmp_path):
+    client, articles, proposal, review, _ = _workspace(tmp_path)
+    form = _composition_form(client, proposal, review)
+    form["approved_review_id"] = str(uuid4())
+    url = f"/proposals/{proposal.id}/compose"
+    assert client.post(url, data=form).status_code == 400
+    extraction = Extraction(
+        article_id=articles[1].id,
+        extractor="local",
+        kind="summary",
+        payload={"summary": "Other"},
+    )
+    SQLiteExtractionRepository(client.app.state.workspace.db_path).insert(extraction)
+    form["approved_review_id"] = str(review.id)
+    form["source_0"] = str(extraction.id)
+    response = client.post(url, data=form)
+    assert response.status_code == 400
+    assert "does not belong" in response.text
+
+
 def test_generate_first_issue_from_workspace(tmp_path):
     db = tmp_path / "first-issue.sqlite"
     client = TestClient(create_app(CONFIG, db))

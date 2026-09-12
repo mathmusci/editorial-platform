@@ -80,5 +80,5 @@ Pipeline Operations is a local background runner, not a distributed job system. 
 sequential and does not provide cancellation, concurrent workers, remote execution or user
 authentication. The CLI and workspace call the same ProcessingRun service; neither shells
 out to the other. Review decisions are available in the separate
-[Review and Revision workspace](review-revision-workspace.md). Publication editing remains
-a later roadmap phase.
+[Review and Revision workspace](review-revision-workspace.md). Approved issues can be composed
+in the [Publication Composition workspace](publication-composition-workspace.md).

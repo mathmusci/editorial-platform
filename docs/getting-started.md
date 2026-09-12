@@ -738,6 +738,11 @@ public network interface.
 
 ## What happened?
 
+After approving an issue in the workspace, choose **Compose publication** on its proposal
+page. Arrange sections and articles, edit editorial text, and save the composition. The
+Publication page previews the saved edition and offers **Download Markdown** and **Edit as
+new version**. See [Publication Composition Workspace](tutorials/publication-composition-workspace.md).
+
 In the web workspace, choose **Generate issue proposal** under **Issues** to run optimisation
 using the active configuration and database. Then choose **Submit review** to record an editorial
 decision. Needs-changes reviews can create revision requests, generate candidates and open

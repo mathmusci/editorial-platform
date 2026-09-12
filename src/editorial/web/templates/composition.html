@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Compose publication{% endblock %}
+{% block content %}
+<nav class="breadcrumb"><a href="/proposals/{{ proposal.id }}">Issue proposal</a><span>/</span><span>Composition</span></nav>
+<header class="page-header"><h1>{{ 'New publication version' if parent else 'Compose publication' }}</h1></header>
+{% if error %}<p class="notice" role="alert">{{ error }}</p>{% endif %}
+{% if not approvals %}<div class="notice">No approval recorded. <a href="/proposals/{{ proposal.id }}/review">Review this proposal</a></div>
+{% elif not articles %}<p class="notice">This proposal has no articles to compose.</p>
+{% else %}
+<form method="post" action="/proposals/{{ proposal.id }}/compose" class="composition-form">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+<input type="hidden" name="parent_id" value="{{ values.get('parent_id', '') }}">
+<section class="section-block editorial-form">
+<label>Approval<select name="approved_review_id" required>{% for review in approvals %}<option value="{{ review.id }}" {% if values.get('approved_review_id') == review.id|string %}selected{% endif %}>{{ review.reviewer }} · {{ review.created_at.strftime('%d %b %Y, %H:%M') }}</option>{% endfor %}</select></label>
+<label>Editor<input name="created_by" value="{{ values.get('created_by', '') }}"></label>
+<label>Title<input name="title" required value="{{ values.get('title', '') }}"></label>
+<label>Subtitle<input name="subtitle" value="{{ values.get('subtitle', '') }}"></label>
+<label>Introduction<textarea name="introduction" rows="3">{{ values.get('introduction', '') }}</textarea></label>
+</section>
+<section class="section-block"><div class="section-heading"><h2>Sections</h2></div>
+{% for i in range(section_count) %}
+<details {% if i == 0 %}open{% endif %} class="composition-section"><summary>Section {{ i + 1 }}{% if values.get('heading_' ~ i) %}: {{ values.get('heading_' ~ i) }}{% endif %}</summary>
+<div class="editorial-form">
+<label>Section {{ i + 1 }} heading<input name="heading_{{ i }}" value="{{ values.get('heading_' ~ i, '') }}"></label>
+<label>Section {{ i + 1 }} order<input type="number" min="1" name="section_order_{{ i }}" value="{{ values.get('section_order_' ~ i, i + 1) }}"></label>
+<label>Section {{ i + 1 }} introduction<textarea name="intro_{{ i }}">{{ values.get('intro_' ~ i, '') }}</textarea></label>
+</div></details>{% endfor %}</section>
+<section class="section-block"><div class="section-heading"><h2>Articles</h2></div>
+{% for article in articles %}{% set i = loop.index0 %}
+<article class="composition-article"><h3><a href="/articles/{{ article.id }}" target="_blank" rel="noopener">{{ article.title }}</a></h3>
+<div class="editorial-form">
+<label>Placement<select name="section_{{ i }}">
+{% for si in range(section_count) %}<option value="{{ si }}" {% if values.get('section_' ~ i) == si|string %}selected{% endif %}>Section {{ si + 1 }}</option>{% endfor %}
+<option value="excluded" {% if values.get('section_' ~ i) == 'excluded' %}selected{% endif %}>Exclude</option></select></label>
+<label>Article order<input type="number" min="1" name="order_{{ i }}" value="{{ values.get('order_' ~ i, i + 1) }}"></label>
+<label>Editorial title<input name="title_{{ i }}" value="{{ values.get('title_' ~ i, '') }}"></label>
+<label>Summary source<select name="source_{{ i }}"><option value="">Article summary</option>
+{% for extraction in summaries[article.id] %}<option value="{{ extraction.id }}" {% if values.get('source_' ~ i) == extraction.id|string %}selected{% endif %}>{{ extraction.extractor }} · {{ extraction.id|short_id }}</option>{% endfor %}</select></label>
+<label>Editorial summary override<textarea name="summary_{{ i }}" rows="3">{{ values.get('summary_' ~ i, '') }}</textarea></label>
+<label>Exclusion reason<input name="reason_{{ i }}" value="{{ values.get('reason_' ~ i, '') }}"></label>
+</div></article>{% endfor %}</section>
+<button type="submit">{{ 'Save new version' if parent else 'Save publication' }}</button>
+</form>{% endif %}
+{% endblock %}

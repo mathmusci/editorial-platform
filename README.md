@@ -55,6 +55,7 @@ next release number has not yet been assigned.
 - [Read-only Editorial Workspace](docs/tutorials/read-only-editorial-workspace.md)
 - [Pipeline Operations](docs/tutorials/pipeline-operations.md)
 - [Review and Revision Workspace](docs/tutorials/review-revision-workspace.md)
+- [Publication Composition Workspace](docs/tutorials/publication-composition-workspace.md)
 
 ## Install
 

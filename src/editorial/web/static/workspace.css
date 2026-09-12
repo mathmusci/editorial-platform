@@ -24,6 +24,10 @@
 .editorial-form { display: grid; gap: 18px; max-width: 780px; margin: 20px 0 40px; }
 .editorial-form select { width: 100%; }
 .editorial-form textarea { min-height: 90px; }
+.composition-section, .composition-article { padding: 18px 0; border-top: 1px solid var(--line); }
+.composition-form .editorial-form { max-width: 850px; }
+.composition-article h3 { overflow-wrap: anywhere; }
+.publication-actions { flex-wrap: wrap; }
 html { background: var(--canvas); }
 body { margin: 0; color: var(--ink); background: var(--canvas); line-height: 1.5; }
 a { color: var(--teal-dark); text-decoration: none; }
