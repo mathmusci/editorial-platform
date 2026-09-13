@@ -143,6 +143,22 @@ download and records that delivery without inventing a local output path. Unsave
 changes are not durable drafts. Automatic grouping, AI-written introductions and additional
 rendering formats remain future candidates.
 
+### Workspace file selection
+
+The local UI can switch to an existing publication configuration and editorial
+database without restarting the server. `editorial web` can also start without any
+files and open the selection screen without creating a database. It validates paths, identifies the active
+database, blocks switches during processing, and rejects stale forms after a switch.
+File pickers browse server-side folders, showing only YAML configurations and `.sqlite`
+databases, preserving both selections until the user opens the workspace. File paths
+are displayed relative to the deployment directory, not as absolute paths.
+Selection is server-wide and lasts until restart. With a configuration selected,
+users can explicitly create and open a new empty `.sqlite` database in a chosen
+folder. Creation never overwrites an existing file and does not start processing.
+The UI does not edit configurations, upload files, or establish historical
+configuration provenance.
+See [workspace file selection](tutorials/read-only-editorial-workspace.md#change-configuration-and-database).
+
 ## Planned Functional Areas
 
 The following areas are agreed product direction but are not assigned to a release. Scope,

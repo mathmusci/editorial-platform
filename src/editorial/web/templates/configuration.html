@@ -8,14 +8,14 @@
 
 <aside class="notice" aria-label="Configuration provenance limitation">
   <strong>Current server configuration</strong>
-  <p>This is the configuration loaded when the workspace started. It is not historical proof that every stored artefact was produced with this exact configuration.</p>
+  <p>This is the currently loaded configuration. It is not historical proof that every stored artefact was produced with this exact configuration.</p>
 </aside>
 
 <section class="section-block">
   <div class="section-heading"><div><p class="eyebrow">Workspace</p><h2>Loaded files</h2></div></div>
   <dl class="data-list wide path-list">
-    <div><dt>Configuration</dt><dd>{{ config_path }}</dd></div>
-    <div><dt>Database</dt><dd>{{ db_path }}</dd></div>
+    <div><dt>Configuration</dt><dd>{{ config_path|deployment_relative }}</dd></div>
+    <div><dt>Database</dt><dd>{{ db_path|deployment_relative }}</dd></div>
   </dl>
 </section>
 

@@ -59,8 +59,8 @@
   <div>
     <div class="section-heading"><div><p class="eyebrow">Provenance</p><h2>Execution context</h2></div></div>
     <dl class="data-list wide path-list">
-      <div><dt>Configuration</dt><dd>{{ record.config_path }}</dd></div>
-      <div><dt>Database</dt><dd>{{ record.database_path }}</dd></div>
+      <div><dt>Configuration</dt><dd>{{ record.config_path|deployment_relative }}</dd></div>
+      <div><dt>Database</dt><dd>{{ record.database_path|deployment_relative }}</dd></div>
       <div><dt>Config digest</dt><dd>{{ record.config_digest }}</dd></div>
     </dl>
   </div>

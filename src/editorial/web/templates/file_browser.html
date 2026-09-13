@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Choose {{ 'folder' if values.creating else picker.label|lower }}{% endblock %}
+{% block content %}
+<header class="page-header"><div><p class="eyebrow">Local files</p><h1>Choose {{ 'folder' if values.creating else picker.label|lower }}</h1></div></header>
+<form method="post" action="/workspace" class="file-browser">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="config_path" value="{{ values.config_path }}">
+  <input type="hidden" name="db_path" value="{{ values.db_path }}">
+  <input type="hidden" name="field" value="{{ picker.field }}">
+  {% if values.creating %}
+  <input type="hidden" name="creating" value="1">
+  <input type="hidden" name="new_directory" value="{{ values.new_directory }}">
+  <input type="hidden" name="filename" value="{{ values.filename }}">
+  {% endif %}
+  <div class="file-browser-toolbar">
+    {% if picker.parent %}<button name="directory" value="{{ picker.parent }}">Up one folder</button>{% endif %}
+    <button name="directory" value="{{ picker.home }}">Home</button>
+    <button name="directory" value="{{ picker.working_directory }}">Working directory</button>
+    <button name="cancel_browser" value="1">Cancel</button>
+  </div>
+  <p class="file-browser-location">{{ picker.directory|deployment_relative }}</p>
+  {% if values.creating %}<p><button name="use_folder" value="{{ picker.directory }}">Use this folder</button></p>{% else %}<p class="muted">{{ picker.extensions }}</p>{% endif %}
+  <ul class="file-browser-list" aria-label="Files and folders">
+    {% for folder in picker.folders %}<li><button name="directory" value="{{ folder }}"><span>{{ folder.name }}</span><small>Folder</small></button></li>{% endfor %}
+    {% if not values.creating %}{% for file in picker.files %}<li><button name="selected_file" value="{{ file }}"><span>{{ file.name }}</span><small>{{ picker.label }}</small></button></li>{% endfor %}{% endif %}
+  </ul>
+  {% if not picker.folders and (values.creating or not picker.files) %}<p class="empty-row muted">{{ 'No subfolders.' if values.creating else 'No matching files or folders.' }}</p>{% endif %}
+</form>
+{% endblock %}

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import asyncio
+import os
 import re
 import secrets
+import sqlite3
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -55,6 +58,7 @@ from editorial.storage import (
 )
 
 from editorial.web.composition import CompositionWorkspace
+from editorial.web.files import FILE_TYPES, create_database, file_browser, selected_file
 from editorial.publishing import MarkdownPublisher
 from editorial.models import WorkflowEvent
 
@@ -162,12 +166,22 @@ class WorkspaceServices:
         )
 
 
-def create_app(config_path: str | Path, db_path: str | Path) -> FastAPI:
-    config_path = Path(config_path)
-    db_path = Path(db_path)
-    services = WorkspaceServices.build(config_path, db_path)
-    composer = CompositionWorkspace(db_path)
+def create_app(
+    config_path: str | Path | None = None, db_path: str | Path | None = None
+) -> FastAPI:
+    config_path = Path(config_path) if config_path is not None else None
+    db_path = Path(db_path) if db_path is not None else None
+    if config_path is not None:
+        db_path = db_path if db_path is not None else Path("editorial.sqlite")
+    services = WorkspaceServices.build(config_path, db_path) if config_path else None
+    composer = CompositionWorkspace(db_path) if services else None
     templates = Jinja2Templates(directory=PACKAGE_DIR / "templates")
+    deployment_path = Path.cwd().resolve()
+    templates.env.filters["deployment_relative"] = lambda value: (
+        os.path.relpath(Path(value).expanduser().resolve(), deployment_path)
+        if value
+        else ""
+    )
     templates.env.filters["json_pretty"] = _json_pretty
     templates.env.filters["short_id"] = lambda value: str(value)[:8]
     templates.env.filters["duration"] = _format_duration
@@ -175,17 +189,37 @@ def create_app(config_path: str | Path, db_path: str | Path) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
         yield
-        services.coordinator.shutdown()
+        if services:
+            services.coordinator.shutdown()
 
     app = FastAPI(
-        title=f"{services.config.publication.name} editorial workspace",
+        title=f"{services.config.publication.name} editorial workspace"
+        if services
+        else "Editorial workspace",
         docs_url=None,
         redoc_url=None,
         lifespan=lifespan,
     )
     app.state.workspace = services
     app.state.csrf_token = secrets.token_urlsafe(32)
+    workspace_lock = asyncio.Lock()
     app.mount("/static", StaticFiles(directory=PACKAGE_DIR / "static"), name="static")
+
+    @app.middleware("http")
+    async def stable_workspace(request: Request, call_next):
+        # Keep every request on one workspace, including awaited write operations.
+        async with workspace_lock:
+            if (
+                services is None
+                and request.url.path != "/workspace"
+                and not request.url.path.startswith("/static/")
+            ):
+                if request.method in {"GET", "HEAD"}:
+                    return RedirectResponse("/workspace", status_code=303)
+                return Response(
+                    "Open a workspace before submitting actions.", status_code=409
+                )
+            return await call_next(request)
 
     def render(
         request: Request,
@@ -199,10 +233,14 @@ def create_app(config_path: str | Path, db_path: str | Path) -> FastAPI:
             name=template,
             status_code=status_code,
             context={
-                "publication_name": services.config.publication.name,
+                "publication_name": services.config.publication.name
+                if services
+                else "Editorial",
+                "workspace_loaded": services is not None,
                 "current_path": request.url.path,
                 "status_code": status_code,
                 "csrf_token": app.state.csrf_token,
+                "active_db_path": services.db_path.resolve() if services else None,
                 **context,
             },
         )
@@ -210,6 +248,125 @@ def create_app(config_path: str | Path, db_path: str | Path) -> FastAPI:
     @app.get("/", include_in_schema=False)
     def index() -> RedirectResponse:
         return RedirectResponse("/proposals", status_code=303)
+
+    @app.get("/workspace", response_class=HTMLResponse)
+    def workspace_selection(request: Request):
+        return render(
+            request,
+            "workspace_selection.html",
+            values={
+                "config_path": str(services.config_path.resolve()) if services else "",
+                "db_path": str(services.db_path.resolve())
+                if services
+                else str(db_path.resolve())
+                if db_path
+                else "",
+            },
+        )
+
+    @app.post("/workspace")
+    async def select_workspace(request: Request):
+        nonlocal services, composer
+        form = await review_form(request)
+        if "cancel_creation" in form:
+            return render(request, "workspace_selection.html", values=form)
+        if "cancel_browser" in form:
+            if form.get("creating"):
+                return render(request, "new_database.html", values=form)
+            return render(request, "workspace_selection.html", values=form)
+        if "new_database" in form or "use_folder" in form:
+            if "use_folder" in form:
+                form["new_directory"] = form["use_folder"]
+            form.setdefault("new_directory", str(deployment_path))
+            form.setdefault("filename", "editorial.sqlite")
+            return render(request, "new_database.html", values=form)
+        if "browse" in form or "directory" in form or "selected_file" in form:
+            field = form.get("browse", form.get("field", ""))
+            try:
+                if field not in FILE_TYPES:
+                    raise ValueError("Unknown file type")
+                if "selected_file" in form:
+                    form[field] = str(selected_file(field, form["selected_file"]))
+                    return render(request, "workspace_selection.html", values=form)
+                directory = form.get("directory")
+                if directory is None:
+                    current = form.get(field, "")
+                    directory = (
+                        str(Path(current).expanduser().parent)
+                        if current
+                        else str(Path.cwd())
+                    )
+                    if form.get("creating") and form.get("new_directory"):
+                        directory = form["new_directory"]
+                picker = file_browser(field, directory)
+            except (OSError, ValueError):
+                return render(
+                    request,
+                    "workspace_selection.html",
+                    values=form,
+                    status_code=400,
+                    error="Cannot browse that location or select that file. Check that it exists and is accessible.",
+                )
+            return render(request, "file_browser.html", values=form, picker=picker)
+        if services and services.processing.runs.active():
+            return render(
+                request,
+                "workspace_selection.html",
+                values=form,
+                status_code=409,
+                error="Wait for the active processing run to finish before switching workspace.",
+            )
+        try:
+            if "create_database" in form:
+                selected_config, selected_db = create_database(
+                    form.get("config_path", ""),
+                    form.get("new_directory", ""),
+                    form.get("filename", "").strip(),
+                )
+            else:
+                selected_config, selected_db = _workspace_paths(form)
+            replacement = WorkspaceServices.build(selected_config, selected_db)
+        except FileExistsError:
+            return render(
+                request,
+                "new_database.html",
+                values=form,
+                status_code=400,
+                error="That name already exists. Choose a different filename; no file was overwritten.",
+            )
+        except (
+            ValueError,
+            TypeError,
+            AttributeError,
+            OSError,
+            sqlite3.Error,
+            yaml.YAMLError,
+        ):
+            if "create_database" in form:
+                return render(
+                    request,
+                    "new_database.html",
+                    values=form,
+                    status_code=400,
+                    error="Cannot create database. Check the configuration, writable folder and .sqlite filename.",
+                )
+            return render(
+                request,
+                "workspace_selection.html",
+                values=form,
+                status_code=400,
+                error="Cannot open workspace. Choose a valid publication configuration and an "
+                "existing editorial SQLite database with no active processing runs. "
+                "Check that both files are accessible.",
+            )
+        if services:
+            services.coordinator.shutdown()
+        services = replacement
+        composer = CompositionWorkspace(selected_db)
+        app.state.workspace = services
+        app.state.csrf_token = secrets.token_urlsafe(32)
+        app.title = f"{services.config.publication.name} editorial workspace"
+        return RedirectResponse("/configuration", status_code=303)
 
     @app.get("/configuration", response_class=HTMLResponse)
     def configuration(request: Request) -> HTMLResponse:
@@ -566,6 +723,37 @@ def _json_pretty(value: Any) -> str:
     if hasattr(value, "model_dump"):
         value = value.model_dump(mode="json")
     return json.dumps(value, indent=2, default=str, sort_keys=True)
+
+
+def _workspace_paths(form: dict[str, str]) -> tuple[Path, Path]:
+    paths = []
+    for key in ("config_path", "db_path"):
+        value = form.get(key, "").strip()
+        if not value:
+            raise ValueError("Both paths are required")
+        path = Path(value).expanduser().resolve(strict=True)
+        if not path.is_file():
+            raise ValueError("Choose a file")
+        paths.append(path)
+    config_path, db_path = paths
+    load_publication_config(config_path)
+    # Inspect without creating files or initialising repositories in another database.
+    with sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True) as connection:
+        tables = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
+        }
+        if "articles" not in tables:
+            raise ValueError("Not an editorial database")
+        if "processing_runs" in tables:
+            active = connection.execute(
+                "SELECT 1 FROM processing_runs WHERE status IN ('queued', 'running') LIMIT 1"
+            ).fetchone()
+            if active:
+                raise ValueError("Target database has an active run")
+    return config_path, db_path
 
 
 def _parse_form(body: bytes) -> dict[str, str]:

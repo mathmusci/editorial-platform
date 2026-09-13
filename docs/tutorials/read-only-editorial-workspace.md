@@ -10,7 +10,17 @@ Review submission and publication composition are available from issue pages.
 
 ## Start the workspace
 
-Use a configuration and database that have already been processed:
+Start with the file-selection screen:
+
+```bash
+editorial web
+```
+
+No configuration is loaded and no database is created until you open a workspace.
+Choose existing files in the browser; other pages and actions become available once
+the workspace is loaded. `--db` alone prefills the database path without opening it.
+
+To open a configuration and database directly:
 
 ```bash
 editorial web \
@@ -27,8 +37,72 @@ editorial web \
   --port 8010
 ```
 
-The workspace currently has no authentication. Keep the default loopback host rather than
+With `--config` but no `--db`, the existing default of `editorial.sqlite` still applies.
+Starting this way can initialise that database. The workspace currently has no authentication. Keep the default loopback host rather than
 exposing it on a public network.
+
+## Change configuration and database
+
+Choose **Change workspace** in the header (or start with `editorial web`). Use
+**Choose configuration** and **Choose database** to browse files on the machine
+running the server. For example, select:
+
+```text
+Configuration: examples/bis/publication-ollama-gpt-oss.yaml
+Database:      bis-ollama-gpt-oss.sqlite
+```
+
+The pickers list folders first, then matching files: `.yaml` and `.yml` for
+configurations; `.sqlite` only for databases. Other file extensions are hidden. Open folders
+to navigate, or use **Up one folder**, **Home** and **Working directory**. Selecting
+a file returns to the workspace screen without discarding the other selection.
+**Cancel** leaves both selections unchanged. Displayed paths are relative to the
+deployment directory (the working directory where `editorial web` was started).
+The deployment directory itself appears as `.`; locations outside it use `..`.
+The same relative-path display is used in the header, Configuration and operation
+file details. Internal paths and stored provenance are unchanged.
+
+Choose **Open workspace** after selecting both files. The Configuration page shows the loaded files and
+settings; the header identifies the active database. All inspection pages and
+subsequent operations, optimisation, reviews and composition use the selected pair.
+Existing artefacts are not copied, deleted or reprocessed. Opening an older editorial
+database can apply the same schema initialisation as starting the server.
+
+The ordinary file pickers require existing files. A mistyped database name does not
+create an empty database. The pickers use the
+original server-side files, not browser uploads or temporary copies. They do not
+preview file contents. Configuration editing is outside
+this change. Keep the server on loopback: anyone able to access this unauthenticated
+UI can browse file names and select accessible local workspaces.
+
+Switching is blocked while a processing run is queued or running in either database.
+Do not run another server or CLI processing operation against those databases at the
+same time. Invalid selections leave the current workspace active. Avoid changing
+files on disk during a run.
+
+The selection applies to every browser tab connected to this server, not just the
+current tab. Reload old tabs before submitting actions: forms opened before a switch
+are rejected. A server restart uses the original command-line paths again, or returns
+to file selection if no configuration was supplied; selection
+is not persisted. Opening a configuration is not evidence that it produced the
+database's historical results.
+
+### Start a fresh database
+
+1. Choose a configuration, for example `examples/bis/publication-ollama-gpt-oss.yaml`.
+2. Choose **New database**. This is enabled once a configuration is selected.
+3. Keep the deployment folder (`.`), or use **Choose folder**, navigate and select
+   **Use this folder**.
+4. Enter a filename such as `bis-monday.sqlite` and select **Create and open database**.
+5. Open **Operations** and run ingestion, extraction and evaluation, then generate
+   a proposal from **Issues**.
+
+Creation requires a valid configuration, an existing writable folder and a `.sqlite`
+filename. Existing files, including symbolic links, are never overwritten. Cancel
+does not create anything. Creation opens an empty workspace: it does not copy
+articles from the previous database or run providers or models automatically.
+An active processing run blocks creation and switching. The selected configuration
+is not copied into the database; it remains the configuration used by the workspace.
 
 ## Begin with an issue
 

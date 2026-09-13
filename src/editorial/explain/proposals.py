@@ -6,7 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from editorial.explain.common import NextAction, pluralize
-from editorial.inspection import ProposalArticleInspection, ProposalInspection
+from editorial.inspection.proposals import ProposalArticleInspection, ProposalInspection
 from editorial.inspection.proposals import ProposalInspectionService
 from editorial.models import ConstraintResult
 
