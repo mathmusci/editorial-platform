@@ -129,12 +129,12 @@ console = Console()
 
 @app.command("web")
 def web_workspace(
-    config: Path = typer.Option(..., "--config", "-c"),
-    db: Path = typer.Option(Path("editorial.sqlite"), "--db"),
+    config: Path | None = typer.Option(None, "--config", "-c"),
+    db: Path | None = typer.Option(None, "--db"),
     host: str = typer.Option("127.0.0.1", "--host"),
     port: int = typer.Option(8000, "--port", min=1, max=65535),
 ) -> None:
-    """Open the read-only editorial workspace."""
+    """Open an editorial workspace, or choose its files in the browser."""
     import uvicorn
 
     from editorial.web import create_app

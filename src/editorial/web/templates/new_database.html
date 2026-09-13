@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}New database{% endblock %}
+{% block content %}
+<header class="page-header"><div><p class="eyebrow">Local files</p><h1>New database</h1></div></header>
+{% if error %}<aside class="notice" role="alert">{{ error }}</aside>{% endif %}
+<form class="editorial-form" method="post" action="/workspace">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="config_path" value="{{ values.config_path }}">
+  <input type="hidden" name="db_path" value="{{ values.db_path }}">
+  <input type="hidden" name="new_directory" value="{{ values.new_directory }}">
+  <input type="hidden" name="creating" value="1">
+  <div><strong>Configuration</strong><p class="file-browser-location">{{ values.config_path|deployment_relative }}</p></div>
+  <div><strong>Folder</strong><p class="file-browser-location">{{ values.new_directory|deployment_relative }}</p><button name="browse" value="db_path" formnovalidate>Choose folder</button></div>
+  <label>Filename (.sqlite)<input name="filename" value="{{ values.filename }}" required autocomplete="off" spellcheck="false"></label>
+  <div class="workspace-selection-actions"><button name="create_database" value="1">Create and open database</button><button name="cancel_creation" value="1" formnovalidate>Cancel</button></div>
+</form>
+{% endblock %}

@@ -22,6 +22,24 @@
 
 * { box-sizing: border-box; }
 .editorial-form { display: grid; gap: 18px; max-width: 780px; margin: 20px 0 40px; }
+.workspace-identity { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 16px; min-width: 0; max-width: 50%; overflow-wrap: anywhere; }
+.workspace-identity .mode-label { display: inline-flex; white-space: normal; }
+.workspace-selection-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.app-shell.workspace-unselected { grid-template-columns: minmax(0, 1fr); }
+.file-selection-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 6px; }
+.file-selection-row output { flex: 1 1 280px; min-width: 0; overflow-wrap: anywhere; color: var(--muted); }
+.file-selection-actions { display: grid; grid-template-columns: repeat(2, 215px); gap: 10px; width: 440px; }
+.file-selection-actions button { width: 100%; }
+.file-selection-actions button:only-child { width: 215px; }
+.workspace-open-button { width: 100%; }
+.file-browser { max-width: 900px; }
+.file-browser-toolbar { display: flex; flex-wrap: wrap; gap: 10px; }
+.file-browser-location { margin: 20px 0 6px; overflow-wrap: anywhere; font-weight: 650; }
+.file-browser-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.file-browser-list button { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; min-height: 44px; height: auto; padding: 10px 12px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: var(--surface); color: var(--ink); text-align: left; }
+.file-browser-list button:hover { background: var(--teal-soft); }
+.file-browser-list button span { min-width: 0; overflow-wrap: anywhere; }
+.file-browser-list button small { flex-shrink: 0; }
 .editorial-form select { width: 100%; }
 .editorial-form textarea { min-height: 90px; }
 .composition-section, .composition-article { padding: 18px 0; border-top: 1px solid var(--line); }
@@ -225,7 +243,7 @@ pre { max-height: 360px; margin: 9px 0 0; padding: 13px; overflow: auto; border:
 }
 
 @media (max-width: 760px) {
-  .app-header { height: 61px; padding: 0 16px; }
+  .app-header { min-height: 61px; height: auto; padding: 10px 16px; gap: 12px; }
   .brand strong { max-width: 58vw; }
   .mode-label { display: none; }
   .app-shell { display: block; }
@@ -248,6 +266,8 @@ pre { max-height: 360px; margin: 9px 0 0; padding: 13px; overflow: auto; border:
   .stage { min-height: 0; }
   .compare-form { flex-direction: column; }
   button { width: 100%; }
+  .file-selection-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  .file-selection-actions button:only-child { width: 100%; }
   .section-block { margin-bottom: 32px; }
   .table-wrap { margin-right: -16px; width: calc(100% + 16px); }
   th, td { padding: 10px 9px; }

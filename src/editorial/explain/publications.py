@@ -7,8 +7,10 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from editorial.explain.common import NextAction, pluralize, workflow_event_label
-from editorial.inspection import PublicationInspection
-from editorial.inspection.publications import PublicationInspectionService
+from editorial.inspection.publications import (
+    PublicationInspection,
+    PublicationInspectionService,
+)
 
 
 class PublicationIdentity(BaseModel):
