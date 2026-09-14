@@ -71,8 +71,8 @@ database can apply the same schema initialisation as starting the server.
 The ordinary file pickers require existing files. A mistyped database name does not
 create an empty database. The pickers use the
 original server-side files, not browser uploads or temporary copies. They do not
-preview file contents. Configuration editing is outside
-this change. Keep the server on loopback: anyone able to access this unauthenticated
+preview file contents. See the [configuration editor](configuration-editor.md) to
+edit publication, provider and extractor settings. Keep the server on loopback: anyone able to access this unauthenticated
 UI can browse file names and select accessible local workspaces.
 
 Switching is blocked while a processing run is queued or running in either database.

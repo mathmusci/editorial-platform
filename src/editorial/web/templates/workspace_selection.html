@@ -13,11 +13,12 @@
       <output aria-label="Selected {{ label|lower }}">{{ (values[field]|deployment_relative) if values[field] else 'No file selected' }}</output>
       <div class="file-selection-actions">
         <button type="submit" name="browse" value="{{ field }}">Choose {{ label|lower }}</button>
-        {% if field == 'db_path' %}<button type="submit" name="new_database" value="1" {% if not values.config_path %}disabled{% endif %}>New database</button>{% endif %}
+        {% if field == 'db_path' %}<button type="submit" name="new_database" value="1" {% if not values.config_path %}disabled{% endif %}>New database</button>{% else %}<button type="submit" formaction="/configuration/editor" name="new" value="1">New configuration</button>{% endif %}
       </div>
     </div>
   </div>
   {% endfor %}
+  {% if values.config_path %}<div><button formaction="/configuration/editor">Edit selected configuration</button></div>{% endif %}
   <div class="workspace-selection-actions"><button class="workspace-open-button" type="submit">Open workspace</button>{% if workspace_loaded %}<a href="/configuration">Cancel</a>{% endif %}</div>
 </form>
 {% endblock %}

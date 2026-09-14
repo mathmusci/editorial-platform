@@ -53,6 +53,7 @@ next release number has not yet been assigned.
 - [Publication Composition](docs/tutorials/publication-composition.md)
 - [Workflow Overview](docs/tutorials/workflow-overview.md)
 - [Read-only Editorial Workspace](docs/tutorials/read-only-editorial-workspace.md)
+- [Configuration Editor](docs/tutorials/configuration-editor.md)
 - [Pipeline Operations](docs/tutorials/pipeline-operations.md)
 - [Review and Revision Workspace](docs/tutorials/review-revision-workspace.md)
 - [Publication Composition Workspace](docs/tutorials/publication-composition-workspace.md)

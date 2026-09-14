@@ -58,6 +58,7 @@ from editorial.storage import (
 )
 
 from editorial.web.composition import CompositionWorkspace
+from editorial.web.configuration_editor import Draft, TYPES
 from editorial.web.files import FILE_TYPES, create_database, file_browser, selected_file
 from editorial.publishing import MarkdownPublisher
 from editorial.models import WorkflowEvent
@@ -202,6 +203,8 @@ def create_app(
     )
     app.state.workspace = services
     app.state.csrf_token = secrets.token_urlsafe(32)
+    drafts: dict[str, Draft] = {}
+    app.state.configuration_changed = False
     workspace_lock = asyncio.Lock()
     app.mount("/static", StaticFiles(directory=PACKAGE_DIR / "static"), name="static")
 
@@ -212,12 +215,23 @@ def create_app(
             if (
                 services is None
                 and request.url.path != "/workspace"
+                and not request.url.path.startswith("/configuration/editor")
                 and not request.url.path.startswith("/static/")
             ):
                 if request.method in {"GET", "HEAD"}:
                     return RedirectResponse("/workspace", status_code=303)
                 return Response(
                     "Open a workspace before submitting actions.", status_code=409
+                )
+            if (
+                app.state.configuration_changed
+                and request.method == "POST"
+                and request.url.path != "/workspace"
+                and not request.url.path.startswith("/configuration/editor")
+            ):
+                return Response(
+                    "The configuration was saved. Open the workspace again to activate it before submitting actions.",
+                    status_code=409,
                 )
             return await call_next(request)
 
@@ -237,6 +251,7 @@ def create_app(
                 if services
                 else "Editorial",
                 "workspace_loaded": services is not None,
+                "configuration_changed": app.state.configuration_changed,
                 "current_path": request.url.path,
                 "status_code": status_code,
                 "csrf_token": app.state.csrf_token,
@@ -364,9 +379,163 @@ def create_app(
         services = replacement
         composer = CompositionWorkspace(selected_db)
         app.state.workspace = services
+        app.state.configuration_changed = False
         app.state.csrf_token = secrets.token_urlsafe(32)
         app.title = f"{services.config.publication.name} editorial workspace"
         return RedirectResponse("/configuration", status_code=303)
+
+    @app.post("/configuration/editor")
+    async def start_configuration_editor(request: Request):
+        form = await review_form(request)
+        try:
+            source = (
+                None
+                if form.get("new")
+                else Path(
+                    form.get("config_path")
+                    or (str(services.config_path) if services else "")
+                )
+            )
+            draft = Draft.open(source)
+        except (
+            OSError,
+            ValueError,
+            TypeError,
+            AttributeError,
+            KeyError,
+            yaml.YAMLError,
+        ):
+            raise HTTPException(
+                400, "Choose a valid configuration file to edit."
+            ) from None
+        token = secrets.token_urlsafe(24)
+        if len(drafts) >= 32:
+            drafts.pop(next(iter(drafts)))
+        drafts[token] = draft
+        return RedirectResponse(f"/configuration/editor/{token}", status_code=303)
+
+    def editor_page(request, token, draft, *, error=None, saved=False, status_code=200):
+        return render(
+            request,
+            "configuration_editor.html",
+            token=token,
+            error=error,
+            saved=saved,
+            status_code=status_code,
+            **draft.context(),
+        )
+
+    @app.get("/configuration/editor/{token}")
+    def configuration_editor(request: Request, token: str):
+        if token not in drafts:
+            raise HTTPException(404, "Draft expired. Reopen the configuration.")
+        return editor_page(request, token, drafts[token])
+
+    @app.post("/configuration/editor/{token}")
+    async def update_configuration_editor(request: Request, token: str):
+        form = await review_form(request)
+        if token not in drafts:
+            raise HTTPException(404, "Draft expired. Reopen the configuration.")
+        draft = drafts[token]
+        if form.get("revision") != str(draft.revision):
+            return editor_page(
+                request,
+                token,
+                draft,
+                error="This draft changed in another tab. Review the latest fields before saving.",
+                status_code=409,
+            )
+        action = form.get("action", "update")
+        if action == "use" and draft.source:
+            return render(
+                request,
+                "workspace_selection.html",
+                values={
+                    "config_path": str(draft.source),
+                    "db_path": str(services.db_path) if services else "",
+                },
+            )
+        if action == "discard":
+            drafts.pop(token)
+            return RedirectResponse(
+                "/configuration" if services else "/workspace", status_code=303
+            )
+        draft.apply(form)
+        if "filename" in form:
+            draft.filename = form["filename"]
+        draft.errors = {}
+        try:
+            parts = action.split(":")
+            if parts[0] == "add" and parts[1] in TYPES:
+                group = parts[1]
+                kind = form.get(f"add_{group}", "")
+                if kind not in TYPES[group]:
+                    raise ValueError("Choose a supported type.")
+                entry = {"type": kind, "enabled": True}
+                if kind == "static":
+                    entry["articles"] = []
+                if kind == "llm_summary":
+                    entry["provider"] = {"type": "fake"}
+                draft.data.setdefault(group, []).append(entry)
+            elif parts[0] == "remove" and parts[1] in TYPES:
+                draft.data[parts[1]].pop(int(parts[2]))
+            elif parts[0] in {"add_article", "remove_article"}:
+                from editorial.web.configuration_editor import settings, set_setting
+
+                entry = draft.data["providers"][int(parts[1])]
+                if entry["type"] != "static":
+                    raise ValueError("Select a static provider.")
+                articles = settings(entry).get("articles", [])
+                if parts[0] == "add_article":
+                    articles.append({"title": ""})
+                else:
+                    articles.pop(int(parts[2]))
+                set_setting(entry, "articles", articles)
+            elif action in {"save", "save_as"}:
+                if services and services.processing.runs.active():
+                    raise ValueError(
+                        "Wait for the active processing run to finish before saving."
+                    )
+                directory = draft.source.parent if draft.source else deployment_path
+                filename = form.get("filename", "").strip()
+                if not filename or Path(filename).name != filename:
+                    raise ValueError(
+                        "Enter a YAML filename without directory separators."
+                    )
+                destination = (
+                    draft.source
+                    if action == "save" and draft.source
+                    else directory / filename
+                )
+                draft.save(
+                    destination, overwrite=action == "save" and draft.source is not None
+                )
+                if services and destination.resolve() == services.config_path.resolve():
+                    app.state.configuration_changed = True
+                return editor_page(request, token, draft, saved=True)
+        except FileExistsError:
+            return editor_page(
+                request,
+                token,
+                draft,
+                error="That filename already exists. Choose another name for Save as.",
+                status_code=400,
+            )
+        except (
+            OSError,
+            ValueError,
+            TypeError,
+            IndexError,
+            KeyError,
+            yaml.YAMLError,
+        ) as exc:
+            message = (
+                str(exc)
+                if isinstance(exc, ValueError) and not hasattr(exc, "errors")
+                else "Unable to save. Check the file location and configuration fields."
+            )
+            return editor_page(request, token, draft, error=message, status_code=400)
+        return editor_page(request, token, draft)
 
     @app.get("/configuration", response_class=HTMLResponse)
     def configuration(request: Request) -> HTMLResponse:
