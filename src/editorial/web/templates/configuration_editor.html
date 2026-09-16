@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Edit configuration{% endblock %}
+{% macro input_field(f) %}
+{% set provider_key = f.id.startswith('providers.') and f.key == 'key' %}
+{% set local_feed_path = f.id.startswith('providers.') and f.key == 'path' %}
+{% set feed_url = f.id.startswith('providers.') and f.key == 'url' and '.article.' not in f.id %}
+<div class="config-field">
+  <label for="{{ f.id }}">{{ f.label }}</label>
+  {% if f.kind == 'select' %}
+  <select id="{{ f.id }}" name="{{ f.id }}">{% for choice in f.choices %}<option value="{{ choice }}" {% if f.value == choice %}selected{% endif %}>{{ choice }}</option>{% endfor %}</select>
+  {% if f.key == 'type' and '.provider.' in f.id %}<button name="action" value="update" formnovalidate>Update provider fields</button>{% endif %}
+  {% elif f.kind == 'textarea' %}<textarea id="{{ f.id }}" name="{{ f.id }}" rows="3">{{ f.value or '' }}</textarea>
+  {% elif f.kind == 'checkbox' %}<input id="{{ f.id }}" name="{{ f.id }}" type="checkbox" {% if f.value %}checked{% endif %}>
+  {% else %}<input id="{{ f.id }}" name="{{ f.id }}" type="{{ f.kind }}" {% if provider_key or local_feed_path or feed_url %}aria-describedby="{{ f.id }}-help"{% endif %} {% if f.kind == 'number' %}step="{{ 'any' if f.key == 'temperature' else '1' }}" min="{{ '0' if f.key == 'temperature' else '1' }}"{% endif %} value="{{ f.value if f.value is not none else '' }}" {% if f.protected %}placeholder="Stored value retained"{% endif %} autocomplete="off">{% endif %}
+  {% if provider_key %}<small id="{{ f.id }}-help">Optional. Leave blank: content-provider keys are currently unused by ingestion. Use Source name to identify the source on articles.</small>{% endif %}
+  {% if feed_url %}<small id="{{ f.id }}-help">Use either Feed URL or Local feed path; leave the other blank. If both are filled in, the local file is used and this URL is ignored.</small>{% endif %}
+  {% if local_feed_path %}<small id="{{ f.id }}-help">Use either Local feed path or Feed URL; leave the other blank. Paths are relative to the configuration file's directory (for example, feeds/arxiv-stat.xml), or absolute. If both fields are filled in, the local file is used and the URL is ignored.</small>{% endif %}
+  {% if draft.errors.get(f.id) %}<p class="field-error" role="alert">{{ draft.errors[f.id] }}</p>{% endif %}
+</div>
+{% endmacro %}
+{% block content %}
+<header class="page-header"><div><p class="eyebrow">Configuration</p><h1>{{ 'Edit configuration' if draft.source else 'New configuration' }}</h1>{% if draft.source %}<p class="lede">{{ draft.source|deployment_relative }}</p>{% endif %}</div><span class="status" id="draft-status">{{ 'Saved' if saved else 'Unsaved draft' }}</span></header>
+{% if error %}<aside class="notice" role="alert">{{ error }}</aside>{% endif %}
+{% if saved %}<aside class="notice">Saved. Activation pending.</aside>{% endif %}
+<form method="post" class="configuration-editor" action="/configuration/editor/{{ token }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="revision" value="{{ draft.revision }}">
+  {% if saved %}<div class="workspace-selection-actions"><button name="action" value="use">Use configuration</button></div>{% endif %}
+  <section class="section-block"><h2>Publication</h2><div class="config-fields">{% for f in fields if f.id.startswith('publication.') %}{{ input_field(f) }}{% endfor %}</div></section>
+  {% for group, types in groups.items() %}
+  <section class="section-block">
+    <h2>{{ 'Content providers' if group == 'providers' else 'Extractors' }}</h2>
+    {% for entry in entries[group] %}
+    <section class="processor-editor">
+      {% set enabled_field = entry.fields | selectattr('key', 'equalto', 'enabled') | first %}
+      <div class="section-heading"><h3>{{ types.get(entry.type, entry.type) }} {{ loop.index }}</h3><div class="processor-heading-actions"><label class="inline-checkbox" for="{{ enabled_field.id }}"><input id="{{ enabled_field.id }}" name="{{ enabled_field.id }}" type="checkbox" {% if enabled_field.value %}checked{% endif %}> Enabled</label><button name="action" value="remove:{{ group }}:{{ entry.index }}" formnovalidate>Remove</button></div></div>
+      {% if not entry.fields %}<p class="muted">Unsupported type; existing settings retained.</p>{% endif %}
+      <div class="config-fields">
+      {% for f in entry.fields %}
+        {% if f.key != 'enabled' %}
+        {% if '.article.' in f.id and f.key == 'title' %}<div class="article-editor-heading"><h3>Article {{ f.id.split('.')[3]|int + 1 }}</h3><button name="action" value="remove_article:{{ entry.index }}:{{ f.id.split('.')[3] }}" formnovalidate>Remove article</button></div>{% endif %}
+        {{ input_field(f) }}
+        {% endif %}
+      {% endfor %}
+      </div>
+      {% if entry.type == 'static' %}<button name="action" value="add_article:{{ entry.index }}" formnovalidate>Add article</button>{% endif %}
+    </section>
+    {% endfor %}
+    <div class="config-add"><label for="add_{{ group }}">Type</label><select id="add_{{ group }}" name="add_{{ group }}">{% for type, label in types.items() %}<option value="{{ type }}">{{ label }}</option>{% endfor %}</select><button name="action" value="add:{{ group }}" formnovalidate>Add {{ 'provider' if group == 'providers' else 'extractor' }}</button></div>
+  </section>
+  {% endfor %}
+  <section class="section-block">
+    <h2>Save configuration</h2>
+    <p class="muted">Folder: {{ draft.source.parent|deployment_relative if draft.source else '.' }}</p>
+    <label for="filename">Filename</label><input id="filename" name="filename" value="{{ draft.filename }}">
+    <div class="workspace-selection-actions config-save-actions">
+      <button name="action" value="save">Save</button>{% if draft.source %}<button name="action" value="save_as">Save as</button>{% endif %}
+      <button name="action" value="discard" formnovalidate>Close draft</button>
+    </div>
+  </section>
+</form>
+<script src="{{ url_for('static', path='/configuration-editor.js') }}"></script>
+{% endblock %}

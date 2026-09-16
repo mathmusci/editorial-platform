@@ -21,6 +21,23 @@
 }
 
 * { box-sizing: border-box; }
+.configuration-editor { max-width: 960px; }
+.config-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 20px 0; }
+.config-field { min-width: 0; }
+.config-field label { display: block; margin-bottom: 6px; }
+.config-field select { width: 100%; }
+.config-field button { margin-top: 8px; }
+.config-field textarea { resize: vertical; }
+.field-error { color: var(--red); margin: 6px 0 0; }
+.processor-editor { padding: 24px 0; border-bottom: 1px solid var(--line); }
+.processor-editor .section-heading button, .article-editor-heading button { width: auto; flex: 0 0 auto; }
+.processor-heading-actions { display: flex; align-items: center; gap: 16px; }
+.inline-checkbox { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; font-size: .85rem; font-weight: 650; }
+.inline-checkbox input { width: 16px; height: 16px; margin: 0; }
+.article-editor-heading { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--line); padding-top: 20px; }
+.config-add { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 20px; }
+.config-save-actions { margin-top: 18px; }
+@media (max-width: 760px) { .config-fields { grid-template-columns: minmax(0, 1fr); } }
 .editorial-form { display: grid; gap: 18px; max-width: 780px; margin: 20px 0 40px; }
 .workspace-identity { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 16px; min-width: 0; max-width: 50%; overflow-wrap: anywhere; }
 .workspace-identity .mode-label { display: inline-flex; white-space: normal; }

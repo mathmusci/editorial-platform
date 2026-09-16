@@ -161,6 +161,24 @@ See [workspace file selection](tutorials/read-only-editorial-workspace.md#change
 
 ## Planned Functional Areas
 
+### Configuration editing in the workspace
+
+Configuration editing is delivered in three stages:
+
+1. **Essentials (implemented):** publication details, RSS and static providers,
+   reading-time and LLM-summary extractors, and fake, OpenAI or Ollama settings.
+   Includes drafts, field validation, Save/Save as, explicit activation, secret
+   preservation and conflict detection.
+2. **Editorial decisions (planned):** evaluators, editorial policy and optimisation,
+   with explanations of limits, targets and scoring preferences.
+3. **Publishing (planned):** supported publisher settings and the complete
+   configuration creation workflow.
+
+Stage one preserves sections it does not edit. YAML comments and formatting are not
+retained. New files are saved in the deployment directory; copies remain beside
+their source to preserve relative paths. See the
+[configuration editor tutorial](tutorials/configuration-editor.md).
+
 The following areas are agreed product direction but are not assigned to a release. Scope,
 acceptance criteria, and versioning must be agreed before implementation begins.
 

@@ -5,6 +5,8 @@
   <div><p class="eyebrow">Active configuration</p><h1>{{ config.publication.name }}</h1>{% if config.publication.description %}<p class="lede">{{ config.publication.description }}</p>{% endif %}</div>
   <span class="status status-complete">Loaded</span>
 </header>
+<form method="post" action="/configuration/editor"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button>Edit configuration</button></form>
+{% if configuration_changed %}<aside class="notice">A saved configuration is awaiting activation. <a href="/workspace">Open workspace</a></aside>{% endif %}
 
 <aside class="notice" aria-label="Configuration provenance limitation">
   <strong>Current server configuration</strong>
