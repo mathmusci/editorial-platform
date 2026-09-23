@@ -461,8 +461,17 @@ def test_selection_rejects_active_processing_runs(tmp_path, active_target):
 def test_workspace_selection_requires_csrf_and_shows_current_paths(tmp_path):
     db = tmp_path / "workspace.sqlite"
     with TestClient(create_app(CONFIG, db)) as client:
+        workspace_page = client.get("/configuration")
+        assert 'href="/workspace"' in workspace_page.text
+        assert "Change workspace" in workspace_page.text
+        assert "Configuration" in workspace_page.text
+        assert "Database" in workspace_page.text
+        assert str(CONFIG) in workspace_page.text
+        assert db.name in workspace_page.text
+
         page = client.get("/workspace")
         assert page.status_code == 200
+        assert "The current workspace remains active" in page.text
         assert str(CONFIG.resolve()) in page.text
         assert str(db) in page.text
         assert client.post("/workspace", data={}).status_code == 403

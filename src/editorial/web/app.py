@@ -255,6 +255,9 @@ def create_app(
                 "current_path": request.url.path,
                 "status_code": status_code,
                 "csrf_token": app.state.csrf_token,
+                "active_config_path": services.config_path.resolve()
+                if services
+                else None,
                 "active_db_path": services.db_path.resolve() if services else None,
                 **context,
             },
