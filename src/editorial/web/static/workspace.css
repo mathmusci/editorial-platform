@@ -39,8 +39,10 @@
 .config-save-actions { margin-top: 18px; }
 @media (max-width: 760px) { .config-fields { grid-template-columns: minmax(0, 1fr); } }
 .editorial-form { display: grid; gap: 18px; max-width: 780px; margin: 20px 0 40px; }
-.workspace-identity { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 16px; min-width: 0; max-width: 50%; overflow-wrap: anywhere; }
-.workspace-identity .mode-label { display: inline-flex; white-space: normal; }
+.workspace-identity { display: flex; justify-content: flex-end; gap: 22px; min-width: 0; max-width: 58%; }
+.workspace-identity span { min-width: 0; }
+.workspace-identity small { margin-bottom: 1px; font-size: .68rem; text-transform: uppercase; }
+.workspace-identity strong { display: block; max-width: 260px; overflow: hidden; color: #44514d; font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
 .workspace-selection-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .app-shell.workspace-unselected { grid-template-columns: minmax(0, 1fr); }
 .file-selection-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 6px; }
@@ -86,6 +88,7 @@ small { display: block; color: var(--muted); font-size: .78rem; }
 .primary-nav a { display: block; margin-bottom: 5px; padding: 9px 11px; border-left: 3px solid transparent; color: #35433f; font-weight: 620; }
 .primary-nav a:hover { background: var(--surface); text-decoration: none; }
 .primary-nav a[aria-current="page"] { border-left-color: var(--teal); color: var(--teal-dark); background: var(--surface); }
+.primary-nav .workspace-nav-link { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); }
 .workspace { width: 100%; max-width: 1480px; margin: 0 auto; padding: 38px 42px 72px; overflow: hidden; }
 
 .page-header { min-height: 65px; margin-bottom: 30px; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
@@ -262,10 +265,12 @@ pre { max-height: 360px; margin: 9px 0 0; padding: 13px; overflow: auto; border:
 @media (max-width: 760px) {
   .app-header { min-height: 61px; height: auto; padding: 10px 16px; gap: 12px; }
   .brand strong { max-width: 58vw; }
+  .workspace-identity { display: none; }
   .mode-label { display: none; }
   .app-shell { display: block; }
   .primary-nav { position: sticky; top: 61px; z-index: 9; height: auto; padding: 0 9px; display: flex; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); }
   .primary-nav a { flex: 0 0 auto; margin: 0; padding: 11px 10px 9px; border-left: 0; border-bottom: 3px solid transparent; font-size: .84rem; }
+  .primary-nav .workspace-nav-link { margin-top: 0; padding-top: 11px; border-top: 0; }
   .primary-nav a[aria-current="page"] { border-bottom-color: var(--teal); }
   .workspace { padding: 25px 16px 55px; }
   .page-header { margin-bottom: 22px; }

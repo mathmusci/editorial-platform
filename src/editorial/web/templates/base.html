@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Workspace{% endblock %} · {{ publication_name }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', path='/workspace.css') }}?v=8">
+  <link rel="stylesheet" href="{{ url_for('static', path='/workspace.css') }}?v=9">
   {% block head %}{% endblock %}
 </head>
 <body>
@@ -13,7 +13,7 @@
       <span class="brand-mark" aria-hidden="true"></span>
       <span><strong>{{ publication_name }}</strong><small>Editorial workspace</small></span>
     </a>
-    {% if workspace_loaded %}<div class="workspace-identity"><span class="mode-label" title="{{ active_db_path|deployment_relative }}">{{ active_db_path|deployment_relative }}</span><a href="/workspace" {% if current_path == '/workspace' %}aria-current="page"{% endif %}>Change workspace</a></div>{% endif %}
+    {% if workspace_loaded %}<div class="workspace-identity"><span><small>Configuration</small><strong title="{{ active_config_path|deployment_relative }}">{{ active_config_path|deployment_relative }}</strong></span><span><small>Database</small><strong title="{{ active_db_path|deployment_relative }}">{{ active_db_path|deployment_relative }}</strong></span></div>{% endif %}
   </header>
   <div class="app-shell{% if not workspace_loaded %} workspace-unselected{% endif %}">
     {% if workspace_loaded %}
@@ -24,6 +24,7 @@
       <a href="/reviews" {% if current_path.startswith('/reviews') %}aria-current="page"{% endif %}>Reviews</a>
       <a href="/publications" {% if current_path.startswith('/publications') %}aria-current="page"{% endif %}>Publications</a>
       <a href="/configuration" {% if current_path == '/configuration' %}aria-current="page"{% endif %}>Configuration</a>
+      <a class="workspace-nav-link" href="/workspace" {% if current_path == '/workspace' %}aria-current="page"{% endif %}>Change workspace</a>
     </nav>
     {% endif %}
     <main class="workspace">

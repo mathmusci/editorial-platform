@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ 'Change workspace' if workspace_loaded else 'Open workspace' }}{% endblock %}
 {% block content %}
-<header class="page-header"><div><p class="eyebrow">Local files</p><h1>{{ 'Change workspace' if workspace_loaded else 'Open workspace' }}</h1></div></header>
+<header class="page-header"><div><p class="eyebrow">Local files</p><h1>{{ 'Change workspace' if workspace_loaded else 'Open workspace' }}</h1>{% if workspace_loaded %}<p class="lede">Choose another configuration and database. The current workspace remains active until you open the new selection.</p>{% endif %}</div></header>
 {% if error %}<aside class="notice" role="alert">{{ error }}</aside>{% endif %}
 <form class="editorial-form" method="post" action="/workspace">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
