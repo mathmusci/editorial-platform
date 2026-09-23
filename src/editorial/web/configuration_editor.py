@@ -19,6 +19,11 @@ from editorial.models import Article
 TYPES = {
     "providers": {"rss": "RSS feed", "static": "Static articles"},
     "extractors": {"reading_time": "Reading time", "llm_summary": "LLM summary"},
+    "evaluators": {
+        "rule_relevance": "Rule relevance",
+        "llm_relevance": "LLM relevance",
+        "llm_summary_quality": "LLM summary quality",
+    },
 }
 LLM_MODELS = {
     "ollama": ["qwen3.5:9b", "deepseek-r1:8b", "gpt-oss:20b"],
@@ -106,6 +111,80 @@ class Draft:
                 )
             )
 
+        def add_llm_provider(prefix: str, config: dict) -> None:
+            provider = config.get("provider")
+            if not isinstance(provider, dict):
+                provider = {
+                    "type": provider or "fake",
+                    **{
+                        k: config[k]
+                        for k in (
+                            "model",
+                            "response_text",
+                            "metadata",
+                            "api_key_env",
+                            "base_url",
+                            "organization",
+                            "project",
+                            "temperature",
+                            "max_tokens",
+                        )
+                        if k in config
+                    },
+                }
+            add(
+                f"{prefix}.provider.type",
+                "LLM provider",
+                provider,
+                "type",
+                "select",
+                "fake",
+                ["fake", "openai", "ollama"],
+            )
+            for key, label, kind, default in [
+                ("model", "Model", "text", ""),
+                ("base_url", "Base URL", "text", ""),
+                ("temperature", "Temperature", "number", 0),
+                ("max_tokens", "Maximum tokens", "number", 180),
+                (
+                    "api_key_env",
+                    "API key environment variable",
+                    "text",
+                    "OPENAI_API_KEY",
+                ),
+                ("organization", "Organisation", "text", ""),
+                ("project", "Project", "text", ""),
+                ("response_text", "Fake response", "textarea", ""),
+            ]:
+                if (
+                    key in {"base_url", "temperature", "max_tokens"}
+                    and provider["type"] == "fake"
+                ):
+                    continue
+                if (
+                    key in {"api_key_env", "organization", "project"}
+                    and provider["type"] != "openai"
+                ):
+                    continue
+                if key == "response_text" and provider["type"] != "fake":
+                    continue
+                choices = None
+                if key == "model" and provider["type"] in LLM_MODELS:
+                    kind = "select"
+                    choices = list(LLM_MODELS[provider["type"]])
+                    existing_model = provider.get("model")
+                    if existing_model and existing_model not in choices:
+                        choices.insert(0, existing_model)
+                add(
+                    f"{prefix}.provider.{key}",
+                    label,
+                    provider,
+                    key,
+                    kind,
+                    default,
+                    choices,
+                )
+
         publication = self.data.setdefault("publication", {})
         add("publication.name", "Publication name", publication, "name")
         add(
@@ -175,66 +254,60 @@ class Draft:
                         200,
                     )
                 elif entry["type"] == "llm_summary":
-                    provider = config.get("provider") or {
-                        "type": "fake",
-                        **{
-                            k: config[k]
-                            for k in ("model", "response_text", "metadata")
-                            if k in config
-                        },
-                    }
-                    add(
-                        f"{prefix}.provider.type",
-                        "LLM provider",
-                        provider,
-                        "type",
-                        "select",
-                        "fake",
-                        ["fake", "openai", "ollama"],
-                    )
-                    for key, label, kind, default in [
-                        ("model", "Model", "text", ""),
-                        ("base_url", "Base URL", "text", ""),
-                        ("temperature", "Temperature", "number", 0),
-                        ("max_tokens", "Maximum tokens", "number", 180),
-                        (
-                            "api_key_env",
-                            "API key environment variable",
-                            "text",
-                            "OPENAI_API_KEY",
-                        ),
-                        ("organization", "Organisation", "text", ""),
-                        ("project", "Project", "text", ""),
-                        ("response_text", "Fake response", "textarea", ""),
+                    add_llm_provider(prefix, config)
+                elif entry["type"] == "rule_relevance":
+                    for key, label in [
+                        ("include", "Include terms (one per line)"),
+                        ("exclude", "Exclude terms (one per line)"),
                     ]:
-                        if (
-                            key in {"base_url", "temperature", "max_tokens"}
-                            and provider["type"] == "fake"
-                        ):
-                            continue
-                        if (
-                            key in {"api_key_env", "organization", "project"}
-                            and provider["type"] != "openai"
-                        ):
-                            continue
-                        if key == "response_text" and provider["type"] != "fake":
-                            continue
-                        choices = None
-                        if key == "model" and provider["type"] in LLM_MODELS:
-                            kind = "select"
-                            choices = list(LLM_MODELS[provider["type"]])
-                            existing_model = provider.get("model")
-                            if existing_model and existing_model not in choices:
-                                choices.insert(0, existing_model)
+                        add(prefix + "." + key, label, config, key, "lines", [])
+                        result[-1]["value"] = "\n".join(config.get(key, []))
+                    weights = config.get("weights") or {}
+                    for key, label, default in [
+                        ("title", "Title weight", 5),
+                        ("summary", "Summary weight", 2),
+                        ("content", "Content weight", 1),
+                    ]:
                         add(
-                            f"{prefix}.provider.{key}",
+                            f"{prefix}.weight.{key}",
                             label,
-                            provider,
+                            weights,
                             key,
-                            kind,
+                            "number",
                             default,
-                            choices,
                         )
+                elif entry["type"] in {"llm_relevance", "llm_summary_quality"}:
+                    add(
+                        prefix + ".criterion",
+                        "Criterion",
+                        config,
+                        "criterion",
+                        default=(
+                            "editorial_relevance"
+                            if entry["type"] == "llm_relevance"
+                            else "summary_quality"
+                        ),
+                    )
+                    if entry["type"] == "llm_summary_quality":
+                        extractor_choices = [
+                            extractor.get("key") or "llm_summary"
+                            for extractor in self.data.get("extractors", [])
+                            if extractor.get("type") == "llm_summary"
+                        ]
+                        extractor_choices = list(dict.fromkeys(extractor_choices))
+                        existing = config.get("summary_extractor", "llm_summary")
+                        if existing not in extractor_choices:
+                            extractor_choices.insert(0, existing)
+                        add(
+                            prefix + ".summary_extractor",
+                            "Summary extractor",
+                            config,
+                            "summary_extractor",
+                            "select",
+                            "llm_summary",
+                            extractor_choices,
+                        )
+                    add_llm_provider(prefix, config)
         return result
 
     def apply(self, form: dict[str, str]) -> None:
@@ -245,8 +318,14 @@ class Draft:
             value: Any = form.get(key, "")
             if f["protected"] and not value:
                 continue
+            if f["kind"] != "checkbox" and value == (
+                "" if f["value"] is None else str(f["value"])
+            ):
+                continue
             if f["kind"] == "checkbox":
                 value = key in form
+            elif f["kind"] == "lines":
+                value = [line.strip() for line in value.splitlines() if line.strip()]
             if value == f["value"] or (value == "" and f["value"] is None):
                 continue
             parts = key.split(".")
@@ -269,10 +348,12 @@ class Draft:
                     article[parts[4]] = value
             elif parts[2] == "provider":
                 existing = settings(entry)
-                provider = copy.deepcopy(
-                    existing.get("provider")
-                    or {
-                        "type": "fake",
+                configured_provider = existing.get("provider")
+                provider = (
+                    copy.deepcopy(configured_provider)
+                    if isinstance(configured_provider, dict)
+                    else {
+                        "type": configured_provider or "fake",
                         **{
                             k: existing[k]
                             for k in ("model", "response_text", "metadata")
@@ -285,6 +366,13 @@ class Draft:
                 else:
                     provider[parts[3]] = value
                 set_setting(entry, "provider", provider)
+            elif parts[2] == "weight":
+                weights = copy.deepcopy(settings(entry).get("weights") or {})
+                if value == "":
+                    weights.pop(parts[3], None)
+                else:
+                    weights[parts[3]] = value
+                set_setting(entry, "weights", weights)
             else:
                 set_setting(entry, parts[2], None if value == "" else value)
         self.revision += 1
@@ -307,10 +395,10 @@ class Draft:
                         "Use letters, numbers, underscores or hyphens; start with a letter or number."
                     )
                 identity = entry.get("key") or entry["type"]
-                if group == "extractors" and entry.get("enabled", True):
+                if group in {"extractors", "evaluators"} and entry.get("enabled", True):
                     if identity in identities:
                         self.errors[prefix + ".key"] = (
-                            "Give each enabled extractor a unique key."
+                            f"Give each enabled {group[:-1]} a unique key."
                         )
                     identities.add(identity)
                 config = settings(entry)
@@ -357,6 +445,37 @@ class Draft:
                         (provider, key, prefix + ".provider", cast)
                         for key, cast in [("temperature", float), ("max_tokens", int)]
                     ]
+                if entry["type"] == "rule_relevance":
+                    numbers = [
+                        (config.get("weights") or {}, key, prefix + ".weight", float)
+                        for key in ("title", "summary", "content")
+                    ]
+                if entry["type"] in {"llm_relevance", "llm_summary_quality"}:
+                    provider = config.get("provider", {"type": "fake"})
+                    if not isinstance(provider, dict):
+                        provider = {"type": provider}
+                    if provider.get("type") not in {"fake", "openai", "ollama"}:
+                        self.errors[prefix + ".provider.type"] = (
+                            "Choose a supported LLM provider."
+                        )
+                    if (
+                        provider.get("type") != "fake"
+                        and not str(provider.get("model", "")).strip()
+                    ):
+                        self.errors[prefix + ".provider.model"] = "Enter a model name."
+                    if (
+                        entry["type"] == "llm_summary_quality"
+                        and not str(
+                            config.get("summary_extractor", "llm_summary")
+                        ).strip()
+                    ):
+                        self.errors[prefix + ".summary_extractor"] = (
+                            "Choose the summary extractor to evaluate."
+                        )
+                    numbers = [
+                        (provider, key, prefix + ".provider", cast)
+                        for key, cast in [("temperature", float), ("max_tokens", int)]
+                    ]
                 for obj, key, location, cast in numbers:
                     if key not in obj or obj[key] is None:
                         continue
@@ -364,13 +483,20 @@ class Draft:
                         number = cast(obj[key])
                         if (
                             number < 0
-                            or (key != "temperature" and number == 0)
+                            or (
+                                key in {"words_per_minute", "max_tokens"}
+                                and number == 0
+                            )
                             or str(number) in {"nan", "inf", "-inf"}
                         ):
                             raise ValueError
                         obj[key] = number
                         if entry["type"] == "reading_time":
                             set_setting(entry, key, number)
+                        elif entry["type"] == "rule_relevance":
+                            weights = copy.deepcopy(config.get("weights") or {})
+                            weights[key] = number
+                            set_setting(entry, "weights", weights)
                     except (ValueError, TypeError):
                         self.errors[f"{location}.{key}"] = (
                             "Enter a valid positive number."
