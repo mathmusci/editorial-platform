@@ -1,6 +1,6 @@
 # Configuration Editor
 
-The first stage covers publication details, content providers and extractors.
+The editor covers publication details, content providers, extractors and evaluators.
 Start with `editorial web`, then choose **New configuration**, or select an existing
 YAML file and choose **Edit selected configuration**. In an open workspace, choose
 **Configuration > Edit configuration**.
@@ -20,15 +20,36 @@ YAML file and choose **Edit selected configuration**. In an open workspace, choo
 6. Choose **Use configuration**, select or create a database, and **Open
    workspace**. In Operations, run ingestion and then extraction.
 
+## Configure Editorial Evaluation
+
+Under **Evaluators**, choose the judgement the workflow should create:
+
+- **Rule relevance** scores configured include and exclude terms wherever they
+  occur in an article's title, summary or content. Enter one term per line. The
+  weights control the relative importance of matches in those three fields.
+- **LLM relevance** asks a fake, OpenAI or Ollama provider to judge whether the
+  article satisfies the configured criterion. Its relevance Evaluation can be
+  consumed by optimisation.
+- **LLM summary quality** judges the output of a configured LLM summary extractor.
+  Select that extractor by its stable key. Summary-quality evidence is available
+  for inspection and calibration but does not currently alter optimisation.
+
+Give multiple evaluators of the same type distinct processor keys. Those keys are
+stored on Evaluations and determine whether `--missing-only` considers an
+article-evaluator operation complete. For LLM evaluators, provider fields and model
+choices work in the same way as the LLM summary extractor. A fake response must use
+the JSON shape expected by the evaluator; it is intended for deterministic workflow
+testing rather than editorial scoring.
+
 The fake LLM provider supports a fixed response for testing. OpenAI uses an
 environment-variable name for the API key; saving does not require credentials or
 contact the provider. Model availability and credentials are checked at runtime.
 
 Static providers use **Add article** for title, URL, source, publication date,
 authors (one per line), summary and content. Existing article metadata is retained.
-Each provider or extractor can be named, enabled or disabled, and removed. Give
-multiple extractors of the same type distinct processor keys. To replace a content
-provider or extractor type, add the replacement and remove the old entry.
+Each provider, extractor or evaluator can be named, enabled or disabled, and
+removed. Give multiple processors of the same type distinct processor keys. To
+replace a processor type, add the replacement and remove the old entry.
 
 ## Draft, Save and Activate
 
@@ -52,15 +73,15 @@ server against a database and avoid concurrent CLI operations when editing.
 
 ## Preservation and Scope
 
-Evaluator configuration, editorial policy, optimisation, publishers, extra settings
-and metadata are retained when editing an existing file. YAML comments and original
+Editorial policy, optimisation, publishers, extra settings and metadata are retained
+when editing an existing file. YAML comments and original
 formatting are not preserved; saved YAML remains usable by the CLI.
 Secret fields outside the editor stay on the server. URLs containing credentials or
 query strings appear as an empty field with **Stored value retained**; leave that
 field blank to preserve it, or enter a replacement URL.
 
-New configurations initially contain publication details and the providers and
-extractors you add. They do not yet define evaluator or publication-selection
+New configurations initially contain publication details and the providers,
+extractors and evaluators you add. They do not yet define publication-selection
 settings. For a complete pipeline today, edit or copy an existing complete
-configuration. Later stages add evaluator, editorial-policy and optimisation
-editing, followed by publishers.
+configuration. Later stages add editorial-policy and optimisation editing, followed
+by publishers.

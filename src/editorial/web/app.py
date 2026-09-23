@@ -477,7 +477,11 @@ def create_app(
                 entry = {"type": kind, "enabled": True}
                 if kind == "static":
                     entry["articles"] = []
-                if kind == "llm_summary":
+                if kind in {
+                    "llm_summary",
+                    "llm_relevance",
+                    "llm_summary_quality",
+                }:
                     entry["provider"] = {"type": "fake"}
                 draft.data.setdefault(group, []).append(entry)
             elif parts[0] == "remove" and parts[1] in TYPES:

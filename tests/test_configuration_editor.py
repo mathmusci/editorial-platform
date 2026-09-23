@@ -363,6 +363,184 @@ def test_existing_unlisted_model_is_preserved_as_a_choice(tmp_path):
     ]
 
 
+def test_evaluator_fields_round_trip_and_convert_values(tmp_path):
+    source = tmp_path / "publication.yaml"
+    source.write_text(
+        yaml.safe_dump(
+            {
+                "publication": {"name": "Evaluation trial"},
+                "extractors": [
+                    {
+                        "type": "llm_summary",
+                        "key": "local_summary",
+                        "provider": {"type": "fake"},
+                    }
+                ],
+                "evaluators": [
+                    {
+                        "type": "rule_relevance",
+                        "key": "rules",
+                        "include": ["statistics"],
+                        "exclude": ["football"],
+                        "weights": {"title": 5, "summary": 2, "content": 1},
+                    },
+                    {
+                        "type": "llm_summary_quality",
+                        "key": "quality",
+                        "summary_extractor": "local_summary",
+                        "provider": {
+                            "type": "ollama",
+                            "model": "qwen3.5:9b",
+                            "temperature": 0,
+                            "max_tokens": 300,
+                        },
+                    },
+                ],
+            }
+        )
+    )
+    draft = Draft.open(source)
+    form = values(draft)
+    form.update(
+        {
+            "evaluators.0.include": "statistics\nforecasting\n",
+            "evaluators.0.weight.title": "7.5",
+            "evaluators.1.criterion": "newsletter_summary_quality",
+            "evaluators.1.provider.temperature": "0.2",
+            "evaluators.1.provider.max_tokens": "400",
+        }
+    )
+
+    draft.apply(form)
+    draft.save(source, True)
+
+    data = yaml.safe_load(source.read_text())
+    assert data["evaluators"][0]["include"] == ["statistics", "forecasting"]
+    assert data["evaluators"][0]["weights"] == {
+        "title": 7.5,
+        "summary": 2.0,
+        "content": 1.0,
+    }
+    quality = data["evaluators"][1]
+    assert quality["summary_extractor"] == "local_summary"
+    assert quality["criterion"] == "newsletter_summary_quality"
+    assert quality["provider"]["temperature"] == 0.2
+    assert quality["provider"]["max_tokens"] == 400
+    loaded = load_publication_config(source)
+    assert loaded.evaluators[1].settings["summary_extractor"] == "local_summary"
+
+
+def test_summary_quality_extractor_choices_follow_configured_keys():
+    draft = Draft.open(None)
+    draft.data["extractors"] = [
+        {"type": "llm_summary", "key": "summary_qwen"},
+        {"type": "llm_summary", "key": "summary_deepseek"},
+    ]
+    draft.data["evaluators"] = [
+        {
+            "type": "llm_summary_quality",
+            "summary_extractor": "legacy_summary",
+            "provider": {"type": "fake"},
+        }
+    ]
+
+    field = next(
+        f for f in draft.fields() if f["id"] == "evaluators.0.summary_extractor"
+    )
+
+    assert field["choices"] == [
+        "legacy_summary",
+        "summary_qwen",
+        "summary_deepseek",
+    ]
+
+
+def test_evaluator_validation_rejects_duplicate_keys_and_bad_numbers(tmp_path):
+    draft = Draft.open(None)
+    draft.data["publication"]["name"] = "Evaluation trial"
+    draft.data["evaluators"] = [
+        {"type": "rule_relevance", "key": "relevance", "weights": {"title": -1}},
+        {"type": "llm_relevance", "key": "relevance", "provider": {"type": "ollama"}},
+    ]
+
+    with pytest.raises(ValueError):
+        draft.save(tmp_path / "invalid.yaml", False)
+
+    assert "evaluators.0.weight.title" in draft.errors
+    assert "evaluators.1.key" in draft.errors
+    assert "evaluators.1.provider.model" in draft.errors
+
+
+def test_editing_legacy_string_provider_migrates_it_to_nested_form():
+    draft = Draft.open(None)
+    draft.data["evaluators"] = [
+        {
+            "type": "llm_relevance",
+            "provider": "fake",
+            "model": "legacy-model",
+            "response_text": "legacy response",
+        }
+    ]
+
+    draft.apply({"evaluators.0.provider.model": "replacement-model"})
+
+    assert draft.data["evaluators"][0]["provider"] == {
+        "type": "fake",
+        "model": "replacement-model",
+        "response_text": "legacy response",
+    }
+
+
+def test_editor_can_add_switch_and_remove_evaluators(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    with TestClient(create_app()) as client:
+        csrf = client.app.state.csrf_token
+        page = client.post(
+            "/configuration/editor", data={"new": "1", "csrf_token": csrf}
+        )
+        url = page.url.path
+
+        page = client.post(
+            url,
+            data={
+                "csrf_token": csrf,
+                "revision": "0",
+                "action": "add:evaluators",
+                "add_evaluators": "llm_relevance",
+                "publication.name": "Trial",
+            },
+        )
+        assert page.status_code == 200
+        assert "LLM relevance 1" in page.text
+        assert "Fake response" in page.text
+
+        page = client.post(
+            url,
+            data={
+                "csrf_token": csrf,
+                "revision": "1",
+                "action": "update",
+                "evaluators.0.enabled": "on",
+                "evaluators.0.provider.type": "ollama",
+            },
+        )
+        assert page.status_code == 200
+        assert "qwen3.5:9b" in page.text
+        assert "Maximum tokens" in page.text
+
+        page = client.post(
+            url,
+            data={
+                "csrf_token": csrf,
+                "revision": "2",
+                "action": "remove:evaluators:0",
+                "evaluators.0.enabled": "on",
+            },
+        )
+        assert page.status_code == 200
+        assert "LLM relevance 1" not in page.text
+
+
 def test_active_config_save_blocks_actions_until_activation(tmp_path):
     source = tmp_path / "config.yaml"
     source.write_text("publication:\n  name: Original\n")
