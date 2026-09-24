@@ -32,19 +32,20 @@
   <input type="hidden" name="revision" value="{{ draft.revision }}">
   {% if saved %}<div class="workspace-selection-actions"><button name="action" value="use">Use configuration</button></div>{% endif %}
   <nav class="config-section-nav" aria-label="Configuration sections">
-    <a href="#config-providers">Content providers</a><a href="#config-extractors">Extractors</a><a href="#config-evaluators">Evaluators</a><a href="#config-policy">Editorial policy</a><a href="#config-optimisation">Optimisation</a><a href="#config-save">Save configuration</a>
+    <a href="#config-providers">Content providers</a><a href="#config-extractors">Extractors</a><a href="#config-evaluators">Evaluators</a><a href="#config-policy">Editorial policy</a><a href="#config-optimisation">Optimisation</a><a href="#config-publishers">Publishers</a><a href="#config-save">Save configuration</a>
   </nav>
   <details class="config-section config-section-publication" id="config-publication" open>
     <summary class="config-section-header"><span><small>Identity</small><strong>Publication</strong></span><span class="config-section-toggle" aria-hidden="true"></span></summary>
     <div class="config-section-body"><div class="config-fields">{% for f in fields if f.id.startswith('publication.') %}{{ input_field(f) }}{% endfor %}</div></div>
   </details>
   {% for group, types in groups.items() %}
-  {% set group_title = 'Content providers' if group == 'providers' else ('Extractors' if group == 'extractors' else 'Evaluators') %}
-  {% set group_stage = 'Sources' if group == 'providers' else ('Evidence' if group == 'extractors' else 'Judgement') %}
+  {% set group_title = 'Content providers' if group == 'providers' else ('Extractors' if group == 'extractors' else ('Evaluators' if group == 'evaluators' else 'Publishers')) %}
+  {% set group_stage = 'Sources' if group == 'providers' else ('Evidence' if group == 'extractors' else ('Judgement' if group == 'evaluators' else 'Output')) %}
   <details class="config-section config-section-{{ group }}" id="config-{{ group }}" open>
     <summary class="config-section-header"><span><small>{{ group_stage }}</small><strong>{{ group_title }}</strong></span><span class="config-section-header-side"><span class="config-section-count">{{ entries[group]|length }} configured</span><span class="config-section-toggle" aria-hidden="true"></span></span></summary>
     <div class="config-section-body">
     {% if group == 'evaluators' %}<p class="section-intro">Evaluators turn article evidence into editorial judgements. Rule relevance is deterministic; LLM relevance judges article suitability; LLM summary quality judges a selected summary without directly changing article selection.</p>{% endif %}
+    {% if group == 'publishers' %}<p class="section-intro">Publishers describe available output formats. The current Markdown renderer uses its built-in layout; an existing template path is retained but is not loaded during rendering.</p>{% endif %}
     {% for entry in entries[group] %}
     <section class="processor-editor">
       {% set enabled_field = entry.fields | selectattr('key', 'equalto', 'enabled') | first %}
@@ -61,7 +62,7 @@
       {% if entry.type == 'static' %}<button name="action" value="add_article:{{ entry.index }}" formnovalidate>Add article</button>{% endif %}
     </section>
     {% endfor %}
-    <div class="config-add"><label for="add_{{ group }}">Type</label><select id="add_{{ group }}" name="add_{{ group }}">{% for type, label in types.items() %}<option value="{{ type }}">{{ label }}</option>{% endfor %}</select><button name="action" value="add:{{ group }}" formnovalidate>Add {{ 'provider' if group == 'providers' else ('extractor' if group == 'extractors' else 'evaluator') }}</button></div>
+    <div class="config-add"><label for="add_{{ group }}">Type</label><select id="add_{{ group }}" name="add_{{ group }}">{% for type, label in types.items() %}<option value="{{ type }}">{{ label }}</option>{% endfor %}</select><button name="action" value="add:{{ group }}" formnovalidate>Add {{ {'providers': 'provider', 'extractors': 'extractor', 'evaluators': 'evaluator', 'publishers': 'publisher'}[group] }}</button></div>
     </div>
   </details>
   {% endfor %}

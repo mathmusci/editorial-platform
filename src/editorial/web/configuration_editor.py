@@ -24,6 +24,7 @@ TYPES = {
         "llm_relevance": "LLM relevance",
         "llm_summary_quality": "LLM summary quality",
     },
+    "publishers": {"markdown": "Markdown"},
 }
 LLM_MODELS = {
     "ollama": ["qwen3.5:9b", "deepseek-r1:8b", "gpt-oss:20b"],
@@ -494,6 +495,19 @@ class Draft:
                             extractor_choices,
                         )
                     add_llm_provider(prefix, config)
+                elif entry["type"] == "markdown":
+                    add(
+                        prefix + ".template",
+                        "Template path",
+                        config,
+                        "template",
+                        help=(
+                            "Optional path relative to the configuration file's folder, "
+                            "or an absolute path. It is retained for publisher "
+                            "compatibility; the current built-in Markdown renderer does "
+                            "not load custom templates."
+                        ),
+                    )
         return result
 
     def apply(self, form: dict[str, str]) -> None:

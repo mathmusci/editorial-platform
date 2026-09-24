@@ -456,6 +456,87 @@ def test_summary_quality_extractor_choices_follow_configured_keys():
     ]
 
 
+def test_markdown_publisher_round_trip_preserves_extra_settings(tmp_path):
+    source = tmp_path / "publication.yaml"
+    source.write_text(
+        yaml.safe_dump(
+            {
+                "publication": {"name": "Publishing trial"},
+                "publishers": [
+                    {
+                        "type": "markdown",
+                        "key": "newsletter_markdown",
+                        "name": "Newsletter download",
+                        "template": "templates/original.md.j2",
+                        "metadata": {"retained": True},
+                    }
+                ],
+            }
+        )
+    )
+    draft = Draft.open(source)
+    form = values(draft)
+    form.update(
+        {
+            "publishers.0.name": "Editorial Markdown",
+            "publishers.0.template": "templates/editorial.md.j2",
+        }
+    )
+
+    draft.apply(form)
+    draft.save(source, True)
+
+    data = yaml.safe_load(source.read_text())
+    assert data["publishers"] == [
+        {
+            "type": "markdown",
+            "key": "newsletter_markdown",
+            "name": "Editorial Markdown",
+            "template": "templates/editorial.md.j2",
+            "metadata": {"retained": True},
+        }
+    ]
+    loaded = load_publication_config(source)
+    assert loaded.publishers[0].settings["template"] == ("templates/editorial.md.j2")
+
+
+def test_editor_can_add_and_remove_markdown_publisher(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    with TestClient(create_app()) as client:
+        csrf = client.app.state.csrf_token
+        page = client.post(
+            "/configuration/editor", data={"new": "1", "csrf_token": csrf}
+        )
+        url = page.url.path
+
+        page = client.post(
+            url,
+            data={
+                "csrf_token": csrf,
+                "revision": "0",
+                "action": "add:publishers",
+                "add_publishers": "markdown",
+                "publication.name": "Publishing trial",
+            },
+        )
+        assert page.status_code == 200
+        assert "Markdown 1" in page.text
+        assert "Template path" in page.text
+        assert "does not load custom templates" in page.text
+
+        page = client.post(
+            url,
+            data={
+                "csrf_token": csrf,
+                "revision": "1",
+                "action": "remove:publishers:0",
+                "publishers.0.enabled": "on",
+            },
+        )
+        assert page.status_code == 200
+        assert "Markdown 1" not in page.text
+
+
 def test_evaluator_validation_rejects_duplicate_keys_and_bad_numbers(tmp_path):
     draft = Draft.open(None)
     draft.data["publication"]["name"] = "Evaluation trial"
@@ -706,11 +787,12 @@ def test_policy_and_optimisation_editor_explains_operational_effects(tmp_path):
         "evaluators",
         "policy",
         "optimisation",
+        "publishers",
         "save",
     ):
         assert f'id="config-{section}" open' in page.text
         assert f'href="#config-{section}"' in page.text
-    assert page.text.count(">0 configured<") == 3
+    assert page.text.count(">0 configured<") == 4
 
 
 def test_active_config_save_blocks_actions_until_activation(tmp_path):
