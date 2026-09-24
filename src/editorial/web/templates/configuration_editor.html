@@ -9,11 +9,12 @@
 <div class="config-field">
   <label for="{{ f.id }}">{{ f.label }}</label>
   {% if f.kind == 'select' %}
-  <select id="{{ f.id }}" name="{{ f.id }}">{% for choice in f.choices %}<option value="{{ choice }}" {% if f.value == choice %}selected{% endif %}>{{ choice }}</option>{% endfor %}</select>
+  <select id="{{ f.id }}" name="{{ f.id }}" {% if f.help %}aria-describedby="{{ f.id }}-help"{% endif %}>{% for choice in f.choices %}<option value="{{ choice }}" {% if f.value == choice %}selected{% endif %}>{{ choice|replace('_', ' ')|capitalize }}</option>{% endfor %}</select>
   {% if f.key == 'type' and '.provider.' in f.id %}<button name="action" value="update" formnovalidate>Update provider fields</button>{% endif %}
   {% elif f.kind in ['textarea', 'lines'] %}<textarea id="{{ f.id }}" name="{{ f.id }}" rows="3">{{ f.value or '' }}</textarea>
   {% elif f.kind == 'checkbox' %}<input id="{{ f.id }}" name="{{ f.id }}" type="checkbox" {% if f.value %}checked{% endif %}>
-  {% else %}<input id="{{ f.id }}" name="{{ f.id }}" type="{{ f.kind }}" {% if provider_key or local_feed_path or feed_url %}aria-describedby="{{ f.id }}-help"{% endif %} {% if f.kind == 'number' %}step="{{ 'any' if f.key == 'temperature' or '.weight.' in f.id else '1' }}" min="{{ '0' if f.key == 'temperature' or '.weight.' in f.id else '1' }}"{% endif %} value="{{ f.value if f.value is not none else '' }}" {% if f.protected %}placeholder="Stored value retained"{% endif %} autocomplete="off">{% endif %}
+  {% else %}<input id="{{ f.id }}" name="{{ f.id }}" type="{{ f.kind }}" {% if provider_key or local_feed_path or feed_url or f.help %}aria-describedby="{{ f.id }}-help"{% endif %} {% if f.kind == 'number' %}step="{{ f.step if f.step is not none else ('any' if f.key == 'temperature' or '.weight.' in f.id else '1') }}" min="{{ f.minimum if f.minimum is not none else ('0' if f.key == 'temperature' or '.weight.' in f.id else '1') }}" {% if f.maximum is not none %}max="{{ f.maximum }}"{% endif %}{% endif %} value="{{ f.value if f.value is not none else '' }}" {% if f.protected %}placeholder="Stored value retained"{% endif %} autocomplete="off">{% endif %}
+  {% if f.help %}<small id="{{ f.id }}-help">{{ f.help }}</small>{% endif %}
   {% if provider_key %}<small id="{{ f.id }}-help">Optional. Leave blank: content-provider keys are currently unused by ingestion. Use Source name to identify the source on articles.</small>{% endif %}
   {% if evaluator_key %}<small>Optional unless you configure more than one evaluator of this type. This stable key identifies stored evaluations and resumable runs.</small>{% endif %}
   {% if summary_extractor %}<small>Select the configured LLM summary whose output this evaluator should judge. The key must match exactly.</small>{% endif %}
@@ -30,10 +31,19 @@
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <input type="hidden" name="revision" value="{{ draft.revision }}">
   {% if saved %}<div class="workspace-selection-actions"><button name="action" value="use">Use configuration</button></div>{% endif %}
-  <section class="section-block"><h2>Publication</h2><div class="config-fields">{% for f in fields if f.id.startswith('publication.') %}{{ input_field(f) }}{% endfor %}</div></section>
+  <nav class="config-section-nav" aria-label="Configuration sections">
+    <a href="#config-providers">Content providers</a><a href="#config-extractors">Extractors</a><a href="#config-evaluators">Evaluators</a><a href="#config-policy">Editorial policy</a><a href="#config-optimisation">Optimisation</a><a href="#config-save">Save configuration</a>
+  </nav>
+  <details class="config-section config-section-publication" id="config-publication" open>
+    <summary class="config-section-header"><span><small>Identity</small><strong>Publication</strong></span><span class="config-section-toggle" aria-hidden="true"></span></summary>
+    <div class="config-section-body"><div class="config-fields">{% for f in fields if f.id.startswith('publication.') %}{{ input_field(f) }}{% endfor %}</div></div>
+  </details>
   {% for group, types in groups.items() %}
-  <section class="section-block">
-    <h2>{{ 'Content providers' if group == 'providers' else ('Extractors' if group == 'extractors' else 'Evaluators') }}</h2>
+  {% set group_title = 'Content providers' if group == 'providers' else ('Extractors' if group == 'extractors' else 'Evaluators') %}
+  {% set group_stage = 'Sources' if group == 'providers' else ('Evidence' if group == 'extractors' else 'Judgement') %}
+  <details class="config-section config-section-{{ group }}" id="config-{{ group }}" open>
+    <summary class="config-section-header"><span><small>{{ group_stage }}</small><strong>{{ group_title }}</strong></span><span class="config-section-header-side"><span class="config-section-count">{{ entries[group]|length }} configured</span><span class="config-section-toggle" aria-hidden="true"></span></span></summary>
+    <div class="config-section-body">
     {% if group == 'evaluators' %}<p class="section-intro">Evaluators turn article evidence into editorial judgements. Rule relevance is deterministic; LLM relevance judges article suitability; LLM summary quality judges a selected summary without directly changing article selection.</p>{% endif %}
     {% for entry in entries[group] %}
     <section class="processor-editor">
@@ -52,17 +62,47 @@
     </section>
     {% endfor %}
     <div class="config-add"><label for="add_{{ group }}">Type</label><select id="add_{{ group }}" name="add_{{ group }}">{% for type, label in types.items() %}<option value="{{ type }}">{{ label }}</option>{% endfor %}</select><button name="action" value="add:{{ group }}" formnovalidate>Add {{ 'provider' if group == 'providers' else ('extractor' if group == 'extractors' else 'evaluator') }}</button></div>
-  </section>
+    </div>
+  </details>
   {% endfor %}
-  <section class="section-block">
-    <h2>Save configuration</h2>
+  <details class="config-section config-section-policy" id="config-policy" open>
+    <summary class="config-section-header"><span><small>Publication intent</small><strong>Editorial policy</strong></span><span class="config-section-toggle" aria-hidden="true"></span></summary>
+    <div class="config-section-body">
+    <p class="section-intro">Publication-level policy metadata. These values describe intended limits but are not currently enforced by the greedy optimiser; configure issue selection separately below.</p>
+    <div class="config-fields">{% for f in fields if f.id.startswith('editorial_policy.') and '.status.' not in f.id %}{{ input_field(f) }}{% endfor %}</div>
+    <fieldset class="config-choice-group">
+      <legend>Article statuses eligible for an issue</legend>
+      <input type="hidden" name="editorial_policy.statuses_present" value="1">
+      <div class="config-checkboxes">{% for f in fields if f.id.startswith('editorial_policy.status.') %}<label for="{{ f.id }}"><input id="{{ f.id }}" name="{{ f.id }}" type="checkbox" {% if f.value %}checked{% endif %}> {{ f.label }}</label>{% endfor %}</div>
+      {% if draft.errors.get('editorial_policy.status') %}<p class="field-error" role="alert">{{ draft.errors['editorial_policy.status'] }}</p>{% endif %}
+    </fieldset>
+    </div>
+  </details>
+  <details class="config-section config-section-optimisation" id="config-optimisation" open>
+    <summary class="config-section-header"><span><small>Issue construction</small><strong>Optimisation</strong></span><span class="config-section-toggle" aria-hidden="true"></span></summary>
+    <div class="config-section-body">
+    <p class="section-intro">Controls how a proposal is assembled from articles with relevance Evaluations. Hard limits exclude or cap candidates; targets and preferences alter scoring and may remain unsatisfied.</p>
+    <div class="config-fields">
+      {% for f in fields if f.id == 'optimisation.strategy' %}{{ input_field(f) }}{% endfor %}
+    </div>
+    <h3 class="config-subheading">Hard limits</h3>
+    <div class="config-fields">{% for f in fields if f.id in ['optimisation.settings.max_articles', 'optimisation.settings.hard_minimum_relevance_score'] %}{{ input_field(f) }}{% endfor %}</div>
+    <h3 class="config-subheading">Targets and preferences</h3>
+    <div class="config-fields">{% for f in fields if f.id in ['optimisation.settings.relevance_target_score', 'optimisation.settings.relevance_target_weight', 'optimisation.settings.reading_time_target_minutes', 'optimisation.settings.reading_time_weight', 'optimisation.settings.mandatory_terms', 'optimisation.settings.mandatory_terms_weight', 'optimisation.settings.source_diversity_max_per_source', 'optimisation.settings.source_diversity_weight'] %}{{ input_field(f) }}{% endfor %}</div>
+    {% if draft.data.get('optimisation', {}).get('constraints') or draft.data.get('optimisation', {}).get('maximise') %}<aside class="notice">Existing generic constraints and maximise goals are retained in YAML, but the current greedy optimiser does not consume them. Its operational controls are the settings shown above.</aside>{% endif %}
+    </div>
+  </details>
+  <details class="config-section config-section-save" id="config-save" open>
+    <summary class="config-section-header"><span><small>Draft controls</small><strong>Save configuration</strong></span><span class="config-section-toggle" aria-hidden="true"></span></summary>
+    <div class="config-section-body">
     <p class="muted">Folder: {{ draft.source.parent|deployment_relative if draft.source else '.' }}</p>
     <label for="filename">Filename</label><input id="filename" name="filename" value="{{ draft.filename }}">
     <div class="workspace-selection-actions config-save-actions">
       <button name="action" value="save">Save</button>{% if draft.source %}<button name="action" value="save_as">Save as</button>{% endif %}
       <button name="action" value="discard" formnovalidate>Close draft</button>
     </div>
-  </section>
+    </div>
+  </details>
 </form>
 <script src="{{ url_for('static', path='/configuration-editor.js') }}"></script>
 {% endblock %}

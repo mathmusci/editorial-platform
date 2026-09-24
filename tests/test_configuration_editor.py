@@ -3,6 +3,7 @@ import yaml
 from fastapi.testclient import TestClient
 
 from editorial.config import load_publication_config
+from editorial.optimisers import build_optimiser
 from editorial.web import create_app
 from editorial.web.configuration_editor import Draft
 
@@ -539,6 +540,177 @@ def test_editor_can_add_switch_and_remove_evaluators(tmp_path, monkeypatch):
         )
         assert page.status_code == 200
         assert "LLM relevance 1" not in page.text
+
+
+def test_policy_and_optimisation_round_trip_preserves_generic_fields(tmp_path):
+    source = tmp_path / "publication.yaml"
+    source.write_text(
+        yaml.safe_dump(
+            {
+                "publication": {"name": "Policy trial"},
+                "editorial_policy": {
+                    "maximum_age_days": 45,
+                    "maximum_articles": 12,
+                    "maximum_reading_minutes": 20,
+                    "statuses_eligible_for_issue": ["accepted"],
+                    "custom_policy": "preserved",
+                },
+                "optimisation": {
+                    "strategy": "greedy",
+                    "settings": {
+                        "max_articles": 8,
+                        "relevance_target_score": 40,
+                        "unknown_setting": "preserved",
+                    },
+                    "maximise": ["relevance"],
+                    "constraints": {"minimum_relevance": 30},
+                },
+            }
+        )
+    )
+    draft = Draft.open(source)
+    form = values(draft)
+    form["editorial_policy.statuses_present"] = "1"
+    form.pop("editorial_policy.status.accepted")
+    form.update(
+        {
+            "editorial_policy.maximum_age_days": "30",
+            "editorial_policy.maximum_articles": "10",
+            "editorial_policy.maximum_reading_minutes": "18",
+            "editorial_policy.status.candidate": "on",
+            "optimisation.settings.max_articles": "6",
+            "optimisation.settings.hard_minimum_relevance_score": "20",
+            "optimisation.settings.relevance_target_score": "50",
+            "optimisation.settings.relevance_target_weight": "1.5",
+            "optimisation.settings.reading_time_target_minutes": "15",
+            "optimisation.settings.reading_time_weight": "2.5",
+            "optimisation.settings.mandatory_terms": "statistics\nindustry\n",
+            "optimisation.settings.mandatory_terms_weight": "7",
+            "optimisation.settings.source_diversity_max_per_source": "2",
+            "optimisation.settings.source_diversity_weight": "4",
+        }
+    )
+
+    draft.apply(form)
+    draft.save(source, True)
+
+    data = yaml.safe_load(source.read_text())
+    assert data["editorial_policy"] == {
+        "maximum_age_days": 30,
+        "maximum_articles": 10,
+        "maximum_reading_minutes": 18,
+        "statuses_eligible_for_issue": ["candidate"],
+        "custom_policy": "preserved",
+    }
+    assert data["optimisation"]["maximise"] == ["relevance"]
+    assert data["optimisation"]["constraints"] == {"minimum_relevance": 30}
+    settings = data["optimisation"]["settings"]
+    assert settings == {
+        "max_articles": 6,
+        "relevance_target_score": 50.0,
+        "unknown_setting": "preserved",
+        "hard_minimum_relevance_score": 20.0,
+        "relevance_target_weight": 1.5,
+        "reading_time_target_minutes": 15.0,
+        "reading_time_weight": 2.5,
+        "mandatory_terms": ["statistics", "industry"],
+        "mandatory_terms_weight": 7.0,
+        "source_diversity_max_per_source": 2,
+        "source_diversity_weight": 4.0,
+    }
+    config = load_publication_config(source)
+    config.optimisation.settings.pop("unknown_setting")
+    optimiser = build_optimiser(config.optimisation)
+    assert optimiser.max_articles == 6
+    assert optimiser.hard_minimum_relevance_score == 20
+    assert optimiser.mandatory_terms == ["statistics", "industry"]
+
+
+def test_policy_and_optimisation_validation_reports_boundaries(tmp_path):
+    draft = Draft.open(None)
+    draft.data["publication"]["name"] = "Invalid policy"
+    draft.data["editorial_policy"] = {
+        "maximum_age_days": "2.5",
+        "statuses_eligible_for_issue": [],
+    }
+    draft.data["optimisation"] = {
+        "strategy": "unsupported",
+        "settings": {
+            "max_articles": 0,
+            "hard_minimum_relevance_score": 101,
+            "reading_time_weight": -1,
+            "source_diversity_max_per_source": "1.5",
+        },
+    }
+
+    with pytest.raises(ValueError):
+        draft.save(tmp_path / "invalid.yaml", False)
+
+    assert {
+        "editorial_policy.maximum_age_days",
+        "editorial_policy.status",
+        "optimisation.strategy",
+        "optimisation.settings.max_articles",
+        "optimisation.settings.hard_minimum_relevance_score",
+        "optimisation.settings.reading_time_weight",
+        "optimisation.settings.source_diversity_max_per_source",
+    } <= draft.errors.keys()
+
+
+def test_partial_draft_action_does_not_clear_policy_statuses():
+    draft = Draft.open(None)
+    draft.data["editorial_policy"] = {
+        "statuses_eligible_for_issue": ["candidate", "accepted"]
+    }
+
+    draft.apply({"publication.name": "Edited"})
+
+    assert draft.data["editorial_policy"]["statuses_eligible_for_issue"] == [
+        "candidate",
+        "accepted",
+    ]
+
+
+def test_policy_and_optimisation_editor_explains_operational_effects(tmp_path):
+    source = tmp_path / "publication.yaml"
+    source.write_text(
+        yaml.safe_dump(
+            {
+                "publication": {"name": "Policy trial"},
+                "optimisation": {
+                    "strategy": "greedy",
+                    "settings": {"max_articles": 6},
+                    "maximise": ["relevance"],
+                },
+            }
+        )
+    )
+    with TestClient(create_app()) as client:
+        page = client.post(
+            "/configuration/editor",
+            data={
+                "csrf_token": client.app.state.csrf_token,
+                "config_path": str(source),
+            },
+        )
+
+    assert page.status_code == 200
+    assert "Editorial policy" in page.text
+    assert "Hard limits" in page.text
+    assert "Targets and preferences" in page.text
+    assert "reading-time target" in page.text
+    assert "does not consume them" in page.text
+    for section in (
+        "providers",
+        "extractors",
+        "evaluators",
+        "policy",
+        "optimisation",
+        "save",
+    ):
+        assert f'id="config-{section}" open' in page.text
+        assert f'href="#config-{section}"' in page.text
+    assert page.text.count(">0 configured<") == 3
 
 
 def test_active_config_save_blocks_actions_until_activation(tmp_path):

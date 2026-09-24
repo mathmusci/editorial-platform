@@ -5,6 +5,11 @@ Start with `editorial web`, then choose **New configuration**, or select an exis
 YAML file and choose **Edit selected configuration**. In an open workspace, choose
 **Configuration > Edit configuration**.
 
+The main configuration areas are separated into collapsible sections. They start
+open, can be collapsed from their headers, and can be reached directly from the
+section links at the top of the form. Processor counts in the headers make larger
+configurations easier to scan.
+
 ## Create a Small Extraction Trial
 
 1. Enter a publication name and description.
@@ -80,8 +85,30 @@ Secret fields outside the editor stay on the server. URLs containing credentials
 query strings appear as an empty field with **Stored value retained**; leave that
 field blank to preserve it, or enter a replacement URL.
 
-New configurations initially contain publication details and the providers,
-extractors and evaluators you add. They do not yet define publication-selection
-settings. For a complete pipeline today, edit or copy an existing complete
-configuration. Later stages add editorial-policy and optimisation editing, followed
-by publishers.
+New configurations can define publication details, providers, extractors,
+evaluators, editorial policy and greedy optimisation. Publisher editing remains a
+later stage.
+
+## Configure Policy and Optimisation
+
+**Editorial policy** records publication-level limits and eligible article statuses.
+At present these values are descriptive configuration metadata: the greedy optimiser
+does not enforce them. This is shown explicitly in the editor so that, for example,
+changing the policy maximum article count is not mistaken for changing proposal
+selection.
+
+**Optimisation** controls proposal selection. Choose `greedy` and configure:
+
+- maximum articles and an optional hard minimum relevance score as hard limits;
+- relevance and reading-time targets as soft goals;
+- topics to represent and a preferred maximum per source as soft preferences;
+- weights to determine how strongly misses affect the objective value.
+
+A relevance target does not reject an article. Use the hard minimum relevance score
+when articles below a threshold must be excluded. The reading-time target is the
+desired total, not a maximum: selections both above and below it incur a penalty.
+Similarly, the per-source value is a preference rather than an exclusion rule.
+
+Existing generic `constraints` and `maximise` values are retained when saving, but
+the current greedy optimiser does not consume them. The editor therefore does not
+present them as operational controls.

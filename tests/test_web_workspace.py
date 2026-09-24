@@ -524,6 +524,10 @@ def test_workspace_displays_active_configuration(tmp_path):
     assert "Maximum reading time" in response.text
     assert "greedy" in response.text
     assert "Normalized loaded YAML" in response.text
+    assert 'aria-label="Configuration sections"' in response.text
+    assert 'id="config-policy" open' in response.text
+    assert 'id="config-optimisation" open' in response.text
+    assert 'id="config-yaml"' in response.text
     assert 'href="/configuration"' in response.text
     assert 'href="/configuration#extractors-reading_time"' in (proposal_response.text)
 

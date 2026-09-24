@@ -21,7 +21,36 @@
 }
 
 * { box-sizing: border-box; }
-.configuration-editor { max-width: 960px; }
+.configuration-editor, .configuration-view { max-width: 960px; }
+.config-section-nav { margin: 0 0 28px; padding: 13px 0; display: flex; flex-wrap: wrap; gap: 6px 22px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.config-section-nav a { font-size: .82rem; font-weight: 680; }
+.config-section { margin: 0 0 28px; border: 0; border-top: 4px solid var(--teal); border-bottom: 1px solid var(--line); background: var(--surface); scroll-margin-top: 88px; }
+.config-section-providers { border-top-color: var(--blue); }
+.config-section-extractors { border-top-color: var(--teal); }
+.config-section-evaluators { border-top-color: var(--amber); }
+.config-section-publishers { border-top-color: var(--ink); }
+.config-section-policy { border-top-color: var(--green); }
+.config-section-optimisation { border-top-color: var(--red); }
+.config-section-save { border-top-color: var(--ink); }
+.config-section-files { border-top-color: var(--ink); }
+.config-section-yaml { border-top-color: var(--muted); }
+.config-section-header { min-height: 74px; padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; gap: 20px; cursor: pointer; list-style: none; background: #f0f3f2; }
+.config-section-header::-webkit-details-marker { display: none; }
+.config-section-header:hover { background: #e9eeec; }
+.config-section-header span:first-child { min-width: 0; }
+.config-section-header small { margin-bottom: 2px; color: var(--muted); font-size: .68rem; font-weight: 760; text-transform: uppercase; }
+.config-section-header strong { display: block; color: var(--ink); font-size: 1.28rem; line-height: 1.25; }
+.config-section-header-side { display: flex; align-items: center; gap: 18px; }
+.config-section-count { color: var(--muted); font-size: .76rem; font-weight: 650; white-space: nowrap; }
+.config-section-toggle::before { content: "+"; display: block; width: 24px; color: var(--teal-dark); font-size: 1.4rem; font-weight: 500; line-height: 24px; text-align: center; }
+.config-section[open] > .config-section-header { border-bottom: 1px solid var(--line); }
+.config-section[open] > .config-section-header .config-section-toggle::before { content: "\2212"; }
+.config-section-body { padding: 8px 22px 26px; }
+.configuration-view .config-section-body { padding-top: 22px; }
+.configuration-view .processor-list { margin-bottom: 0; }
+.configuration-view .data-list { margin-bottom: 0; }
+.configuration-view .config-note { margin-bottom: 16px; }
+.configuration-view .yaml-view { margin-bottom: 0; }
 .config-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 20px 0; }
 .config-field { min-width: 0; }
 .config-field label { display: block; margin-bottom: 6px; }
@@ -37,7 +66,12 @@
 .article-editor-heading { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--line); padding-top: 20px; }
 .config-add { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 20px; }
 .config-save-actions { margin-top: 18px; }
-@media (max-width: 760px) { .config-fields { grid-template-columns: minmax(0, 1fr); } }
+.config-subheading { margin-top: 24px; }
+.config-choice-group { margin: 20px 0 0; padding: 0; border: 0; }
+.config-choice-group legend { margin-bottom: 8px; color: var(--muted); font-size: .72rem; font-weight: 680; }
+.config-checkboxes { display: flex; flex-wrap: wrap; gap: 10px 22px; }
+.config-checkboxes label { display: inline-flex; align-items: center; gap: 7px; color: var(--ink); font-size: .85rem; }
+@media (max-width: 760px) { .config-fields { grid-template-columns: minmax(0, 1fr); } .config-section-header { min-height: 66px; padding: 13px 15px; } .config-section-header strong { font-size: 1.12rem; } .config-section-count { display: none; } .config-section-body { padding: 5px 15px 22px; } }
 .editorial-form { display: grid; gap: 18px; max-width: 780px; margin: 20px 0 40px; }
 .workspace-identity { display: flex; justify-content: flex-end; gap: 22px; min-width: 0; max-width: 58%; }
 .workspace-identity span { min-width: 0; }

@@ -169,9 +169,9 @@ Configuration editing is delivered in three stages:
    reading-time and LLM-summary extractors, and fake, OpenAI or Ollama settings.
    Includes drafts, field validation, Save/Save as, explicit activation, secret
    preservation and conflict detection.
-2. **Editorial decisions (in progress):** evaluator editing is implemented;
-   editorial policy and optimisation remain planned, with explanations of limits,
-   targets and scoring preferences.
+2. **Editorial decisions (implemented):** evaluator, editorial-policy and greedy
+   optimisation editing, with explanations distinguishing recorded policy, hard
+   limits, soft targets and scoring preferences.
 3. **Publishing (planned):** supported publisher settings and the complete
    configuration creation workflow.
 
