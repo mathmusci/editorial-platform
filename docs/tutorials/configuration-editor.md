@@ -1,6 +1,7 @@
 # Configuration Editor
 
-The editor covers publication details, content providers, extractors and evaluators.
+The editor covers publication details, content providers, extractors, evaluators,
+editorial policy, optimisation and publishers.
 Start with `editorial web`, then choose **New configuration**, or select an existing
 YAML file and choose **Edit selected configuration**. In an open workspace, choose
 **Configuration > Edit configuration**.
@@ -78,16 +79,14 @@ server against a database and avoid concurrent CLI operations when editing.
 
 ## Preservation and Scope
 
-Editorial policy, optimisation, publishers, extra settings and metadata are retained
-when editing an existing file. YAML comments and original
+Extra settings and metadata are retained when editing an existing file. YAML comments and original
 formatting are not preserved; saved YAML remains usable by the CLI.
 Secret fields outside the editor stay on the server. URLs containing credentials or
 query strings appear as an empty field with **Stored value retained**; leave that
 field blank to preserve it, or enter a replacement URL.
 
 New configurations can define publication details, providers, extractors,
-evaluators, editorial policy and greedy optimisation. Publisher editing remains a
-later stage.
+evaluators, editorial policy, greedy optimisation and Markdown publishers.
 
 ## Configure Policy and Optimisation
 
@@ -112,3 +111,16 @@ Similarly, the per-source value is a preference rather than an exclusion rule.
 Existing generic `constraints` and `maximise` values are retained when saving, but
 the current greedy optimiser does not consume them. The editor therefore does not
 present them as operational controls.
+
+## Configure Publishing
+
+Under **Publishers**, add a **Markdown** publisher to record Markdown as an
+available output format. A display name and processor key are optional; the key is
+useful when a configuration contains more than one publisher of the same type.
+
+The optional template path may be absolute or relative to the configuration file's
+folder. The editor preserves this setting, including when using **Save as**. The
+current built-in Markdown renderer does not load custom templates, however, so the
+field does not yet change the Markdown downloaded from the workspace or written by
+the CLI. The editor says this explicitly to avoid presenting retained configuration
+as an active rendering control.

@@ -172,8 +172,10 @@ Configuration editing is delivered in three stages:
 2. **Editorial decisions (implemented):** evaluator, editorial-policy and greedy
    optimisation editing, with explanations distinguishing recorded policy, hard
    limits, soft targets and scoring preferences.
-3. **Publishing (planned):** supported publisher settings and the complete
-   configuration creation workflow.
+3. **Publishing (implemented):** Markdown publisher identity and template-path
+   settings, completing configuration creation across the currently supported
+   functional areas. The editor makes clear that the built-in Markdown renderer
+   does not yet consume custom templates.
 
 Stage one preserves sections it does not edit. YAML comments and formatting are not
 retained. New files are saved in the deployment directory; copies remain beside
