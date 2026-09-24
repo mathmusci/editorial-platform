@@ -29,6 +29,7 @@ LLM_MODELS = {
     "ollama": ["qwen3.5:9b", "deepseek-r1:8b", "gpt-oss:20b"],
     "openai": ["gpt-4.1-mini"],
 }
+EDITORIAL_STATUSES = ["new", "candidate", "accepted", "rejected", "published"]
 
 
 def digest(path: Path) -> str:
@@ -95,7 +96,19 @@ class Draft:
     def fields(self) -> list[dict]:
         result = []
 
-        def add(id, label, obj, key, kind="text", default="", choices=None):
+        def add(
+            id,
+            label,
+            obj,
+            key,
+            kind="text",
+            default="",
+            choices=None,
+            help=None,
+            minimum=None,
+            maximum=None,
+            step=None,
+        ):
             value = obj.get(key, default)
             hidden = sensitive(value)
             result.append(
@@ -108,6 +121,10 @@ class Draft:
                     value="" if hidden else value,
                     protected=hidden,
                     choices=choices,
+                    help=help,
+                    minimum=minimum,
+                    maximum=maximum,
+                    step=step,
                 )
             )
 
@@ -194,6 +211,175 @@ class Draft:
             "description",
             "textarea",
         )
+        policy = self.data.get("editorial_policy") or {}
+        for key, label, help in [
+            (
+                "maximum_age_days",
+                "Maximum article age (days)",
+                "Publication-policy metadata. This is not currently applied by the greedy optimiser.",
+            ),
+            (
+                "maximum_articles",
+                "Maximum articles",
+                "Publication-policy metadata. Set the optimiser's maximum articles separately to affect selection.",
+            ),
+            (
+                "maximum_reading_minutes",
+                "Maximum reading time (minutes)",
+                "Publication-policy metadata. The greedy optimiser uses its own reading-time target.",
+            ),
+        ]:
+            add(
+                f"editorial_policy.{key}",
+                label,
+                policy,
+                key,
+                "number",
+                None,
+                help=help,
+                minimum=1,
+                step=1,
+            )
+        eligible = policy.get("statuses_eligible_for_issue", ["accepted"])
+        for status in EDITORIAL_STATUSES:
+            result.append(
+                dict(
+                    id=f"editorial_policy.status.{status}",
+                    label=status.capitalize(),
+                    obj=policy,
+                    key=status,
+                    kind="checkbox",
+                    value=status in eligible,
+                    protected=False,
+                    choices=None,
+                    help=None,
+                    minimum=None,
+                    maximum=None,
+                    step=None,
+                )
+            )
+
+        optimisation = self.data.get("optimisation") or {}
+        strategy = optimisation.get("strategy", "none")
+        strategy_choices = ["none", "greedy"]
+        if strategy not in strategy_choices:
+            strategy_choices.insert(0, strategy)
+        add(
+            "optimisation.strategy",
+            "Strategy",
+            optimisation,
+            "strategy",
+            "select",
+            "none",
+            strategy_choices,
+            "Choose Greedy to construct issue proposals. None is suitable for configurations that stop before optimisation.",
+        )
+        optimiser_settings = optimisation.get("settings") or {}
+        for key, label, default, help, minimum, maximum, step in [
+            (
+                "max_articles",
+                "Maximum articles",
+                8,
+                "Hard limit on the number of selected articles.",
+                1,
+                None,
+                1,
+            ),
+            (
+                "hard_minimum_relevance_score",
+                "Hard minimum relevance score",
+                None,
+                "Exclude articles below this score. Leave blank to keep all scored candidates eligible.",
+                0,
+                100,
+                "any",
+            ),
+            (
+                "relevance_target_score",
+                "Relevance target score",
+                None,
+                "Soft target. Articles below it remain eligible but incur a penalty.",
+                0,
+                100,
+                "any",
+            ),
+            (
+                "relevance_target_weight",
+                "Relevance target weight",
+                1,
+                "Penalty applied for each point below the relevance target.",
+                0,
+                None,
+                "any",
+            ),
+            (
+                "reading_time_target_minutes",
+                "Reading-time target (minutes)",
+                None,
+                "Soft target for total selected reading time; it is not a maximum.",
+                0,
+                None,
+                "any",
+            ),
+            (
+                "reading_time_weight",
+                "Reading-time weight",
+                3,
+                "Penalty applied for each minute above or below the target.",
+                0,
+                None,
+                "any",
+            ),
+            (
+                "mandatory_terms_weight",
+                "Topic coverage weight",
+                5,
+                "Reward for each configured topic represented in the selection.",
+                0,
+                None,
+                "any",
+            ),
+            (
+                "source_diversity_max_per_source",
+                "Preferred maximum per source",
+                None,
+                "Soft source-diversity target. Extra articles from a source remain possible with a penalty.",
+                1,
+                None,
+                1,
+            ),
+            (
+                "source_diversity_weight",
+                "Source-diversity weight",
+                2,
+                "Penalty for each selected article above the preferred per-source maximum.",
+                0,
+                None,
+                "any",
+            ),
+        ]:
+            add(
+                f"optimisation.settings.{key}",
+                label,
+                optimiser_settings,
+                key,
+                "number",
+                default,
+                help=help,
+                minimum=minimum,
+                maximum=maximum,
+                step=step,
+            )
+        add(
+            "optimisation.settings.mandatory_terms",
+            "Topics to represent (one per line)",
+            optimiser_settings,
+            "mandatory_terms",
+            "lines",
+            [],
+            help="Soft coverage preference matched against article title, summary and content.",
+        )
+        result[-1]["value"] = "\n".join(optimiser_settings.get("mandatory_terms", []))
         for group in TYPES:
             for i, entry in enumerate(self.data.get(group, [])):
                 prefix = f"{group}.{i}"
@@ -313,6 +499,10 @@ class Draft:
     def apply(self, form: dict[str, str]) -> None:
         for f in self.fields():
             key = f["id"]
+            if key.startswith("editorial_policy.status.") and not form.get(
+                "editorial_policy.statuses_present"
+            ):
+                continue
             if key not in form and f["kind"] != "checkbox":
                 continue
             value: Any = form.get(key, "")
@@ -331,6 +521,35 @@ class Draft:
             parts = key.split(".")
             if parts[0] == "publication":
                 self.data["publication"][parts[1]] = value
+                continue
+            if parts[0] == "editorial_policy":
+                policy = self.data.setdefault("editorial_policy", {})
+                if parts[1] == "status":
+                    statuses = list(
+                        policy.get("statuses_eligible_for_issue", ["accepted"])
+                    )
+                    if value and parts[2] not in statuses:
+                        statuses.append(parts[2])
+                    elif not value and parts[2] in statuses:
+                        statuses.remove(parts[2])
+                    policy["statuses_eligible_for_issue"] = [
+                        status for status in EDITORIAL_STATUSES if status in statuses
+                    ]
+                elif value == "":
+                    policy.pop(parts[1], None)
+                else:
+                    policy[parts[1]] = value
+                continue
+            if parts[0] == "optimisation":
+                optimisation = self.data.setdefault("optimisation", {})
+                if parts[1] == "strategy":
+                    optimisation["strategy"] = value
+                else:
+                    optimiser_settings = optimisation.setdefault("settings", {})
+                    if value == "":
+                        optimiser_settings.pop(parts[2], None)
+                    else:
+                        optimiser_settings[parts[2]] = value
                 continue
             entry = self.data[parts[0]][int(parts[1])]
             if parts[2] in {"key", "name", "enabled"}:
@@ -382,6 +601,7 @@ class Draft:
         self.errors = {}
         if not str(data["publication"].get("name", "")).strip():
             self.errors["publication.name"] = "Enter a publication name."
+        self._validate_policy_and_optimisation(data)
         for group in TYPES:
             identities = set()
             for i, entry in enumerate(data.get(group, [])):
@@ -506,6 +726,94 @@ class Draft:
         if self.errors:
             raise ValueError("Check the highlighted fields.")
         return data
+
+    def _validate_policy_and_optimisation(self, data: dict) -> None:
+        policy = data.get("editorial_policy") or {}
+        for key in (
+            "maximum_age_days",
+            "maximum_articles",
+            "maximum_reading_minutes",
+        ):
+            self._convert_number(
+                policy,
+                key,
+                f"editorial_policy.{key}",
+                int,
+                minimum=1,
+            )
+        statuses = policy.get("statuses_eligible_for_issue", ["accepted"])
+        if not statuses:
+            self.errors["editorial_policy.status"] = (
+                "Choose at least one eligible article status."
+            )
+        elif any(status not in EDITORIAL_STATUSES for status in statuses):
+            self.errors["editorial_policy.status"] = (
+                "Choose only supported article statuses."
+            )
+
+        optimisation = data.get("optimisation") or {}
+        strategy = optimisation.get("strategy", "none")
+        if strategy not in {"none", "greedy"}:
+            self.errors["optimisation.strategy"] = (
+                "Choose a supported optimisation strategy."
+            )
+        settings = optimisation.get("settings") or {}
+        specifications = {
+            "max_articles": (int, 1, None),
+            "hard_minimum_relevance_score": (float, 0, 100),
+            "relevance_target_score": (float, 0, 100),
+            "relevance_target_weight": (float, 0, None),
+            "reading_time_target_minutes": (float, 0, None),
+            "reading_time_weight": (float, 0, None),
+            "mandatory_terms_weight": (float, 0, None),
+            "source_diversity_max_per_source": (int, 1, None),
+            "source_diversity_weight": (float, 0, None),
+        }
+        for key, (cast, minimum, maximum) in specifications.items():
+            self._convert_number(
+                settings,
+                key,
+                f"optimisation.settings.{key}",
+                cast,
+                minimum=minimum,
+                maximum=maximum,
+            )
+        mandatory_terms = settings.get("mandatory_terms", [])
+        if not isinstance(mandatory_terms, list) or any(
+            not isinstance(term, str) or not term.strip() for term in mandatory_terms
+        ):
+            self.errors["optimisation.settings.mandatory_terms"] = (
+                "Enter one non-empty topic per line."
+            )
+
+    def _convert_number(
+        self,
+        obj: dict,
+        key: str,
+        location: str,
+        cast,
+        *,
+        minimum: float,
+        maximum: float | None = None,
+    ) -> None:
+        if key not in obj or obj[key] is None:
+            return
+        try:
+            number = int(str(obj[key])) if cast is int else cast(obj[key])
+            if (
+                number < minimum
+                or (maximum is not None and number > maximum)
+                or str(number) in {"nan", "inf", "-inf"}
+            ):
+                raise ValueError
+            obj[key] = number
+        except (ValueError, TypeError):
+            bounds = (
+                f" between {minimum:g} and {maximum:g}"
+                if maximum is not None
+                else f" of {minimum:g} or greater"
+            )
+            self.errors[location] = f"Enter a valid number{bounds}."
 
     def save(self, destination: Path, overwrite: bool) -> None:
         data = self.validate()

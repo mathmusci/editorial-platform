@@ -13,17 +13,26 @@
   <p>This is the currently loaded configuration. It is not historical proof that every stored artefact was produced with this exact configuration.</p>
 </aside>
 
-<section class="section-block">
-  <div class="section-heading"><div><p class="eyebrow">Workspace</p><h2>Loaded files</h2></div></div>
-  <dl class="data-list wide path-list">
-    <div><dt>Configuration</dt><dd>{{ config_path|deployment_relative }}</dd></div>
-    <div><dt>Database</dt><dd>{{ db_path|deployment_relative }}</dd></div>
-  </dl>
-</section>
+<div class="configuration-view">
+<nav class="config-section-nav" aria-label="Configuration sections">
+  <a href="#config-files">Loaded files</a>{% for label, group, processors in processor_groups %}<a href="#{{ group }}">{{ label }}</a>{% endfor %}<a href="#config-policy">Editorial policy</a><a href="#config-optimisation">Optimisation</a><a href="#config-yaml">Loaded YAML</a>
+</nav>
+
+<details class="config-section config-section-files" id="config-files" open>
+  <summary class="config-section-header"><span><small>Workspace</small><strong>Loaded files</strong></span><span class="config-section-toggle" aria-hidden="true"></span></summary>
+  <div class="config-section-body">
+    <dl class="data-list wide path-list">
+      <div><dt>Configuration</dt><dd>{{ config_path|deployment_relative }}</dd></div>
+      <div><dt>Database</dt><dd>{{ db_path|deployment_relative }}</dd></div>
+    </dl>
+  </div>
+</details>
 
 {% for label, group, processors in processor_groups %}
-<section class="section-block" id="{{ group }}">
-  <div class="section-heading"><div><p class="eyebrow">Processors</p><h2>{{ label }}</h2></div><span class="count">{{ processors|length }}</span></div>
+{% set group_stage = 'Sources' if group == 'providers' else ('Evidence' if group == 'extractors' else ('Judgement' if group == 'evaluators' else 'Output')) %}
+<details class="config-section config-section-{{ group }}" id="{{ group }}" open>
+  <summary class="config-section-header"><span><small>{{ group_stage }}</small><strong>{{ label }}</strong></span><span class="config-section-header-side"><span class="config-section-count">{{ processors|length }} configured</span><span class="config-section-toggle" aria-hidden="true"></span></span></summary>
+  <div class="config-section-body">
   {% if processors %}
   <div class="processor-list">
     {% for item in processors %}
@@ -41,31 +50,38 @@
     {% endfor %}
   </div>
   {% else %}<p class="muted empty-row">No {{ label|lower }} configured.</p>{% endif %}
-</section>
+  </div>
+</details>
 {% endfor %}
 
-<div class="split-sections config-columns">
-  <section class="section-block">
-    <div class="section-heading"><div><p class="eyebrow">Selection policy</p><h2>Editorial policy</h2></div></div>
+<details class="config-section config-section-policy" id="config-policy" open>
+  <summary class="config-section-header"><span><small>Publication intent</small><strong>Editorial policy</strong></span><span class="config-section-toggle" aria-hidden="true"></span></summary>
+  <div class="config-section-body">
     <dl class="data-list wide">
       <div><dt>Maximum age</dt><dd>{{ (config.editorial_policy.maximum_age_days ~ ' days') if config.editorial_policy.maximum_age_days is not none else 'Not set' }}</dd></div>
       <div><dt>Maximum articles</dt><dd>{{ config.editorial_policy.maximum_articles if config.editorial_policy.maximum_articles is not none else 'Not set' }}</dd></div>
       <div><dt>Maximum reading time</dt><dd>{{ (config.editorial_policy.maximum_reading_minutes ~ ' min') if config.editorial_policy.maximum_reading_minutes is not none else 'Not set' }}</dd></div>
       <div><dt>Eligible statuses</dt><dd>{{ config.editorial_policy.statuses_eligible_for_issue|join(', ') }}</dd></div>
     </dl>
-  </section>
-  <section class="section-block">
-    <div class="section-heading"><div><p class="eyebrow">Issue construction</p><h2>Optimisation</h2></div></div>
+</div>
+</details>
+
+<details class="config-section config-section-optimisation" id="config-optimisation" open>
+  <summary class="config-section-header"><span><small>Issue construction</small><strong>Optimisation</strong></span><span class="config-section-toggle" aria-hidden="true"></span></summary>
+  <div class="config-section-body">
     <dl class="data-list wide"><div><dt>Strategy</dt><dd>{{ config.optimisation.strategy }}</dd></div></dl>
     {% if config.optimisation.settings %}<details open><summary>Settings</summary><pre>{{ config.optimisation.settings|json_pretty }}</pre></details>{% endif %}
     {% if config.optimisation.maximise %}<details><summary>Maximise</summary><pre>{{ config.optimisation.maximise|json_pretty }}</pre></details>{% endif %}
     {% if config.optimisation.constraints %}<details><summary>Constraints</summary><pre>{{ config.optimisation.constraints|json_pretty }}</pre></details>{% endif %}
-  </section>
-</div>
+  </div>
+</details>
 
-<section class="section-block">
-  <div class="section-heading"><div><p class="eyebrow">Diagnostic view</p><h2>Normalized loaded YAML</h2></div></div>
-  <p class="muted config-note">Comments and shorthand processor fields are normalized for display. Secret-like values are redacted; environment-variable names remain visible.</p>
-  <details><summary>Show YAML</summary><pre class="yaml-view">{{ normalized_yaml }}</pre></details>
-</section>
+<details class="config-section config-section-yaml" id="config-yaml">
+  <summary class="config-section-header"><span><small>Diagnostic view</small><strong>Normalized loaded YAML</strong></span><span class="config-section-toggle" aria-hidden="true"></span></summary>
+  <div class="config-section-body">
+    <p class="muted config-note">Comments and shorthand processor fields are normalized for display. Secret-like values are redacted; environment-variable names remain visible.</p>
+    <pre class="yaml-view">{{ normalized_yaml }}</pre>
+  </div>
+</details>
+</div>
 {% endblock %}
