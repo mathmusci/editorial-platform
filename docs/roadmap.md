@@ -85,19 +85,20 @@ separate design and prioritisation.
 
 ### Pipeline Operations
 
-The workspace can now run the three configured processing stages while keeping the
+The workspace can now run the four configured processing stages while keeping the
 inspection views read-only. Web and CLI execution share one application service and create
 durable ProcessingRun records in the selected SQLite database.
 
 Current facilities:
 
-- Start configured ingestion, extraction and evaluation from the Operations view.
+- Start configured ingestion, extraction, evaluation and optimisation from the Operations view.
 - Preserve limit, offset, Article ID, missing-only and force controls.
 - Execute one background run at a time, without tying work to an HTTP request.
 - Persist status, counts, current Article and processor identity, elapsed time, estimated
   remaining time, errors, configuration digest and run options across browser refreshes.
 - Record queued, started, completed, failed and interrupted run events.
 - Resume failed or interrupted extraction and evaluation by creating a new missing-only run.
+- Store each optimisation request and resulting proposal, and link the completed run to its proposal.
 - Run CLI commands through the same ProcessingRun service and persistence model.
 
 The current implementation is local and single-process. It does not run operations
@@ -109,9 +110,9 @@ the editor can then resume its missing work explicitly.
 
 ### Review and revision workspace
 
-The Issues view can generate the first or a subsequent proposal using the active
+The Proposals view can generate the first or a subsequent proposal using the active
 configuration and database, storing its OptimisationRequest before running the optimiser.
-It opens the resulting proposal or shows a generation error on the Issues page.
+It opens the resulting proposal or shows a generation error on the Proposals page.
 
 Editors can submit approve, reject, needs-changes and comment decisions from an issue
 proposal. Findings and recommendations are stored with the immutable Review. A needs-changes
@@ -202,7 +203,7 @@ application-service boundary, durable artefact and auditable outcome.
 
 Run and monitor configured processing from the workspace:
 
-- Start ingestion, extraction and evaluation using an explicit publication configuration
+- Start ingestion, extraction, evaluation and optimisation using an explicit publication configuration
   and database.
 - Preserve existing selection controls: limit, offset, one or more Article ids,
   missing-only and force.

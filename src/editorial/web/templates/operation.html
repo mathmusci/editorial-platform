@@ -23,17 +23,24 @@
 </section>
 
 <dl class="metric-strip operation-metrics">
-  <div><dt>Stored</dt><dd>{{ record.stored_operations }}</dd></div>
+  <div><dt>{{ 'Proposal created' if record.kind == 'optimise' else 'Stored' }}</dt><dd>{{ 'Yes' if record.kind == 'optimise' and record.stored_operations else record.stored_operations }}</dd></div>
   <div><dt>Skipped</dt><dd>{{ record.skipped_operations }}</dd></div>
   <div><dt>Failed</dt><dd class="{% if record.failed_operations %}attention{% endif %}">{{ record.failed_operations }}</dd></div>
   <div><dt>Elapsed</dt><dd>{{ run.elapsed_seconds|duration }}</dd></div>
-  <div><dt>Articles</dt><dd>{{ record.article_count or 'Pending' }}</dd></div>
-  <div><dt>Processors</dt><dd>{{ record.processor_count or 'Pending' }}</dd></div>
+  <div><dt>{{ 'Selected articles' if record.kind == 'optimise' else 'Articles' }}</dt><dd>{{ record.article_count if record.status == 'completed' else 'Pending' }}</dd></div>
+  <div><dt>{{ 'Optimiser' if record.kind == 'optimise' else 'Processors' }}</dt><dd>{{ record.current_processor if record.kind == 'optimise' and record.current_processor else (record.processor_count or 'Pending') }}</dd></div>
   <div><dt>Started</dt><dd>{{ record.started_at.strftime('%d %b, %H:%M:%S') if record.started_at else 'Queued' }}</dd></div>
   <div><dt>Estimated remaining</dt><dd>{{ run.remaining_seconds|duration }}</dd></div>
 </dl>
 
-{% if record.current_article_title or record.current_processor %}
+{% if record.kind == 'optimise' and record.result.get('proposal_id') %}
+<section class="tool-band optimisation-result">
+  <div><p class="eyebrow">Issue proposal</p><h2>{{ record.result.selected_articles }} articles selected</h2><p>Objective value {{ record.result.objective_value }} with {{ record.result.constraint_results }} recorded constraint outcomes.</p></div>
+  <a class="command-link" href="/proposals/{{ record.result.proposal_id }}">Open proposal</a>
+</section>
+{% endif %}
+
+{% if record.kind != 'optimise' and (record.current_article_title or record.current_processor) %}
 <section class="section-block current-operation">
   <div class="section-heading"><div><p class="eyebrow">{{ 'Current' if record.active else 'Last' }} operation</p><h2>{{ record.current_article_title or 'Preparing article' }}</h2></div></div>
   <dl class="data-list wide">
@@ -45,7 +52,8 @@
 </section>
 {% endif %}
 
-<section class="split-sections section-block">
+<section class="{% if record.kind != 'optimise' %}split-sections {% endif %}section-block">
+  {% if record.kind != 'optimise' %}
   <div>
     <div class="section-heading"><div><p class="eyebrow">Selection</p><h2>Run options</h2></div></div>
     <dl class="data-list wide">
@@ -56,6 +64,7 @@
       <div><dt>Replace existing</dt><dd>{{ 'Yes' if record.options.force else 'No' }}</dd></div>
     </dl>
   </div>
+  {% endif %}
   <div>
     <div class="section-heading"><div><p class="eyebrow">Provenance</p><h2>Execution context</h2></div></div>
     <dl class="data-list wide path-list">

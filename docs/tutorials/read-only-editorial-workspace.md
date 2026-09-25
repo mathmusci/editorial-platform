@@ -95,7 +95,7 @@ database's historical results.
    **Use this folder**.
 4. Enter a filename such as `bis-monday.sqlite` and select **Create and open database**.
 5. Open **Operations** and run ingestion, extraction and evaluation, then generate
-   a proposal from **Issues**.
+   a proposal from **Proposals**.
 
 Creation requires a valid configuration, an existing writable folder and a `.sqlite`
 filename. Existing files, including symbolic links, are never overwritten. Cancel
@@ -106,7 +106,7 @@ is not copied into the database; it remains the configuration used by the worksp
 
 ## Begin with an issue
 
-The **Issues** view lists every stored IssueProposal. Open one to see the complete state of
+The **Proposals** view lists every stored IssueProposal. Open one to see the complete state of
 that proposed issue:
 
 - the derived workflow status and stored proposal state;
@@ -167,7 +167,7 @@ does not necessarily change proposal selection unless an evaluator uses that sum
 
 ## Compare proposals
 
-When at least two proposals exist, the Issues page provides base and candidate selectors.
+When at least two proposals exist, the Proposals page provides base and candidate selectors.
 The comparison reports shared, added, removed and reordered Articles, objective change,
 proposal-time evidence where available, and explicit evidence gaps. It reads stored
 proposals and does not rerun the optimiser or recommend a winner.

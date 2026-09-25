@@ -593,7 +593,9 @@ def create_app(
             raise HTTPException(status_code=403, detail="Invalid form token")
         try:
             kind = _processing_kind(form.get("kind"))
-            options = _processing_options(form) if kind != "ingest" else None
+            options = (
+                _processing_options(form) if kind in {"extract", "evaluate"} else None
+            )
             run = services.coordinator.start(kind, services.config_path, options)
         except (TypeError, ValueError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -942,7 +944,7 @@ def _parse_form(body: bytes) -> dict[str, str]:
 
 
 def _processing_kind(value: str | None) -> ProcessingKind:
-    if value not in {"ingest", "extract", "evaluate"}:
+    if value not in {"ingest", "extract", "evaluate", "optimise"}:
         raise ValueError("Unknown processing operation")
     return value
 

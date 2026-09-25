@@ -720,13 +720,13 @@ editorial web \
   --db bis-getting-started.sqlite
 ```
 
-Open `http://127.0.0.1:8000`. The Issues view brings the workflow together in one place:
+Open `http://127.0.0.1:8000`. The Proposals view brings the workflow together in one place:
 proposal state, extraction and evaluation coverage, selected Articles, Reviews and composed
 Publications. Article pages expose stored extraction payloads, evaluation rationale and AI
 provenance. The Configuration view shows the loaded processors, policy, optimisation
 settings and normalized YAML, with secret-like values redacted.
 
-The **Operations** view can run ingestion, extraction and evaluation using this active
+The **Operations** view can run ingestion, extraction, evaluation and optimisation using this active
 configuration. It executes one run at a time and stores progress in the database, so a page
 refresh does not lose the status. For a quick extraction test, set Limit to `10`; for a
 safe continuation, select Missing only. Failed or interrupted extraction and evaluation
@@ -743,8 +743,9 @@ page. Arrange sections and articles, edit editorial text, and save the compositi
 Publication page previews the saved edition and offers **Download Markdown** and **Edit as
 new version**. See [Publication Composition Workspace](tutorials/publication-composition-workspace.md).
 
-In the web workspace, choose **Generate issue proposal** under **Issues** to run optimisation
-using the active configuration and database. Then choose **Submit review** to record an editorial
+In the web workspace, choose **Run optimisation** under **Operations** to create a durable
+run and generate an issue proposal using the active configuration and database. The Proposals
+view also retains its direct **Generate issue proposal** action. Then choose **Submit review** to record an editorial
 decision. Needs-changes reviews can create revision requests, generate candidates and open
 proposal comparisons. See [Review and Revision Workspace](tutorials/review-revision-workspace.md)
 for a worked example.
@@ -789,7 +790,7 @@ Read [tutorials/read-only-editorial-workspace.md](tutorials/read-only-editorial-
 for a guided tour of the same evidence and lineage in the local web interface.
 
 Read [tutorials/pipeline-operations.md](tutorials/pipeline-operations.md) to run, monitor and
-resume ingestion, extraction and evaluation from the workspace.
+resume ingestion, extraction and evaluation, and run optimisation from the workspace.
 
 Read [developer-notes.md](developer-notes.md) for observations from the first
 end-to-end BIS validation run and known areas for improvement.

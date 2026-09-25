@@ -8,10 +8,10 @@ or reviews are required.
 Use **Operations** to ingest articles, extract metadata and evaluate them if you have not
 already done so. Check **Configuration** for the active publication and optimisation settings.
 
-Open **Issues** and choose **Generate issue proposal**, which is available even when no issues
+Open **Proposals** and choose **Generate issue proposal**, which is available even when no proposals
 exist. This saves an OptimisationRequest from the active configuration, runs the optimiser
 against the same database, and opens the resulting proposal. Generation waits for completion.
-Any failure is displayed on the Issues page, and the saved request remains in the database.
+Any failure is displayed on the Proposals page, and the saved request remains in the database.
 
 If no eligible articles are available, the optimiser may produce an empty proposal. Inspect
 your Articles and evaluation evidence before generating another. Each generation creates a

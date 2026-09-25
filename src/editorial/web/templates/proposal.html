@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Issue {{ inspection.proposal.id|short_id }}{% endblock %}
 {% block content %}
-<nav class="breadcrumb"><a href="/proposals">Issues</a><span>/</span><span>{{ inspection.proposal.id|short_id }}</span></nav>
+<nav class="breadcrumb"><a href="/proposals">Proposals</a><span>/</span><span>{{ inspection.proposal.id|short_id }}</span></nav>
 <header class="page-header detail-header">
   <div><p class="eyebrow">Issue overview</p><h1>{{ inspection.publication_name or publication_name }}</h1><p class="lede">Proposal {{ inspection.proposal.id }}</p></div>
   <span class="status status-{{ workflow.overall_status|replace('_', '-') }}">{{ workflow.overall_status|replace('_', ' ') }}</span>

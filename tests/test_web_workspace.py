@@ -426,7 +426,8 @@ def test_workspace_lists_and_inspects_complete_issue(tmp_path):
     proposal_detail = client.get(f"/proposals/{proposal.id}")
 
     assert proposal_list.status_code == 200
-    assert "Editorial issues" in proposal_list.text
+    assert "Issue proposals" in proposal_list.text
+    assert ">Proposals</a>" in proposal_list.text
     assert str(proposal.id) in proposal_list.text
     assert proposal_detail.status_code == 200
     assert "Workflow status" in proposal_detail.text
@@ -497,7 +498,7 @@ def test_workspace_is_read_only_and_returns_friendly_missing_page(tmp_path):
     missing = client.get(f"/articles/{uuid4()}")
     assert missing.status_code == 404
     assert "Article not found" in missing.text
-    assert "Return to issues" in missing.text
+    assert "Return to proposals" in missing.text
 
 
 def test_workspace_static_styles_are_served(tmp_path):
@@ -599,6 +600,43 @@ def test_workspace_starts_and_inspects_durable_pipeline_operation(tmp_path):
     assert "Execution context" in detail.text
     assert run_id in detail.text
     assert run_id[:8] in history.text
+
+
+def test_workspace_runs_optimisation_as_durable_pipeline_operation(tmp_path):
+    client, _articles, _proposal, _review, _publication = _workspace(tmp_path)
+
+    operation_list = client.get("/operations")
+    response = client.post(
+        "/operations",
+        data={
+            "csrf_token": client.app.state.csrf_token,
+            "kind": "optimise",
+        },
+        follow_redirects=False,
+    )
+
+    assert "Run optimisation" in operation_list.text
+    assert operation_list.text.count('class="operation-stage-header"') == 4
+    assert response.status_code == 303
+    run_id = response.headers["location"].rsplit("/", 1)[-1]
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        run = client.app.state.workspace.processing.runs.get(run_id)
+        if run is not None and not run.active:
+            break
+        time.sleep(0.01)
+    else:
+        raise AssertionError("Optimisation operation did not finish")
+
+    detail = client.get(response.headers["location"])
+    assert run.status == "completed"
+    assert run.result["proposal_id"]
+    assert run.result["request_id"]
+    assert run.result["selected_articles"] >= 1
+    assert "Proposal created" in detail.text
+    assert "Selected articles" in detail.text
+    assert "Open proposal" in detail.text
+    assert f"/proposals/{run.result['proposal_id']}" in detail.text
 
 
 def test_workspace_guards_pipeline_operation_forms(tmp_path):

@@ -3,6 +3,10 @@ from pathlib import Path
 
 from editorial.models import ProcessingRunOptions
 from editorial.processing import ProcessingRunCoordinator, ProcessingRunService
+from editorial.storage import (
+    SQLiteIssueProposalRepository,
+    SQLiteOptimisationRequestRepository,
+)
 
 CONFIG = Path("tests/fixtures/bis/publication.yaml")
 
@@ -17,7 +21,7 @@ def _wait_for_terminal(service, run_id, timeout=3):
     raise AssertionError(f"Processing run {run_id} did not finish")
 
 
-def test_processing_service_records_ingest_extract_and_evaluate_runs(tmp_path):
+def test_processing_service_records_all_configured_pipeline_runs(tmp_path):
     service = ProcessingRunService(tmp_path / "processing.sqlite")
 
     ingest = service.create_run("ingest", CONFIG)
@@ -26,10 +30,13 @@ def test_processing_service_records_ingest_extract_and_evaluate_runs(tmp_path):
     service.execute(extract.id)
     evaluate = service.create_run("evaluate", CONFIG)
     service.execute(evaluate.id)
+    optimise = service.create_run("optimise", CONFIG)
+    service.execute(optimise.id)
 
     stored_ingest = service.runs.get(ingest.id)
     stored_extract = service.runs.get(extract.id)
     stored_evaluate = service.runs.get(evaluate.id)
+    stored_optimise = service.runs.get(optimise.id)
     assert stored_ingest is not None
     assert stored_ingest.status == "completed"
     assert stored_ingest.article_count == 2
@@ -45,6 +52,17 @@ def test_processing_service_records_ingest_extract_and_evaluate_runs(tmp_path):
     assert stored_evaluate.total_operations == 2
     assert stored_evaluate.stored_operations == 2
     assert stored_evaluate.current_processor == "BIS relevance"
+    assert stored_optimise is not None
+    assert stored_optimise.status == "completed"
+    assert stored_optimise.total_operations == 1
+    assert stored_optimise.stored_operations == 1
+    assert stored_optimise.article_count == stored_optimise.result["selected_articles"]
+    assert stored_optimise.article_count > 0
+    assert stored_optimise.current_processor == "greedy"
+    proposal_id = stored_optimise.result["proposal_id"]
+    request_id = stored_optimise.result["request_id"]
+    assert SQLiteIssueProposalRepository(service.database_path).get(proposal_id)
+    assert SQLiteOptimisationRequestRepository(service.database_path).get(request_id)
     events = service.events.list(
         artefact_type="processing_run", artefact_id=stored_extract.id
     )
