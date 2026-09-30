@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Issues{% endblock %}
+{% block title %}Proposals{% endblock %}
 {% block content %}
 <header class="page-header">
-  <div><p class="eyebrow">Issue proposals</p><h1>Editorial issues</h1></div>
+  <div><p class="eyebrow">Issue construction</p><h1>Issue proposals</h1></div>
   <span class="count">{{ proposals|length }} stored</span>
 </header>
 {% if error %}<p class="notice" role="alert">{{ error }}</p>{% endif %}

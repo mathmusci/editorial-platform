@@ -6,7 +6,7 @@ to generate a proposal, inspect its evidence, and submit an approval.
 
 ## Compose an edition
 
-Open the proposal under **Issues** and choose **Compose publication**. Select the approval
+Open the proposal under **Proposals** and choose **Compose publication**. Select the approval
 and enter the editor name, publication title, subtitle and introduction. Without an approval,
 the page links back to the review form. Empty proposals cannot be composed.
 

@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from editorial.models.common import utc_now
 
-ProcessingKind = Literal["ingest", "extract", "evaluate"]
+ProcessingKind = Literal["ingest", "extract", "evaluate", "optimise"]
 ProcessingStatus = Literal["queued", "running", "completed", "failed", "interrupted"]
 
 

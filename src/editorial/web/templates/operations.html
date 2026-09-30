@@ -5,7 +5,7 @@
   <div>
     <p class="eyebrow">Configured processing</p>
     <h1>Pipeline operations</h1>
-    <p class="lede">Run ingestion, extraction and evaluation against the active configuration and database. Operations execute one at a time.</p>
+    <p class="lede">Run ingestion, extraction, evaluation and optimisation against the active configuration and database. Operations execute one at a time.</p>
   </div>
   {% if active_run %}
     <a class="command-link" href="/operations/{{ active_run.id }}">View active run</a>
@@ -23,7 +23,7 @@
   <div class="section-heading"><div><p class="eyebrow">Start a run</p><h2>Configured stages</h2></div></div>
   <div class="operation-launchers">
     <article class="operation-launcher">
-      <div><p class="eyebrow">Content collection</p><h3>Ingest</h3></div>
+      <header class="operation-stage-header"><p class="eyebrow">Content collection</p><h3>Ingest</h3></header>
       <p>Fetch articles from every enabled content provider. Existing article URLs remain duplicates rather than new records.</p>
       <form method="post" action="/operations">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -34,7 +34,7 @@
 
     {% for kind, label, noun in [('extract', 'Extraction', 'extractor'), ('evaluate', 'Evaluation', 'evaluator')] %}
     <article class="operation-launcher">
-      <div><p class="eyebrow">Article processing</p><h3>{{ label }}</h3></div>
+      <header class="operation-stage-header"><p class="eyebrow">Article processing</p><h3>{{ label }}</h3></header>
       <p>Run every enabled {{ noun }} over a deterministic article selection. Articles are ordered by publication date, then creation time and ID.</p>
       <form class="operation-form" method="post" action="/operations">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -52,6 +52,16 @@
       </form>
     </article>
     {% endfor %}
+
+    <article class="operation-launcher">
+      <header class="operation-stage-header"><p class="eyebrow">Issue construction</p><h3>Optimisation</h3></header>
+      <p>Create an immutable request from the configured strategy and settings, then generate a new issue proposal from all stored article evidence.</p>
+      <form method="post" action="/operations">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="kind" value="optimise">
+        <button type="submit" {% if active_run %}disabled{% endif %}>Run optimisation</button>
+      </form>
+    </article>
   </div>
 </section>
 

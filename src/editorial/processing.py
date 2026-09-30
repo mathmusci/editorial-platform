@@ -16,6 +16,7 @@ from editorial.engine import (
     ExtractionProgress,
     ExtractionRunResult,
     IngestResult,
+    OptimisationRunResult,
 )
 from editorial.evaluators import build_evaluator
 from editorial.extractors import build_extractor
@@ -26,6 +27,7 @@ from editorial.models import (
     WorkflowEvent,
     utc_now,
 )
+from editorial.optimisation_service import generate_proposal
 from editorial.providers import build_provider
 from editorial.storage import (
     SQLiteArticleRepository,
@@ -36,7 +38,9 @@ from editorial.storage import (
 )
 
 ProcessingProgress: TypeAlias = ExtractionProgress | EvaluationProgress
-ProcessingResult: TypeAlias = IngestResult | ExtractionRunResult | EvaluationRunResult
+ProcessingResult: TypeAlias = (
+    IngestResult | ExtractionRunResult | EvaluationRunResult | OptimisationRunResult
+)
 
 
 class ProcessingRunService:
@@ -153,6 +157,14 @@ class ProcessingRunService:
                 force=options.force,
             )
 
+        if run.kind == "optimise":
+            result, _proposal = generate_proposal(
+                config,
+                Path(run.config_path),
+                self.database_path,
+            )
+            return result
+
         processors = [
             build_evaluator(item) for item in config.evaluators if item.enabled
         ]
@@ -268,6 +280,23 @@ class ProcessingRunService:
                     "articles": result.articles,
                     "evaluators": result.evaluators,
                     "operations": result.operations,
+                },
+            )
+        elif isinstance(result, OptimisationRunResult):
+            updates.update(
+                article_count=result.selected_articles,
+                processor_count=1,
+                total_operations=1,
+                completed_operations=1,
+                stored_operations=1,
+                current_processor=result.optimiser,
+                result={
+                    "proposal_id": result.proposal_id,
+                    "request_id": result.request_id,
+                    "optimiser": result.optimiser,
+                    "selected_articles": result.selected_articles,
+                    "objective_value": result.objective_value,
+                    "constraint_results": result.constraint_results,
                 },
             )
         completed = run.model_copy(update=updates)

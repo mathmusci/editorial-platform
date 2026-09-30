@@ -1,6 +1,7 @@
 # Pipeline Operations
 
-Pipeline Operations runs and monitors configured ingestion, extraction and evaluation from
+Pipeline Operations runs and monitors configured ingestion, extraction, evaluation and
+optimisation from
 the local editorial workspace. It is designed for long local-model workloads where an
 editor needs a small test selection, visible progress and a safe way to continue after an
 interruption.
@@ -59,6 +60,21 @@ the run, and reopening Operations reads its state from SQLite. Only one operatio
 time. Ingestion records final provider and article totals but does not yet report individual
 fetch progress.
 
+## Run optimisation
+
+Choose **Run optimisation** after the required extractions and evaluations are in
+place. The run snapshots the active optimisation configuration into a new immutable
+OptimisationRequest, executes it against all stored article evidence, and stores a
+new IssueProposal. Its run page reports the selected article count, optimiser,
+objective value and number of constraint outcomes, with a direct link to inspect the
+proposal.
+
+Optimisation does not expose Limit, Offset or Article IDs. Those controls select
+work for extraction and evaluation; the configured optimiser determines the
+proposal candidates and final article selection. Each optimisation run deliberately
+creates a new request and proposal, so it has no **Missing only**, replacement or
+resume mode.
+
 Failed Article-processor operations are counted and processing continues according to the
 existing engine behavior. A failure that prevents the whole run from proceeding changes
 the run status to Failed and displays a concise error without a browser stack trace.
@@ -79,6 +95,7 @@ and terminal state of each attempt.
 Pipeline Operations is a local background runner, not a distributed job system. It remains
 sequential and does not provide cancellation, concurrent workers, remote execution or user
 authentication. The CLI and workspace call the same ProcessingRun service; neither shells
-out to the other. Review decisions are available in the separate
+out to the other. An interrupted optimisation can be run again, producing a new request
+and proposal rather than mutating the incomplete run. Review decisions are available in the separate
 [Review and Revision workspace](review-revision-workspace.md). Approved issues can be composed
 in the [Publication Composition workspace](publication-composition-workspace.md).
