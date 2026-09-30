@@ -19,23 +19,41 @@ extractors:
       model: qwen3.5:9b
 ```
 
-The full-text extractor accepts arxiv.org article links, tries arXiv HTML first,
-and falls back to the PDF when HTML is unavailable or unusable. It stores the
-plain text, source URL, and format as an Extraction. It skips other sources.
-Reading-time and summary extractors use that text automatically, regardless of
-their order in the configuration. Evaluators and the optimiser also use the stored
-text when available. The original Article and abstract remain unchanged.
+The RSS provider stores each feed entry as an Article with its title, abstract,
+and arXiv URL. The `source` label names the feed; it does not determine whether
+full-text extraction runs. The extractor recognises arxiv.org article URLs,
+tries arXiv HTML first, and falls back to the PDF when HTML is unavailable or
+unusable. It stores the plain text, source URL, format, and word count in a
+separate `full_text` Extraction. It skips non-arXiv articles.
+
+Full-text retrieval runs before the other extractors even if it appears later
+in the configuration. Reading-time and summary extractors use the stored paper
+text. Evaluators and the optimiser also use it when available. The original
+Article and abstract remain unchanged. If retrieval fails, the full-text
+operation fails, but other extractors may still process the title and abstract.
+
+`reading_time` counts the title, abstract, and paper text, then rounds up using
+`words_per_minute` (200 in this example). Its word count may therefore be higher
+than the full-text Extraction's paper-only word count. The reading-time estimate
+is not strictly for the paper body alone. Without a summary extractor or
+evaluator in the configuration, this example produces neither summaries nor
+evaluations.
 
 Start with a small run in **Operations**, for example Limit `10` and Missing only.
 Download requests are sequential and spaced by at least three seconds. PDF text
 quality varies; image-only PDFs without a text layer cannot be analysed and the
 extraction fails clearly. Each document is limited to 40 MB.
 
-If articles were processed before full-text retrieval was configured, their
-existing summaries, reading times, and evaluations still reflect the abstract.
-After obtaining full text, rerun those operations with **Replace existing** for
-the selected articles. Existing proposals remain historical records; run
-optimisation again to make a new proposal from the updated evidence.
+For newly ingested articles, one extraction run processes both configured
+extractors. If articles were processed before full-text retrieval was configured,
+their existing summaries, reading times, and evaluations still reflect the
+abstract. Run extraction with **Missing only** to fetch missing paper text, then
+run it again with **Replace existing** to recalculate reading time and any
+configured summaries. Rerun evaluation with **Replace existing** if evaluators
+were previously run. On the CLI, these options are `--missing-only` and
+`--force` respectively; they cannot be combined in one run. Existing proposals
+remain historical records; run optimisation again to make a new proposal from
+the updated evidence.
 
 The entire extracted text is passed to LLM prompts. A local model may still have
 a shorter context window than the paper; in that case it may not consider every

@@ -80,7 +80,7 @@ editorial web --config examples/bis/publication.yaml --db editorial.sqlite
 
 ## Extractors
 
-Configured extractors run over Articles already stored in SQLite and write separate Extraction records. The platform supports both deterministic and AI-powered extractors. Sprint 3 includes a deterministic reading-time extractor:
+Configured extractors run over Articles already stored in SQLite and write separate Extraction records. The platform supports both deterministic and AI-powered extractors. For example, the reading-time extractor is deterministic:
 
 ```yaml
 extractors:
@@ -88,7 +88,7 @@ extractors:
     words_per_minute: 200
 ```
 
-The extractor estimates reading time from article title, summary, and content without mutating the Article.
+The extractor estimates reading time from article title, summary, and content without mutating the Article. For arXiv RSS articles, add `arxiv_full_text` to retrieve paper text from arXiv HTML or PDF first. Reading time then counts the title, abstract, and paper text; its estimate is not paper-body-only. The full text is stored separately and is also available to summaries, evaluators, and the optimiser. Existing reading-time or summary results need `--force` after full text is fetched; `--missing-only` skips them. See [Analyse arXiv Paper Text](docs/tutorials/arxiv-full-text.md) for retrieval, rerun, and failure details.
 
 The first AI-powered extractor is `LLMSummaryExtractor`. It uses the provider-neutral LLM abstraction to create concise editorial summaries and stores AI provenance in the Extraction payload. Tests use the deterministic fake LLM provider; no external LLM provider is required for the core test suite.
 

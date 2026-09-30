@@ -45,7 +45,7 @@
     <summary class="config-section-header"><span><small>{{ group_stage }}</small><strong>{{ group_title }}</strong></span><span class="config-section-header-side"><span class="config-section-count">{{ entries[group]|length }} configured</span><span class="config-section-toggle" aria-hidden="true"></span></span></summary>
     <div class="config-section-body">
     {% if group == 'evaluators' %}<p class="section-intro">Evaluators turn article evidence into editorial judgements. Rule relevance is deterministic; LLM relevance judges article suitability; LLM summary quality judges a selected summary without directly changing article selection.</p>{% endif %}
-    {% if group == 'extractors' %}<p class="section-intro">For arXiv papers, add arXiv full text to retrieve the complete HTML paper or PDF text. Reading time and summaries then use the stored paper text; this extractor skips other sources.</p>{% endif %}
+    {% if group == 'extractors' %}<p class="section-intro">For arXiv URLs, arXiv full text retrieves HTML or PDF paper text before other extractors run; it skips other sources. Reading time counts the title, abstract, and paper text. Existing results need Replace existing after full text is fetched.</p>{% endif %}
     {% if group == 'publishers' %}<p class="section-intro">Publishers describe available output formats. The current Markdown renderer uses its built-in layout; an existing template path is retained but is not loaded during rendering.</p>{% endif %}
     {% for entry in entries[group] %}
     <section class="processor-editor">
