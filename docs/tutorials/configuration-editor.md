@@ -16,14 +16,16 @@ configurations easier to scan.
 1. Enter a publication name and description.
 2. Under Content providers, choose **RSS feed** and **Add provider**. Enter a feed
    URL or a local feed path and an optional source name.
-3. Under Extractors, choose **Reading time** and **Add extractor**. Set words per
+3. For arXiv RSS feeds, add **arXiv full text** under Extractors to download paper text.
+   It tries HTML first and PDF when HTML is unavailable. Other sources are skipped.
+4. Under Extractors, choose **Reading time** and **Add extractor**. Set words per
    minute, for example 200.
-4. Add an **LLM summary** extractor. Choose `ollama`, then **Update provider
+5. Add an **LLM summary** extractor. Choose `ollama`, then **Update provider
    fields**. Choose `qwen3.5:9b`, `deepseek-r1:8b` or `gpt-oss:20b`, then enter an
    optional base URL, temperature and maximum tokens. OpenAI currently offers
    `gpt-4.1-mini`.
-5. Enter a filename such as `local-trial.yaml` and choose **Save**.
-6. Choose **Use configuration**, select or create a database, and **Open
+6. Enter a filename such as `local-trial.yaml` and choose **Save**.
+7. Choose **Use configuration**, select or create a database, and **Open
    workspace**. In Operations, run ingestion and then extraction.
 
 ## Configure Editorial Evaluation

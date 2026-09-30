@@ -2546,7 +2546,7 @@ def _format_extraction_coverage_operation(
         f"{operation.display_name} "
         f"({operation.extractor}, {operation.expected_kind}): {operation.status}"
     ]
-    if operation.status == "missing":
+    if operation.status != "present":
         return "\n".join(lines)
     created_at = (
         operation.created_at.isoformat()

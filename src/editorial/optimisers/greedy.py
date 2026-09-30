@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 from uuid import UUID
+from editorial.content_view import with_full_text
 
 from editorial.models import (
     Article,
@@ -143,6 +144,7 @@ class GreedyOptimiser:
         extractions: list[Extraction],
         evaluation: Evaluation,
     ) -> Candidate:
+        article = with_full_text(article, extractions)
         return Candidate(
             article=article,
             relevance_score=float(evaluation.score or 0),

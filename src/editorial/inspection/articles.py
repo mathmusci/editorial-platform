@@ -148,6 +148,10 @@ class ArticleInspectionService:
             )
         if extraction.kind == "summary":
             return self._payload_subset(extraction.payload, ("summary",))
+        if extraction.kind == "full_text":
+            return self._payload_subset(
+                extraction.payload, ("format", "source_url", "word_count")
+            )
         return {}
 
     def _ai_provenance(self, payload: dict[str, Any]) -> dict[str, Any]:

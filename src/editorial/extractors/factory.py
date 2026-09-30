@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from editorial.config.models import ProcessorConfig
+from editorial.models import Article
 from editorial.extractors.llm_summary import LLMSummaryExtractor
+from editorial.extractors.arxiv_full_text import ArxivFullTextExtractor
 from editorial.interfaces import Extractor
 from editorial.extractors.reading_time import ReadingTimeExtractor
 from editorial.llm import LLMProviderFactoryConfig, build_llm_provider
@@ -15,9 +17,14 @@ class ExtractorDescriptor:
     display_name: str
     kind: str
 
+    def applies_to(self, article: Article) -> bool:
+        return self.kind != "full_text" or ArxivFullTextExtractor().applies_to(article)
+
 
 def describe_extractor(config: ProcessorConfig) -> ExtractorDescriptor:
-    if config.type == "reading_time":
+    if config.type == "arxiv_full_text":
+        extractor_type = ArxivFullTextExtractor
+    elif config.type == "reading_time":
         extractor_type = ReadingTimeExtractor
     elif config.type == "llm_summary":
         extractor_type = LLMSummaryExtractor
@@ -31,6 +38,10 @@ def describe_extractor(config: ProcessorConfig) -> ExtractorDescriptor:
 
 
 def build_extractor(config: ProcessorConfig) -> Extractor:
+    if config.type == "arxiv_full_text":
+        return _with_configured_identity(
+            ArxivFullTextExtractor(), config.key, config.name
+        )
     if config.type == "reading_time":
         return _with_configured_identity(
             ReadingTimeExtractor(

@@ -18,7 +18,11 @@ from editorial.models import Article
 
 TYPES = {
     "providers": {"rss": "RSS feed", "static": "Static articles"},
-    "extractors": {"reading_time": "Reading time", "llm_summary": "LLM summary"},
+    "extractors": {
+        "arxiv_full_text": "arXiv full text",
+        "reading_time": "Reading time",
+        "llm_summary": "LLM summary",
+    },
     "evaluators": {
         "rule_relevance": "Rule relevance",
         "llm_relevance": "LLM relevance",

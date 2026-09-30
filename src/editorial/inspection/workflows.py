@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from editorial.evaluators import EvaluatorDescriptor
 from editorial.extractors import ExtractorDescriptor
 from editorial.models import (
+    Article,
     IssueProposal,
     OptimisationRequest,
     Publication,
@@ -138,9 +139,12 @@ class WorkflowOverviewService:
         self._validate_descriptors(evaluator_descriptors, "evaluator")
 
         article_ids = set(proposal.article_ids)
-        stored_article_ids = {
-            article.id for article in self.articles.list() if article.id in article_ids
+        stored_articles = {
+            article.id: article
+            for article in self.articles.list()
+            if article.id in article_ids
         }
+        stored_article_ids = set(stored_articles)
         missing_article_ids = sorted(article_ids - stored_article_ids)
         extraction_coverage = self._coverage(
             article_ids,
@@ -150,6 +154,7 @@ class WorkflowOverviewService:
                 for item in self.extractions.list()
                 if item.article_id in article_ids
             ],
+            articles=stored_articles,
         )
         evaluation_coverage = self._coverage(
             article_ids,
@@ -231,25 +236,44 @@ class WorkflowOverviewService:
         article_ids: set[UUID],
         descriptors: list[ExtractorDescriptor] | list[EvaluatorDescriptor],
         stored_operations: list[tuple[UUID, str, str]],
+        *,
+        articles: dict[UUID, Article] | None = None,
     ) -> WorkflowCoverage:
         stored = set(stored_operations)
+
+        def applicable(
+            article_id: UUID, descriptor: ExtractorDescriptor | EvaluatorDescriptor
+        ) -> bool:
+            return (
+                articles is None
+                or article_id not in articles
+                or not isinstance(descriptor, ExtractorDescriptor)
+                or descriptor.applies_to(articles[article_id])
+            )
+
         expected = {
             (article_id, descriptor.key, descriptor.kind)
             for article_id in article_ids
             for descriptor in descriptors
+            if applicable(article_id, descriptor)
         }
         complete_articles = sum(
             all(
-                (article_id, descriptor.key, descriptor.kind) in stored
+                not applicable(article_id, descriptor)
+                or (article_id, descriptor.key, descriptor.kind) in stored
                 for descriptor in descriptors
             )
             for article_id in article_ids
         )
         by_processor = []
         for descriptor in descriptors:
+            expected_for_descriptor = sum(
+                applicable(article_id, descriptor) for article_id in article_ids
+            )
             present = sum(
                 (article_id, descriptor.key, descriptor.kind) in stored
                 for article_id in article_ids
+                if applicable(article_id, descriptor)
             )
             by_processor.append(
                 WorkflowProcessorCoverage(
@@ -257,7 +281,7 @@ class WorkflowOverviewService:
                     display_name=descriptor.display_name,
                     kind=descriptor.kind,
                     present=present,
-                    missing=len(article_ids) - present,
+                    missing=expected_for_descriptor - present,
                 )
             )
         present = len(expected & stored)
