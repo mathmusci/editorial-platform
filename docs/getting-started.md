@@ -488,6 +488,12 @@ editorial optimise --config examples/bis/publication.yaml --db bis-getting-start
 Expected outcome: the command prints the optimiser name, optimisation request
 ID, selected article count, objective value and constraint results.
 
+The greedy strategy adds one article at a time only while the objective improves;
+`max_articles` is a ceiling, not a target count. Reading time, relevance, topic
+coverage and source diversity can all affect that decision. See
+[How Greedy Optimisation Selects Articles](tutorials/greedy-optimisation.md)
+for the exact model, parameters and selection loop.
+
 List the proposals created so far:
 
 ```bash

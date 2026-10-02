@@ -132,6 +132,8 @@ optimisation:
 
 IssueProposal records are proposals only. They are not approved issues and carry no review or publication state. Rerunning `editorial optimise` creates a new optimisation request and a new proposal record each time.
 
+The [greedy optimisation tutorial](docs/tutorials/greedy-optimisation.md) describes the scoring model, every parameter, and the iterative selection algorithm.
+
 `editorial proposal compare <base-proposal-id> <candidate-proposal-id>` compares article
 membership and order, proposal-time relevance and reading-time evidence, optimisation
 request settings, constraint outcomes, provenance, and evidence gaps without rerunning the

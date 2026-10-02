@@ -109,6 +109,9 @@ A relevance target does not reject an article. Use the hard minimum relevance sc
 when articles below a threshold must be excluded. The reading-time target is the
 desired total, not a maximum: selections both above and below it incur a penalty.
 Similarly, the per-source value is a preference rather than an exclusion rule.
+The optimiser stops adding articles when none improves its objective, even if
+`max_articles` has not been reached. For the full scoring model and selection
+algorithm, see [How Greedy Optimisation Selects Articles](greedy-optimisation.md).
 
 Existing generic `constraints` and `maximise` values are retained when saving, but
 the current greedy optimiser does not consume them. The editor therefore does not
