@@ -18,7 +18,11 @@ from editorial.models import Article
 
 TYPES = {
     "providers": {"rss": "RSS feed", "static": "Static articles"},
-    "extractors": {"reading_time": "Reading time", "llm_summary": "LLM summary"},
+    "extractors": {
+        "arxiv_full_text": "arXiv full text",
+        "reading_time": "Reading time",
+        "llm_summary": "LLM summary",
+    },
     "evaluators": {
         "rule_relevance": "Rule relevance",
         "llm_relevance": "LLM relevance",
@@ -217,7 +221,7 @@ class Draft:
             (
                 "maximum_age_days",
                 "Maximum article age (days)",
-                "Publication-policy metadata. This is not currently applied by the greedy optimiser.",
+                "Publication-policy metadata. This is not currently applied by either optimiser.",
             ),
             (
                 "maximum_articles",
@@ -227,7 +231,7 @@ class Draft:
             (
                 "maximum_reading_minutes",
                 "Maximum reading time (minutes)",
-                "Publication-policy metadata. The greedy optimiser uses its own reading-time target.",
+                "Publication-policy metadata. Both optimisers use their own reading-time target.",
             ),
         ]:
             add(
@@ -262,7 +266,7 @@ class Draft:
 
         optimisation = self.data.get("optimisation") or {}
         strategy = optimisation.get("strategy", "none")
-        strategy_choices = ["none", "greedy"]
+        strategy_choices = ["none", "greedy", "milp"]
         if strategy not in strategy_choices:
             strategy_choices.insert(0, strategy)
         add(
@@ -273,7 +277,7 @@ class Draft:
             "select",
             "none",
             strategy_choices,
-            "Choose Greedy to construct issue proposals. None is suitable for configurations that stop before optimisation.",
+            "Choose Greedy for iterative selection or MILP for a globally optimal selection under the same model. None stops before optimisation.",
         )
         optimiser_settings = optimisation.get("settings") or {}
         for key, label, default, help, minimum, maximum, step in [
@@ -767,7 +771,7 @@ class Draft:
 
         optimisation = data.get("optimisation") or {}
         strategy = optimisation.get("strategy", "none")
-        if strategy not in {"none", "greedy"}:
+        if strategy not in {"none", "greedy", "milp"}:
             self.errors["optimisation.strategy"] = (
                 "Choose a supported optimisation strategy."
             )

@@ -51,7 +51,7 @@ class ExtractionCoverageOperation(BaseModel):
     extractor: str
     display_name: str
     expected_kind: str
-    status: Literal["present", "missing"]
+    status: Literal["present", "missing", "not_applicable"]
     extraction_id: UUID | None = None
     extractor_version: str | None = None
     actual_kind: str | None = None
@@ -150,6 +150,7 @@ class ExtractionInspectionService:
             (article.id, descriptor.key, descriptor.kind)
             for article in articles
             for descriptor in descriptor_list
+            if descriptor.applies_to(article)
         }
         stored = {
             (extraction.article_id, extraction.extractor, extraction.kind): extraction
@@ -232,6 +233,7 @@ class ExtractionInspectionService:
             self._coverage_operation(
                 descriptor,
                 stored.get((article.id, descriptor.key, descriptor.kind)),
+                applicable=descriptor.applies_to(article),
             )
             for descriptor in descriptors
         ]
@@ -240,7 +242,7 @@ class ExtractionInspectionService:
             article_title=article.title,
             article_source=article.source,
             article_url=str(article.url) if article.url else None,
-            complete=all(item.status == "present" for item in operations),
+            complete=all(item.status != "missing" for item in operations),
             operations=operations,
         )
 
@@ -248,7 +250,16 @@ class ExtractionInspectionService:
         self,
         descriptor: ExtractorDescriptor,
         extraction: Extraction | None,
+        *,
+        applicable: bool = True,
     ) -> ExtractionCoverageOperation:
+        if not applicable:
+            return ExtractionCoverageOperation(
+                extractor=descriptor.key,
+                display_name=descriptor.display_name,
+                expected_kind=descriptor.kind,
+                status="not_applicable",
+            )
         if extraction is None:
             return ExtractionCoverageOperation(
                 extractor=descriptor.key,
@@ -278,13 +289,15 @@ class ExtractionInspectionService:
         present = sum(
             (article.id, descriptor.key, descriptor.kind) in stored
             for article in articles
+            if descriptor.applies_to(article)
         )
+        applicable = sum(descriptor.applies_to(article) for article in articles)
         return ExtractorCoverageSummary(
             extractor=descriptor.key,
             display_name=descriptor.display_name,
             expected_kind=descriptor.kind,
             present=present,
-            missing=len(articles) - present,
+            missing=applicable - present,
         )
 
     def _summary_for(self, extraction: Extraction) -> ExtractionInspectionSummary:
@@ -304,6 +317,10 @@ class ExtractionInspectionService:
     def _payload_highlights(self, extraction: Extraction) -> dict[str, Any]:
         if extraction.kind == "reading_time":
             return payload_subset(extraction.payload, ("reading_minutes", "word_count"))
+        if extraction.kind == "full_text":
+            return payload_subset(
+                extraction.payload, ("format", "source_url", "word_count")
+            )
         if extraction.kind == "summary":
             return payload_subset(
                 extraction.payload,

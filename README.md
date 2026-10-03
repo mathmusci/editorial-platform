@@ -22,7 +22,7 @@ next release number has not yet been assigned.
 - optimiser interface for constructing editorial issue proposals
 - human review workflow for editorial approval
 - publication and rendering pipeline with immutable editorial artefacts
-- optimiser interface with deterministic greedy issue proposals
+- greedy and MILP optimisers for deterministic issue proposals
 - immutable optimisation requests for traceable proposal generation
 - generic immutable reviews for editorial judgement on any artefact
 - presentation-independent Publication artefacts with Markdown rendering
@@ -36,7 +36,7 @@ next release number has not yet been assigned.
 * Providers: RSS, Static
 * Extractors: Reading Time, LLM Summary
 * Evaluators: Rule-based Relevance, LLM Relevance, LLM Summary Quality
-* Optimisers: Greedy
+* Optimisers: Greedy, MILP
 * Renderers: Markdown
 
 ## Documentation
@@ -55,6 +55,7 @@ next release number has not yet been assigned.
 - [Read-only Editorial Workspace](docs/tutorials/read-only-editorial-workspace.md)
 - [Configuration Editor](docs/tutorials/configuration-editor.md)
 - [Pipeline Operations](docs/tutorials/pipeline-operations.md)
+- [Analyse arXiv Paper Text](docs/tutorials/arxiv-full-text.md)
 - [Review and Revision Workspace](docs/tutorials/review-revision-workspace.md)
 - [Publication Composition Workspace](docs/tutorials/publication-composition-workspace.md)
 
@@ -79,7 +80,7 @@ editorial web --config examples/bis/publication.yaml --db editorial.sqlite
 
 ## Extractors
 
-Configured extractors run over Articles already stored in SQLite and write separate Extraction records. The platform supports both deterministic and AI-powered extractors. Sprint 3 includes a deterministic reading-time extractor:
+Configured extractors run over Articles already stored in SQLite and write separate Extraction records. The platform supports both deterministic and AI-powered extractors. For example, the reading-time extractor is deterministic:
 
 ```yaml
 extractors:
@@ -87,7 +88,7 @@ extractors:
     words_per_minute: 200
 ```
 
-The extractor estimates reading time from article title, summary, and content without mutating the Article.
+The extractor estimates reading time from article title, summary, and content without mutating the Article. For arXiv RSS articles, add `arxiv_full_text` to retrieve paper text from arXiv HTML or PDF first. Reading time then counts the title, abstract, and paper text; its estimate is not paper-body-only. The full text is stored separately and is also available to summaries, evaluators, and the optimiser. Existing reading-time or summary results need `--force` after full text is fetched; `--missing-only` skips them. See [Analyse arXiv Paper Text](docs/tutorials/arxiv-full-text.md) for retrieval, rerun, and failure details.
 
 The first AI-powered extractor is `LLMSummaryExtractor`. It uses the provider-neutral LLM abstraction to create concise editorial summaries and stores AI provenance in the Extraction payload. Tests use the deterministic fake LLM provider; no external LLM provider is required for the core test suite.
 
@@ -117,7 +118,7 @@ Editors can record human summary-quality reference Evaluations with `editorial e
 
 ## Optimisers
 
-Configured optimisers run over stored Articles, Extractions, and Evaluations, then write append-only IssueProposal records. In normal workflows, Evaluations carry the editorial judgement that most directly drives optimiser selection. Sprint 5 includes a deterministic greedy optimiser:
+Configured optimisers run over stored Articles, Extractions, and Evaluations, then write append-only IssueProposal records. In normal workflows, Evaluations carry the editorial judgement that most directly drives optimiser selection. Greedy and MILP strategies use the same settings and objective:
 
 ```yaml
 optimisation:
@@ -130,6 +131,9 @@ optimisation:
 ```
 
 IssueProposal records are proposals only. They are not approved issues and carry no review or publication state. Rerunning `editorial optimise` creates a new optimisation request and a new proposal record each time.
+
+The [greedy optimisation tutorial](docs/tutorials/greedy-optimisation.md) describes the scoring model, every parameter, and the iterative selection algorithm.
+The [MILP tutorial](docs/tutorials/milp-optimisation.md) shows how to solve the same model globally and compare the two strategies.
 
 `editorial proposal compare <base-proposal-id> <candidate-proposal-id>` compares article
 membership and order, proposal-time relevance and reading-time evidence, optimisation

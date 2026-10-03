@@ -16,14 +16,16 @@ configurations easier to scan.
 1. Enter a publication name and description.
 2. Under Content providers, choose **RSS feed** and **Add provider**. Enter a feed
    URL or a local feed path and an optional source name.
-3. Under Extractors, choose **Reading time** and **Add extractor**. Set words per
+3. For arXiv RSS feeds, add **arXiv full text** under Extractors to download paper text.
+   It tries HTML first and PDF when HTML is unavailable. Other sources are skipped.
+4. Under Extractors, choose **Reading time** and **Add extractor**. Set words per
    minute, for example 200.
-4. Add an **LLM summary** extractor. Choose `ollama`, then **Update provider
+5. Add an **LLM summary** extractor. Choose `ollama`, then **Update provider
    fields**. Choose `qwen3.5:9b`, `deepseek-r1:8b` or `gpt-oss:20b`, then enter an
    optional base URL, temperature and maximum tokens. OpenAI currently offers
    `gpt-4.1-mini`.
-5. Enter a filename such as `local-trial.yaml` and choose **Save**.
-6. Choose **Use configuration**, select or create a database, and **Open
+6. Enter a filename such as `local-trial.yaml` and choose **Save**.
+7. Choose **Use configuration**, select or create a database, and **Open
    workspace**. In Operations, run ingestion and then extraction.
 
 ## Configure Editorial Evaluation
@@ -86,7 +88,7 @@ query strings appear as an empty field with **Stored value retained**; leave tha
 field blank to preserve it, or enter a replacement URL.
 
 New configurations can define publication details, providers, extractors,
-evaluators, editorial policy, greedy optimisation and Markdown publishers.
+evaluators, editorial policy, greedy or MILP optimisation and Markdown publishers.
 
 ## Configure Policy and Optimisation
 
@@ -96,7 +98,9 @@ does not enforce them. This is shown explicitly in the editor so that, for examp
 changing the policy maximum article count is not mistaken for changing proposal
 selection.
 
-**Optimisation** controls proposal selection. Choose `greedy` and configure:
+**Optimisation** controls proposal selection. Choose `greedy` for iterative
+selection or `milp` for a globally optimal set under the same objective, then
+configure:
 
 - maximum articles and an optional hard minimum relevance score as hard limits;
 - relevance and reading-time targets as soft goals;
@@ -107,10 +111,16 @@ A relevance target does not reject an article. Use the hard minimum relevance sc
 when articles below a threshold must be excluded. The reading-time target is the
 desired total, not a maximum: selections both above and below it incur a penalty.
 Similarly, the per-source value is a preference rather than an exclusion rule.
+The optimiser stops adding articles when none improves its objective, even if
+`max_articles` has not been reached. For the full scoring model and selection
+algorithm, see [How Greedy Optimisation Selects Articles](greedy-optimisation.md).
 
 Existing generic `constraints` and `maximise` values are retained when saving, but
-the current greedy optimiser does not consume them. The editor therefore does not
+neither optimiser consumes them. The editor therefore does not
 present them as operational controls.
+
+See [Compare Greedy and MILP Optimisation](milp-optimisation.md) for a worked
+comparison and guidance on switching strategies.
 
 ## Configure Publishing
 

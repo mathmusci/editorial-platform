@@ -2546,7 +2546,7 @@ def _format_extraction_coverage_operation(
         f"{operation.display_name} "
         f"({operation.extractor}, {operation.expected_kind}): {operation.status}"
     ]
-    if operation.status == "missing":
+    if operation.status != "present":
         return "\n".join(lines)
     created_at = (
         operation.created_at.isoformat()
@@ -2917,12 +2917,49 @@ def _render_proposal_inspection(inspection: ProposalInspection) -> None:
         ]
     )
     console.print(Panel(summary, title="Issue Proposal", expand=False))
+    _render_objective_breakdown(inspection)
     _render_selected_articles(inspection)
     _render_constraints(inspection)
     _render_workflow_events(inspection)
     _render_reviews(inspection)
     _render_publications(inspection)
     _render_proposal_metadata(inspection)
+
+
+def _render_objective_breakdown(inspection: ProposalInspection) -> None:
+    breakdown = inspection.objective_breakdown
+    if breakdown is None:
+        console.print(
+            Panel(
+                "Original settings or selected evidence are incomplete.",
+                title="Objective Breakdown Unavailable",
+            )
+        )
+        return
+    table = Table(title="Objective Breakdown")
+    table.add_column("Component")
+    table.add_column("Value", justify="right")
+    for label, value in (
+        ("Selected articles", str(len(inspection.proposal.article_ids))),
+        ("Total reading time", f"{breakdown.reading_minutes_total:g} min"),
+        ("Relevance scores, summed", f"{breakdown.relevance_total:+.2f}"),
+        ("Mandatory-term reward", f"{breakdown.mandatory_terms_reward:+.2f}"),
+        (
+            "Relevance-target penalty",
+            f"{(-breakdown.relevance_target_penalty if breakdown.relevance_target_penalty else 0):.2f}",
+        ),
+        (
+            "Reading-time penalty",
+            f"{(-breakdown.reading_time_penalty if breakdown.reading_time_penalty else 0):.2f}",
+        ),
+        (
+            "Source-diversity penalty",
+            f"{(-breakdown.source_diversity_penalty if breakdown.source_diversity_penalty else 0):.2f}",
+        ),
+        ("Objective", f"{inspection.proposal.objective_value:.2f}"),
+    ):
+        table.add_row(label, value)
+    console.print(table)
 
 
 def _render_selected_articles(inspection: ProposalInspection) -> None:

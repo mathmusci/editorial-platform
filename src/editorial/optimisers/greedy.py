@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 from uuid import UUID
+from editorial.content_view import with_full_text
 
 from editorial.models import (
     Article,
@@ -59,25 +60,7 @@ class GreedyOptimiser:
         extractions: list[Extraction],
         evaluations: list[Evaluation],
     ) -> IssueProposal:
-        extraction_by_article = self._extractions_by_article(extractions)
-        latest_relevance = self._latest_relevance_by_article(evaluations)
-        candidates = [
-            self._candidate(
-                article,
-                extraction_by_article.get(article.id, []),
-                latest_relevance[article.id],
-            )
-            for article in articles
-            if article.id in latest_relevance
-            and latest_relevance[article.id].score is not None
-            if self._satisfies_hard_relevance(latest_relevance[article.id])
-        ]
-        candidates.sort(
-            key=lambda candidate: (
-                -candidate.relevance_score,
-                article_sort_key(candidate.article),
-            )
-        )
+        candidates = self._candidates(articles, extractions, evaluations)
 
         selected: list[Candidate] = []
         current_value = self._objective(selected)
@@ -98,11 +81,43 @@ class GreedyOptimiser:
             remaining.pop(best_index)
             current_value = best_value
 
+        return self._proposal(candidates, selected)
+
+    def _candidates(
+        self,
+        articles: list[Article],
+        extractions: list[Extraction],
+        evaluations: list[Evaluation],
+    ) -> list[Candidate]:
+        extraction_by_article = self._extractions_by_article(extractions)
+        latest_relevance = self._latest_relevance_by_article(evaluations)
+        candidates = [
+            self._candidate(
+                article,
+                extraction_by_article.get(article.id, []),
+                latest_relevance[article.id],
+            )
+            for article in articles
+            if article.id in latest_relevance
+            and latest_relevance[article.id].score is not None
+            if self._satisfies_hard_relevance(latest_relevance[article.id])
+        ]
+        candidates.sort(
+            key=lambda candidate: (
+                -candidate.relevance_score,
+                article_sort_key(candidate.article),
+            )
+        )
+        return candidates
+
+    def _proposal(
+        self, candidates: list[Candidate], selected: list[Candidate]
+    ) -> IssueProposal:
         return IssueProposal(
             optimiser=self.name,
             optimiser_version=self.version,
             article_ids=[candidate.article.id for candidate in selected],
-            objective_value=round(current_value, 2),
+            objective_value=round(self._objective(selected), 2),
             constraint_results=self._constraint_results(selected),
             metadata={
                 "strategy": self.name,
@@ -143,6 +158,7 @@ class GreedyOptimiser:
         extractions: list[Extraction],
         evaluation: Evaluation,
     ) -> Candidate:
+        article = with_full_text(article, extractions)
         return Candidate(
             article=article,
             relevance_score=float(evaluation.score or 0),

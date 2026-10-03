@@ -1,3 +1,6 @@
+from pathlib import Path
+
+import yaml
 from typer.testing import CliRunner
 
 from editorial.cli import app
@@ -62,3 +65,16 @@ def test_cli_optimise_stores_append_only_issue_proposals(tmp_path):
     assert second.exit_code == 0
     assert "Optimiser: greedy" in first.stdout
     assert SQLiteIssueProposalRepository(db_path).count() == 2
+
+    milp_config = yaml.safe_load(Path(BIS_FIXTURE_CONFIG).read_text())
+    milp_config["optimisation"]["strategy"] = "milp"
+    milp_config_path = tmp_path / "publication-milp.yaml"
+    milp_config_path.write_text(yaml.safe_dump(milp_config))
+    exact = runner.invoke(
+        app,
+        ["optimise", "--config", str(milp_config_path), "--db", str(db_path)],
+    )
+
+    assert exact.exit_code == 0, exact.output
+    assert "Optimiser: milp" in exact.stdout
+    assert SQLiteIssueProposalRepository(db_path).count() == 3

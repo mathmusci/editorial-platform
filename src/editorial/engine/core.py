@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Iterable, Literal
 from uuid import UUID
+from editorial.content_view import with_full_text
 from editorial.interfaces import Evaluator, Extractor, Optimiser, Provider
 from editorial.models import Article, OptimisationRequest, WorkflowEvent
 from editorial.storage import (
@@ -157,7 +158,10 @@ class EditorialEngine:
         if missing_only and force:
             raise ValueError("Extraction cannot use missing_only and force together")
 
-        extractor_list = list(extractors)
+        extractor_list = sorted(
+            extractors,
+            key=lambda extractor: getattr(extractor, "kind", None) != "full_text",
+        )
         _validate_unique_processor_keys(
             [
                 _extractor_progress_metadata(extractor).extractor_key
@@ -175,6 +179,8 @@ class EditorialEngine:
         total = len(articles) * len(extractor_list)
         completed = stored = skipped = failed = 0
         for article in articles:
+            article_extractions = self.extraction_repository.list(article_id=article.id)
+            processing_article = with_full_text(article, article_extractions)
             for extractor in extractor_list:
                 metadata = _extractor_progress_metadata(extractor)
                 if progress is not None:
@@ -193,8 +199,12 @@ class EditorialEngine:
                             outcome="started",
                         )
                     )
-                if missing_only and self.extraction_repository.exists_for_operation(
-                    article.id, metadata.extractor_key
+                applies_to = getattr(extractor, "applies_to", None)
+                if (applies_to is not None and not applies_to(article)) or (
+                    missing_only
+                    and self.extraction_repository.exists_for_operation(
+                        article.id, metadata.extractor_key
+                    )
                 ):
                     completed += 1
                     skipped += 1
@@ -216,8 +226,19 @@ class EditorialEngine:
                         )
                     continue
                 try:
-                    extraction = extractor.extract(article)
+                    extraction = extractor.extract(processing_article)
                     self.extraction_repository.insert(extraction)
+                    if extraction.kind == "full_text":
+                        article_extractions = [
+                            item
+                            for item in article_extractions
+                            if item.extractor != extraction.extractor
+                            or item.kind != "full_text"
+                        ]
+                        article_extractions.append(extraction)
+                        processing_article = with_full_text(
+                            article, article_extractions
+                        )
                 except Exception:
                     completed += 1
                     failed += 1
@@ -347,7 +368,9 @@ class EditorialEngine:
                         )
                     continue
                 try:
-                    evaluation = evaluator.evaluate(article, extractions)
+                    evaluation = evaluator.evaluate(
+                        with_full_text(article, extractions), extractions
+                    )
                     self.evaluation_repository.insert(evaluation)
                 except Exception:
                     completed += 1

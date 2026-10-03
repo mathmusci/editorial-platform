@@ -488,6 +488,14 @@ editorial optimise --config examples/bis/publication.yaml --db bis-getting-start
 Expected outcome: the command prints the optimiser name, optimisation request
 ID, selected article count, objective value and constraint results.
 
+The greedy strategy adds one article at a time only while the objective improves;
+`max_articles` is a ceiling, not a target count. Reading time, relevance, topic
+coverage and source diversity can all affect that decision. See
+[How Greedy Optimisation Selects Articles](tutorials/greedy-optimisation.md)
+for the exact model, parameters and selection loop.
+For a solver-backed strategy that optimises the same objective jointly, use
+`strategy: milp`. See [Compare Greedy and MILP Optimisation](tutorials/milp-optimisation.md).
+
 List the proposals created so far:
 
 ```bash
@@ -500,6 +508,13 @@ to approve:
 ```bash
 editorial proposal show <proposal-id> --db bis-getting-started.sqlite
 ```
+
+The proposal detail view and `proposal show` display the objective as a sum of
+relevance scores and mandatory-term reward, less relevance-target,
+reading-time, and source-diversity penalties. They use the proposal's saved
+selection evidence and optimisation request settings, not current article
+values. Older proposals without a complete snapshot show an unavailable
+message rather than a reconstructed score.
 
 Use that `<proposal-id>` in the next commands.
 

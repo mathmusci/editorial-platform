@@ -780,7 +780,9 @@ def test_policy_and_optimisation_editor_explains_operational_effects(tmp_path):
     assert "Hard limits" in page.text
     assert "Targets and preferences" in page.text
     assert "reading-time target" in page.text
-    assert "does not consume them" in page.text
+    assert "neither optimiser consumes them" in page.text
+    assert 'value="milp"' in page.text
+    assert ">MILP</option>" in page.text
     for section in (
         "providers",
         "extractors",
