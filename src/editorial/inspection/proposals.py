@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from collections import Counter
 from datetime import datetime
+from math import isclose, isfinite
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from editorial.models import (
     ConstraintResult,
@@ -16,6 +18,7 @@ from editorial.models import (
     Review,
     WorkflowEvent,
 )
+from editorial.optimisers.greedy import GreedyOptimiser
 from editorial.storage import (
     SQLiteArticleRepository,
     SQLiteEvaluationRepository,
@@ -50,6 +53,23 @@ class ProposalInspectionSummary(BaseModel):
     publication_count: int = 0
 
 
+class ProposalObjectiveBreakdown(BaseModel):
+    relevance_total: float
+    mandatory_terms_reward: float
+    relevance_target_penalty: float
+    reading_minutes_total: float
+    reading_time_penalty: float
+    source_diversity_penalty: float
+
+
+class _SelectedObjectiveEvidence(BaseModel):
+    article_id: UUID
+    relevance_score: float
+    reading_minutes: float
+    mandatory_terms: list[str]
+    source: str | None = None
+
+
 class ProposalInspection(BaseModel):
     proposal: IssueProposal
     optimisation_request: OptimisationRequest | None = None
@@ -59,6 +79,7 @@ class ProposalInspection(BaseModel):
     reviews: list[Review]
     publications: list[Publication]
     constraint_results: list[ConstraintResult]
+    objective_breakdown: ProposalObjectiveBreakdown | None = None
     metadata: dict[str, Any]
 
 
@@ -106,7 +127,89 @@ class ProposalInspectionService:
             ),
             publications=publications,
             constraint_results=proposal.constraint_results,
+            objective_breakdown=self._objective_breakdown_for(
+                proposal, optimisation_request
+            ),
             metadata=proposal.metadata,
+        )
+
+    def _objective_breakdown_for(
+        self, proposal: IssueProposal, request: OptimisationRequest | None
+    ) -> ProposalObjectiveBreakdown | None:
+        if (
+            request is None
+            or proposal.optimiser not in {"greedy", "milp"}
+            or request.strategy != proposal.optimiser
+        ):
+            return None
+        selected = proposal.metadata.get("selected")
+        if not isinstance(selected, list):
+            return None
+        try:
+            evidence = [
+                _SelectedObjectiveEvidence.model_validate(item) for item in selected
+            ]
+            optimiser = GreedyOptimiser(**request.settings)
+        except (TypeError, ValueError, ValidationError):
+            return None
+        if [item.article_id for item in evidence] != proposal.article_ids:
+            return None
+        if any(
+            not isfinite(item.relevance_score) or not isfinite(item.reading_minutes)
+            for item in evidence
+        ):
+            return None
+
+        relevance_total = sum(item.relevance_score for item in evidence)
+        reading_minutes_total = sum(item.reading_minutes for item in evidence)
+        covered_terms = {
+            term.lower() for item in evidence for term in item.mandatory_terms
+        }
+        mandatory_reward = (
+            len(covered_terms & set(optimiser.mandatory_terms))
+            * optimiser.mandatory_terms_weight
+        )
+        relevance_penalty = (
+            sum(
+                max(0.0, optimiser.relevance_target_score - item.relevance_score)
+                for item in evidence
+            )
+            * optimiser.relevance_target_weight
+            if optimiser.relevance_target_score is not None
+            else 0.0
+        )
+        reading_penalty = (
+            abs(reading_minutes_total - optimiser.reading_time_target_minutes)
+            * optimiser.reading_time_weight
+            if optimiser.reading_time_target_minutes is not None
+            else 0.0
+        )
+        source_counts = Counter(item.source or "" for item in evidence)
+        source_penalty = (
+            sum(
+                max(0, count - optimiser.source_diversity_max_per_source)
+                for count in source_counts.values()
+            )
+            * optimiser.source_diversity_weight
+            if optimiser.source_diversity_max_per_source is not None
+            else 0.0
+        )
+        calculated = (
+            relevance_total
+            + mandatory_reward
+            - relevance_penalty
+            - reading_penalty
+            - source_penalty
+        )
+        if not isclose(round(calculated, 2), proposal.objective_value, abs_tol=0.01):
+            return None
+        return ProposalObjectiveBreakdown(
+            relevance_total=round(relevance_total, 2),
+            mandatory_terms_reward=round(mandatory_reward, 2),
+            relevance_target_penalty=round(relevance_penalty, 2),
+            reading_minutes_total=round(reading_minutes_total, 2),
+            reading_time_penalty=round(reading_penalty, 2),
+            source_diversity_penalty=round(source_penalty, 2),
         )
 
     def _summary_for(self, proposal: IssueProposal) -> ProposalInspectionSummary:

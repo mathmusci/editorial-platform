@@ -1,5 +1,7 @@
 from uuid import uuid4
 
+import pytest
+from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
 from editorial.cli import app
@@ -26,6 +28,7 @@ from editorial.storage import (
     SQLiteReviewRepository,
     SQLiteWorkflowEventRepository,
 )
+from editorial.web import create_app
 
 
 def _service(db_path) -> ProposalInspectionService:
@@ -197,6 +200,94 @@ def test_cli_proposal_show_handles_missing_optional_extraction_and_evaluation(tm
     assert result.exit_code == 0
     assert "Industrial statistics" in result.stdout
     assert "not available" in result.stdout
+
+
+@pytest.mark.parametrize("strategy", ["greedy", "milp"])
+def test_proposal_objective_breakdown_uses_saved_evidence(tmp_path, strategy):
+    db_path = tmp_path / "test.sqlite"
+    articles = [
+        Article(title="Statistics", source="A"),
+        Article(title="Industry", source="A"),
+    ]
+    for article in articles:
+        SQLiteArticleRepository(db_path).insert(article)
+    request = OptimisationRequest(
+        strategy=strategy,
+        settings={
+            "relevance_target_score": 40,
+            "reading_time_target_minutes": 12,
+            "mandatory_terms": ["statistics", "industry"],
+            "source_diversity_max_per_source": 1,
+        },
+    )
+    proposal = IssueProposal(
+        optimiser=strategy,
+        article_ids=[article.id for article in articles],
+        objective_value=28,
+        metadata={
+            "optimisation_request_id": str(request.id),
+            "selected": [
+                {
+                    "article_id": str(article.id),
+                    "relevance_score": score,
+                    "reading_minutes": minutes,
+                    "mandatory_terms": [term],
+                    "source": "A",
+                }
+                for article, score, minutes, term in zip(
+                    articles, (30, 20), (5, 7), ("statistics", "industry")
+                )
+            ],
+        },
+    )
+    SQLiteOptimisationRequestRepository(db_path).insert(request)
+    SQLiteIssueProposalRepository(db_path).insert(proposal)
+
+    inspection = _service(db_path).get(proposal.id)
+
+    assert inspection is not None
+    breakdown = inspection.objective_breakdown
+    assert breakdown is not None
+    assert breakdown.relevance_total == 50
+    assert breakdown.mandatory_terms_reward == 10
+    assert breakdown.relevance_target_penalty == 30
+    assert breakdown.reading_minutes_total == 12
+    assert breakdown.reading_time_penalty == 0
+    assert breakdown.source_diversity_penalty == 2
+
+    cli = CliRunner().invoke(
+        app, ["proposal", "show", str(proposal.id), "--db", str(db_path)]
+    )
+    assert cli.exit_code == 0
+    assert "Objective Breakdown" in cli.stdout
+    assert "+50.00" in cli.stdout
+    assert "-30.00" in cli.stdout
+    assert "-2.00" in cli.stdout
+    assert "-0.00" not in cli.stdout
+
+    with TestClient(
+        create_app("tests/fixtures/bis/publication.yaml", db_path)
+    ) as client:
+        page = client.get(f"/proposals/{proposal.id}")
+    assert page.status_code == 200
+    assert "Objective breakdown" in page.text
+    assert "Relevance scores, summed" in page.text
+    assert "-30.00" in page.text
+
+
+def test_proposal_objective_breakdown_is_unavailable_without_saved_snapshot(tmp_path):
+    db_path = tmp_path / "test.sqlite"
+    proposal, _request, _article = _store_proposal(db_path)
+
+    inspection = _service(db_path).get(proposal.id)
+
+    assert inspection is not None
+    assert inspection.objective_breakdown is None
+    with TestClient(
+        create_app("tests/fixtures/bis/publication.yaml", db_path)
+    ) as client:
+        page = client.get(f"/proposals/{proposal.id}")
+    assert "Breakdown unavailable" in page.text
 
 
 def test_cli_proposal_show_includes_workflow_review_and_publication_references(

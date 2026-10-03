@@ -110,7 +110,7 @@ The **Proposals** view lists every stored IssueProposal. Open one to see the com
 that proposed issue:
 
 - the derived workflow status and stored proposal state;
-- selected Article count and optimiser objective;
+- selected Article count, optimiser objective, and its component breakdown;
 - each workflow stage from Articles through Rendering;
 - extraction and evaluation coverage for every enabled processor;
 - outstanding actions derived from stored artefacts;

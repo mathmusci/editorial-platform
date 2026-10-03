@@ -88,7 +88,7 @@ query strings appear as an empty field with **Stored value retained**; leave tha
 field blank to preserve it, or enter a replacement URL.
 
 New configurations can define publication details, providers, extractors,
-evaluators, editorial policy, greedy optimisation and Markdown publishers.
+evaluators, editorial policy, greedy or MILP optimisation and Markdown publishers.
 
 ## Configure Policy and Optimisation
 
@@ -98,7 +98,9 @@ does not enforce them. This is shown explicitly in the editor so that, for examp
 changing the policy maximum article count is not mistaken for changing proposal
 selection.
 
-**Optimisation** controls proposal selection. Choose `greedy` and configure:
+**Optimisation** controls proposal selection. Choose `greedy` for iterative
+selection or `milp` for a globally optimal set under the same objective, then
+configure:
 
 - maximum articles and an optional hard minimum relevance score as hard limits;
 - relevance and reading-time targets as soft goals;
@@ -114,8 +116,11 @@ The optimiser stops adding articles when none improves its objective, even if
 algorithm, see [How Greedy Optimisation Selects Articles](greedy-optimisation.md).
 
 Existing generic `constraints` and `maximise` values are retained when saving, but
-the current greedy optimiser does not consume them. The editor therefore does not
+neither optimiser consumes them. The editor therefore does not
 present them as operational controls.
+
+See [Compare Greedy and MILP Optimisation](milp-optimisation.md) for a worked
+comparison and guidance on switching strategies.
 
 ## Configure Publishing
 

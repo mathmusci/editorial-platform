@@ -119,3 +119,6 @@ they do not introduce additional selection rules. In particular, a soft goal
 can be reported as unsatisfied even though the proposal is valid. Use proposal
 inspection or comparison to review outcomes after changing settings; changing
 the settings alone does not refresh earlier proposals.
+
+To find the best article set under this same model rather than follow the
+one-at-a-time selection path, see [Compare Greedy and MILP Optimisation](milp-optimisation.md).

@@ -22,7 +22,7 @@ next release number has not yet been assigned.
 - optimiser interface for constructing editorial issue proposals
 - human review workflow for editorial approval
 - publication and rendering pipeline with immutable editorial artefacts
-- optimiser interface with deterministic greedy issue proposals
+- greedy and MILP optimisers for deterministic issue proposals
 - immutable optimisation requests for traceable proposal generation
 - generic immutable reviews for editorial judgement on any artefact
 - presentation-independent Publication artefacts with Markdown rendering
@@ -36,7 +36,7 @@ next release number has not yet been assigned.
 * Providers: RSS, Static
 * Extractors: Reading Time, LLM Summary
 * Evaluators: Rule-based Relevance, LLM Relevance, LLM Summary Quality
-* Optimisers: Greedy
+* Optimisers: Greedy, MILP
 * Renderers: Markdown
 
 ## Documentation
@@ -118,7 +118,7 @@ Editors can record human summary-quality reference Evaluations with `editorial e
 
 ## Optimisers
 
-Configured optimisers run over stored Articles, Extractions, and Evaluations, then write append-only IssueProposal records. In normal workflows, Evaluations carry the editorial judgement that most directly drives optimiser selection. Sprint 5 includes a deterministic greedy optimiser:
+Configured optimisers run over stored Articles, Extractions, and Evaluations, then write append-only IssueProposal records. In normal workflows, Evaluations carry the editorial judgement that most directly drives optimiser selection. Greedy and MILP strategies use the same settings and objective:
 
 ```yaml
 optimisation:
@@ -133,6 +133,7 @@ optimisation:
 IssueProposal records are proposals only. They are not approved issues and carry no review or publication state. Rerunning `editorial optimise` creates a new optimisation request and a new proposal record each time.
 
 The [greedy optimisation tutorial](docs/tutorials/greedy-optimisation.md) describes the scoring model, every parameter, and the iterative selection algorithm.
+The [MILP tutorial](docs/tutorials/milp-optimisation.md) shows how to solve the same model globally and compare the two strategies.
 
 `editorial proposal compare <base-proposal-id> <candidate-proposal-id>` compares article
 membership and order, proposal-time relevance and reading-time evidence, optimisation

@@ -14,6 +14,25 @@
   <div><dt>Created</dt><dd>{{ inspection.proposal.created_at.strftime('%d %b %Y') }}</dd></div>
 </dl>
 
+<section class="section-block"><div class="section-heading"><div><p class="eyebrow">Selection score</p><h2>Objective breakdown</h2></div></div>
+{% if inspection.objective_breakdown %}
+{% set breakdown = inspection.objective_breakdown %}
+<div class="table-wrap compact"><table>
+  <thead><tr><th>Component</th><th class="num">Value</th></tr></thead>
+  <tbody>
+    <tr><td>Selected articles</td><td class="num">{{ inspection.proposal.article_ids|length }}</td></tr>
+    <tr><td>Total reading time</td><td class="num">{{ '%g'|format(breakdown.reading_minutes_total) }} min</td></tr>
+    <tr><td>Relevance scores, summed</td><td class="num">{{ '%+.2f'|format(breakdown.relevance_total) }}</td></tr>
+    <tr><td>Mandatory-term reward</td><td class="num">{{ '%+.2f'|format(breakdown.mandatory_terms_reward) }}</td></tr>
+    <tr><td>Relevance-target penalty</td><td class="num">{{ '%.2f'|format(-breakdown.relevance_target_penalty if breakdown.relevance_target_penalty else 0) }}</td></tr>
+    <tr><td>Reading-time penalty</td><td class="num">{{ '%.2f'|format(-breakdown.reading_time_penalty if breakdown.reading_time_penalty else 0) }}</td></tr>
+    <tr><td>Source-diversity penalty</td><td class="num">{{ '%.2f'|format(-breakdown.source_diversity_penalty if breakdown.source_diversity_penalty else 0) }}</td></tr>
+  </tbody>
+  <tfoot><tr><th scope="row">Objective</th><td class="num"><strong>{{ '%.2f'|format(inspection.proposal.objective_value) }}</strong></td></tr></tfoot>
+</table></div>
+{% else %}<p class="muted">Breakdown unavailable: this proposal lacks a complete snapshot of its original settings and selected evidence.</p>{% endif %}
+</section>
+
 <section class="section-block"><div class="section-heading"><div><p class="eyebrow">Pipeline</p><h2>Workflow status</h2></div></div>
 <div class="stage-grid">{% for stage in workflow.stages %}<article class="stage"><div><span class="stage-index">{{ loop.index }}</span><h3>{{ stage.name }}</h3></div><span class="status status-{{ stage.status|replace('_', '-') }}">{{ stage.status|replace('_', ' ') }}</span><p>{{ stage.summary }}</p></article>{% endfor %}</div>
 </section>

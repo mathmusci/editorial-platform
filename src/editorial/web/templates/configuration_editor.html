@@ -9,7 +9,7 @@
 <div class="config-field">
   <label for="{{ f.id }}">{{ f.label }}</label>
   {% if f.kind == 'select' %}
-  <select id="{{ f.id }}" name="{{ f.id }}" {% if f.help %}aria-describedby="{{ f.id }}-help"{% endif %}>{% for choice in f.choices %}<option value="{{ choice }}" {% if f.value == choice %}selected{% endif %}>{{ choice|replace('_', ' ')|capitalize }}</option>{% endfor %}</select>
+  <select id="{{ f.id }}" name="{{ f.id }}" {% if f.help %}aria-describedby="{{ f.id }}-help"{% endif %}>{% for choice in f.choices %}<option value="{{ choice }}" {% if f.value == choice %}selected{% endif %}>{{ 'MILP' if f.id == 'optimisation.strategy' and choice == 'milp' else choice|replace('_', ' ')|capitalize }}</option>{% endfor %}</select>
   {% if f.key == 'type' and '.provider.' in f.id %}<button name="action" value="update" formnovalidate>Update provider fields</button>{% endif %}
   {% elif f.kind in ['textarea', 'lines'] %}<textarea id="{{ f.id }}" name="{{ f.id }}" rows="3">{{ f.value or '' }}</textarea>
   {% elif f.kind == 'checkbox' %}<input id="{{ f.id }}" name="{{ f.id }}" type="checkbox" {% if f.value %}checked{% endif %}>
@@ -70,7 +70,7 @@
   <details class="config-section config-section-policy" id="config-policy" open>
     <summary class="config-section-header"><span><small>Publication intent</small><strong>Editorial policy</strong></span><span class="config-section-toggle" aria-hidden="true"></span></summary>
     <div class="config-section-body">
-    <p class="section-intro">Publication-level policy metadata. These values describe intended limits but are not currently enforced by the greedy optimiser; configure issue selection separately below.</p>
+    <p class="section-intro">Publication-level policy metadata. These values describe intended limits but are not currently enforced by the configured optimiser; configure issue selection separately below.</p>
     <div class="config-fields">{% for f in fields if f.id.startswith('editorial_policy.') and '.status.' not in f.id %}{{ input_field(f) }}{% endfor %}</div>
     <fieldset class="config-choice-group">
       <legend>Article statuses eligible for an issue</legend>
@@ -91,7 +91,7 @@
     <div class="config-fields">{% for f in fields if f.id in ['optimisation.settings.max_articles', 'optimisation.settings.hard_minimum_relevance_score'] %}{{ input_field(f) }}{% endfor %}</div>
     <h3 class="config-subheading">Targets and preferences</h3>
     <div class="config-fields">{% for f in fields if f.id in ['optimisation.settings.relevance_target_score', 'optimisation.settings.relevance_target_weight', 'optimisation.settings.reading_time_target_minutes', 'optimisation.settings.reading_time_weight', 'optimisation.settings.mandatory_terms', 'optimisation.settings.mandatory_terms_weight', 'optimisation.settings.source_diversity_max_per_source', 'optimisation.settings.source_diversity_weight'] %}{{ input_field(f) }}{% endfor %}</div>
-    {% if draft.data.get('optimisation', {}).get('constraints') or draft.data.get('optimisation', {}).get('maximise') %}<aside class="notice">Existing generic constraints and maximise goals are retained in YAML, but the current greedy optimiser does not consume them. Its operational controls are the settings shown above.</aside>{% endif %}
+    {% if draft.data.get('optimisation', {}).get('constraints') or draft.data.get('optimisation', {}).get('maximise') %}<aside class="notice">Existing generic constraints and maximise goals are retained in YAML, but neither optimiser consumes them. The operational controls are the settings shown above.</aside>{% endif %}
     </div>
   </details>
   <details class="config-section config-section-save" id="config-save" open>
