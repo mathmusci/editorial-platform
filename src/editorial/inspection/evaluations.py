@@ -15,6 +15,9 @@ from editorial.storage import (
 )
 
 COMMON_PAYLOAD_FIELDS = (
+    "story",
+    "role",
+    "limitations",
     "rationale",
     "reasoning",
     "confidence",

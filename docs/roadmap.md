@@ -81,6 +81,20 @@ separate design and prioritisation.
 - Compare stored proposals without rerunning optimisation.
 - Keep every inspection view derived from the same SQLite artefacts as the CLI.
 
+## Story-Led Editorial Evaluation (Prototype)
+
+The first iteration supports one explicit, editor-written story in a publication
+configuration. An LLM-backed evaluator assesses each article against that story and
+stores an overall score, three dimension scores, a possible narrative role,
+supporting quotations, limitations, confidence, and provider provenance. The article
+workspace and evaluation inspection expose these stored assessments.
+
+This is evaluation evidence, **not** automatic story-based issue selection. The
+existing greedy and MILP optimisers remain unchanged. Further iterations should use
+editor feedback to test whether the dimensions and narrative roles are useful,
+then consider collection-level coverage, redundancy and multiple candidate stories.
+Automatic story generation and LLM-written publication text are outside this prototype.
+
 ## Delivered Pipeline Operations
 
 ### Pipeline Operations

@@ -134,6 +134,39 @@ def test_ollama_provider_parses_response():
     assert response.metadata == {"purpose": "unit-test"}
 
 
+def test_ollama_provider_requests_json_only_for_json_prompts():
+    http_post = RecordingHTTPPost()
+    provider = OllamaProvider(OllamaProviderConfig(model="llama3.2"), http_post)
+
+    provider.generate(
+        Prompt(
+            messages=[LLMMessage(role="user", content="Return JSON")],
+            metadata={"response_format": "json"},
+        )
+    )
+
+    assert _request_json(http_post.calls[0])["format"] == "json"
+
+
+def test_ollama_provider_passes_response_schema_to_native_format():
+    http_post = RecordingHTTPPost()
+    provider = OllamaProvider(OllamaProviderConfig(model="llama3.2"), http_post)
+    schema = {
+        "type": "object",
+        "properties": {"role": {"enum": ["evidence", "none"]}},
+        "required": ["role"],
+    }
+
+    provider.generate(
+        Prompt(
+            messages=[LLMMessage(role="user", content="Assess this")],
+            metadata={"response_format": schema},
+        )
+    )
+
+    assert _request_json(http_post.calls[0])["format"] == schema
+
+
 def test_ollama_provider_maps_temperature_to_options():
     http_post = RecordingHTTPPost()
     provider = OllamaProvider(

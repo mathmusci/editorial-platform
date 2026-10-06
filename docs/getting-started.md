@@ -809,3 +809,36 @@ resume ingestion, extraction and evaluation, and run optimisation from the works
 
 Read [developer-notes.md](developer-notes.md) for observations from the first
 end-to-end BIS validation run and known areas for improvement.
+# Story-led evaluation prototype
+
+An explicit editorial story can be used to assess each article before deciding
+whether to build a story-led proposal. For example:
+
+```yaml
+evaluators:
+  - type: llm_story_relevance
+    key: forecasting_story
+    name: Forecasting story fit
+    story: How uncertainty is changing forecasting in public services and industry
+    provider:
+      type: ollama
+      model: qwen3.5:9b
+```
+
+Run `editorial evaluate --config publication.yaml --db editorial.sqlite`, then inspect
+the article's evaluations in the workspace or use `editorial evaluation list` and
+`editorial evaluation show`. Each `story_relevance` result includes an overall score,
+thesis relevance, evidence strength, distinctive contribution, a possible role,
+verbatim excerpts, limitations and model provenance. The evaluator uses the first
+16,000 characters of full text when available, otherwise the article's content or
+summary. It is a first-pass assessment, not proof that the proposed story is true.
+
+The existing optimisers do not use `story_relevance` evaluations yet. Editing the
+story does not change evaluations already stored; rerun evaluation with `--force`
+to generate fresh assessments for the same articles and evaluator key.
+
+The story evaluator requests schema-constrained JSON output from Ollama, including
+the allowed narrative roles. Before evaluating
+a large database with a local model, try `editorial evaluate --config publication.yaml
+--db editorial.sqlite --limit 5` and inspect a result. Use `--missing-only` when
+continuing to avoid repeating stored evaluations.

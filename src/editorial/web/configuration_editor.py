@@ -26,6 +26,7 @@ TYPES = {
     "evaluators": {
         "rule_relevance": "Rule relevance",
         "llm_relevance": "LLM relevance",
+        "llm_story_relevance": "LLM story relevance",
         "llm_summary_quality": "LLM summary quality",
     },
     "publishers": {"markdown": "Markdown"},
@@ -467,7 +468,22 @@ class Draft:
                             "number",
                             default,
                         )
-                elif entry["type"] in {"llm_relevance", "llm_summary_quality"}:
+                elif entry["type"] in {
+                    "llm_relevance",
+                    "llm_summary_quality",
+                    "llm_story_relevance",
+                }:
+                    if entry["type"] == "llm_story_relevance":
+                        add(
+                            prefix + ".story",
+                            "Editorial story",
+                            config,
+                            "story",
+                            "textarea",
+                            help="The explicit thesis or question used to assess every article.",
+                        )
+                        add_llm_provider(prefix, config)
+                        continue
                     add(
                         prefix + ".criterion",
                         "Criterion",
@@ -688,7 +704,16 @@ class Draft:
                         (config.get("weights") or {}, key, prefix + ".weight", float)
                         for key in ("title", "summary", "content")
                     ]
-                if entry["type"] in {"llm_relevance", "llm_summary_quality"}:
+                if entry["type"] in {
+                    "llm_relevance",
+                    "llm_summary_quality",
+                    "llm_story_relevance",
+                }:
+                    if (
+                        entry["type"] == "llm_story_relevance"
+                        and not str(config.get("story", "")).strip()
+                    ):
+                        self.errors[prefix + ".story"] = "Enter an editorial story."
                     provider = config.get("provider", {"type": "fake"})
                     if not isinstance(provider, dict):
                         provider = {"type": provider}

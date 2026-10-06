@@ -553,6 +553,26 @@ def test_evaluator_validation_rejects_duplicate_keys_and_bad_numbers(tmp_path):
     assert "evaluators.1.provider.model" in draft.errors
 
 
+def test_story_evaluator_editor_requires_and_saves_explicit_story(tmp_path):
+    draft = Draft.open(None)
+    draft.data["publication"]["name"] = "Story trial"
+    draft.data["evaluators"] = [
+        {"type": "llm_story_relevance", "provider": {"type": "fake"}}
+    ]
+    assert "evaluators.0.story" in {field["id"] for field in draft.fields()}
+
+    with pytest.raises(ValueError):
+        draft.save(tmp_path / "story.yaml", False)
+    assert draft.errors["evaluators.0.story"] == "Enter an editorial story."
+
+    draft.apply({"evaluators.0.story": "How uncertainty changes forecasting"})
+    draft.save(tmp_path / "story.yaml", False)
+    config = load_publication_config(tmp_path / "story.yaml")
+    assert config.evaluators[0].settings["story"] == (
+        "How uncertainty changes forecasting"
+    )
+
+
 def test_editing_legacy_string_provider_migrates_it_to_nested_form():
     draft = Draft.open(None)
     draft.data["evaluators"] = [
