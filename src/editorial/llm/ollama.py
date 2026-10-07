@@ -58,6 +58,9 @@ class OllamaProvider:
             ],
             "stream": False,
         }
+        response_format = prompt.metadata.get("response_format")
+        if response_format == "json" or isinstance(response_format, dict):
+            request["format"] = response_format
         options: dict[str, Any] = {}
         if self.config.temperature is not None:
             options["temperature"] = self.config.temperature

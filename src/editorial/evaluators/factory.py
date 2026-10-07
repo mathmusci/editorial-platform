@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from editorial.config.models import ProcessorConfig
 from editorial.evaluators.llm_relevance import LLMRelevanceEvaluator
+from editorial.evaluators.llm_story_relevance import LLMStoryRelevanceEvaluator
 from editorial.evaluators.llm_summary_quality import LLMSummaryQualityEvaluator
 from editorial.evaluators.rule_relevance import RuleBasedRelevanceEvaluator
 from editorial.interfaces import Evaluator
@@ -27,6 +28,9 @@ def describe_evaluator(config: ProcessorConfig) -> EvaluatorDescriptor:
     elif config.type == "llm_summary_quality":
         evaluator_type = LLMSummaryQualityEvaluator
         kind = "summary_quality"
+    elif config.type == "llm_story_relevance":
+        evaluator_type = LLMStoryRelevanceEvaluator
+        kind = "story_relevance"
     else:
         raise ValueError(f"Unsupported evaluator type: {config.type!r}")
     return EvaluatorDescriptor(
@@ -65,6 +69,15 @@ def build_evaluator(config: ProcessorConfig) -> Evaluator:
                 summary_extractor=config.settings.get(
                     "summary_extractor", "llm_summary"
                 ),
+            ),
+            config.key,
+            config.name,
+        )
+    if config.type == "llm_story_relevance":
+        return _with_configured_identity(
+            LLMStoryRelevanceEvaluator(
+                provider=_build_llm_evaluator_provider(config),
+                story=config.settings.get("story", ""),
             ),
             config.key,
             config.name,

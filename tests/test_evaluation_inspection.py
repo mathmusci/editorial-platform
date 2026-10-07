@@ -76,6 +76,35 @@ def test_evaluation_inspection_service_builds_review_model(tmp_path):
     assert inspection.payload_highlights["evidence"] == ["title"]
 
 
+def test_story_assessment_fields_are_visible_in_evaluation_inspection(tmp_path):
+    db_path = tmp_path / "story.sqlite"
+    evaluation, _ = _store_evaluation(
+        db_path,
+        payload={
+            "story": "How uncertainty changes forecasting",
+            "role": "evidence",
+            "dimensions": {"thesis_relevance": 80},
+            "evidence": ["Useful statistics."],
+            "limitations": "Only one study.",
+        },
+    )
+
+    inspection = _service(db_path).get(evaluation.id)
+    assert inspection is not None
+    assert inspection.payload_highlights["story"] == (
+        "How uncertainty changes forecasting"
+    )
+    assert inspection.payload_highlights["role"] == "evidence"
+    assert inspection.payload_highlights["dimensions"] == {"thesis_relevance": 80}
+
+    result = CliRunner().invoke(
+        app, ["evaluation", "show", str(evaluation.id), "--db", str(db_path)]
+    )
+    assert result.exit_code == 0
+    assert "How uncertainty changes forecasting" in result.stdout
+    assert "Only one study." in result.stdout
+
+
 def test_cli_evaluation_list_discovers_evaluations(tmp_path):
     db_path = tmp_path / "test.sqlite"
     evaluation, _article = _store_evaluation(db_path)
